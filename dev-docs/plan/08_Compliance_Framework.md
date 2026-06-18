@@ -60,7 +60,7 @@ This means a project can have a custom compliance mix — e.g., healthcare PHI d
 Profiles are named collections of default configuration values. They are applied at project creation and can be overridden per-field.
 
 ```python
-# services/compliance/profiles.py
+# backend/app/services/compliance.py
 COMPLIANCE_PROFILES = {
     "generic": ComplianceConfig(
         profile="generic",
@@ -235,7 +235,7 @@ Write Operations checked:
 ### 3.2 Policy Check Implementation
 
 ```python
-# services/compliance/policy_engine.py
+# backend/app/services/compliance.py
 from dataclasses import dataclass, field
 from enum import Enum
 

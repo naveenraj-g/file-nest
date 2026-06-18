@@ -72,7 +72,7 @@ Notifications are always async — no notification delivery blocks the API reque
 ### 3.1 Primary: AWS SES
 
 ```python
-# services/notification/providers/ses.py
+# backend/app/services/notifications/ses.py
 import boto3
 from botocore.exceptions import ClientError
 
@@ -153,7 +153,7 @@ class EmailProviderRouter:
 Templates use **Jinja2** with HTML + plain-text variants. All templates extend a base layout.
 
 ```
-services/notification/templates/
+backend/app/services/notifications/templates/
 ├── base.html          # Master layout (header, footer, unsubscribe link)
 ├── base.txt           # Plain text master
 ├── welcome.html
@@ -255,7 +255,7 @@ from jinja2 import Environment, FileSystemLoader
 class TemplateRenderer:
     def __init__(self):
         self.env = Environment(
-            loader=FileSystemLoader("services/notification/templates"),
+            loader=FileSystemLoader("app/services/notifications/templates"),
             autoescape=True,
         )
 

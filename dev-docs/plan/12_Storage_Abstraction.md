@@ -196,7 +196,7 @@ class StorageProvider(Protocol):
 ## 3. S3 Provider
 
 ```python
-# services/storage/providers/s3.py
+# backend/app/storage/s3.py
 import aiobotocore.session
 from botocore.exceptions import ClientError
 
@@ -854,7 +854,7 @@ Each provider requires a different set of sensitive credentials. This section de
 All sensitive credentials are encrypted with **AES-256-GCM** before being written to `config_encrypted`. A per-record encryption key is derived from the platform master key + the record's UUID so that a compromised record does not expose keys for other records.
 
 ```python
-# shared/crypto/storage_credentials.py
+# backend/app/core/crypto.py
 import os
 import json
 import secrets

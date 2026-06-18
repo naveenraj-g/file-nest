@@ -46,23 +46,24 @@ FileNest sits between client applications and cloud storage providers:
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         FILENEST PLATFORM                           │
 │                                                                     │
-│  ┌────────────────────────────────────────────────────────────┐    │
-│  │                    API Gateway Layer                        │    │
-│  │         Rate Limiting / Auth / Routing / Logging           │    │
-│  └────────────────────────┬───────────────────────────────────┘    │
-│                           │                                         │
-│  ┌────────┐ ┌──────────┐ ┌┴──────────┐ ┌──────────┐ ┌──────────┐ │
-│  │Identity│ │ Project  │ │   File    │ │  Search  │ │Processing│ │
-│  │Service │ │ Service  │ │  Service  │ │  Service │ │ Service  │ │
-│  └────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │
-│                                                                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐│
-│  │ Storage  │ │Metadata  │ │  Audit   │ │ Webhook  │ │Compliance││
-│  │ Service  │ │ Service  │ │ Service  │ │ Service  │ │ Service  ││
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘│
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │           FileNest IAM  (BetterAuth / Next.js)              │   │
+│  │   Users · Orgs · API keys (fn_live_ / fn_test_) · OAuth     │   │
+│  └────────────────────────┬────────────────────────────────────┘   │
+│                           │  Bearer token / PKCE                    │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │           FileNest Backend  (single FastAPI process)         │   │
+│  │                                                              │   │
+│  │  routers/ → services/ → repositories/ → models/             │   │
+│  │                       → storage/                            │   │
+│  │                       → core/messaging (outbox)             │   │
+│  │                                                              │   │
+│  │  Modules: files · projects · metadata · search · processing │   │
+│  │           audit · webhooks · compliance · healthcare         │   │
+│  └──────────────────────────────────────────────────────────────┘  │
 │                                                                     │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │               Healthcare Service (Optional Pack)             │  │
+│  │        Processing Worker  (same codebase, NATS consumer)     │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
           │                 │                 │
@@ -82,12 +83,14 @@ FileNest sits between client applications and cloud storage providers:
 
 ### 1.2 Architecture Principles
 
-1. **Stateless Services** — All services are stateless. State lives in PostgreSQL, Redis, or storage providers.
-2. **Async by Default** — File processing is always asynchronous. The upload API returns immediately after persisting the file record.
-3. **Event-Driven** — Every significant state change emits an event via NATS. Services subscribe to relevant events.
-4. **Fail-Safe** — Processing pipeline failures do not block file availability. Files are accessible after upload, before processing completes.
-5. **Configuration-Driven** — No service contains industry-specific logic. Industry behavior comes from project configuration.
-6. **Multi-Tenant by Construction** — Tenant ID is part of every data access path, not an afterthought.
+1. **Modular Monolith (current)** — All domain logic runs in a single FastAPI process (`backend/`). Each domain (files, projects, processing, compliance, etc.) is a self-contained module with its own service, repository, schemas, and router. No cross-module DB joins; cross-module work goes through the NATS outbox. This makes the system simple to run and deploy now, and straightforward to split into separate microservices later if scale demands it.
+2. **Designed for future extraction** — When a module needs to become its own service, the work is: create a new FastAPI app, copy the module's files, point it at the same DB schema. No business logic refactoring needed because the boundaries are already clean.
+3. **Stateless** — No in-memory state. State lives in PostgreSQL, Redis, or object storage.
+4. **Async by Default** — File processing is always asynchronous. The upload API returns immediately after persisting the file record.
+5. **Event-Driven** — Every significant state change emits an event via NATS. Modules subscribe to relevant events.
+6. **Fail-Safe** — Processing pipeline failures do not block file availability. Files are accessible after upload, before processing completes.
+7. **Configuration-Driven** — No module contains hardcoded industry-specific logic. Behaviour comes from project configuration.
+8. **Multi-Tenant by Construction** — `organization_id` + `project_id` in every query, every log line, every NATS event payload.
 
 ---
 
@@ -95,20 +98,14 @@ FileNest sits between client applications and cloud storage providers:
 
 ### 2.1 Core Services
 
-| Service | Type | Protocol | Port | Replicas (prod) |
-|---------|------|----------|------|-----------------|
-| API Gateway | Stateless | HTTP/2, gRPC | 8000 | 5–20 |
-| Identity Service | Stateless | HTTP | 8001 | 3–10 |
-| Project Service | Stateless | HTTP | 8002 | 3–10 |
-| File Service | Stateless | HTTP | 8003 | 5–50 |
-| Storage Service | Stateless | HTTP | 8004 | 3–20 |
-| Metadata Service | Stateless | HTTP | 8005 | 3–10 |
-| Search Service | Stateless | HTTP | 8006 | 3–10 |
-| Processing Service | Worker | NATS Subscriber | — | 5–50 |
-| Audit Service | Stateless | HTTP | 8007 | 3–10 |
-| Webhook Service | Worker | NATS Subscriber | — | 3–10 |
-| Compliance Service | Stateless | HTTP | 8008 | 3–5 |
-| Healthcare Service | Stateless | HTTP | 8009 | 2–10 |
+| Component | Type | Protocol | Port | Replicas (prod) |
+|-----------|------|----------|------|-----------------|
+| FileNest IAM | Stateless | HTTP | 3000 | 3–10 |
+| FileNest Backend (API) | Stateless | HTTP | 8000 | 5–50 |
+| Processing Worker | Worker | NATS Subscriber | — | 5–50 |
+| Webhook Worker | Worker | NATS Subscriber | — | 3–10 |
+
+The backend and workers share the same codebase (`backend/`). Workers are launched with a different entrypoint that starts NATS consumers instead of the HTTP server.
 
 ### 2.2 Data Services
 
@@ -122,122 +119,85 @@ FileNest sits between client applications and cloud storage providers:
 
 ---
 
-## 3. Service Boundaries
+## 3. Module Responsibilities
 
-### 3.1 Identity Service
+All domain logic lives in `backend/app/services/` as Python modules within a single FastAPI process. Modules communicate through direct function calls — never HTTP.
+
+### 3.1 IAM (External — `iam/`)
 
 **Owns:**
-- Organizations
-- Users
-- Roles and permissions
-- API keys (creation, validation, rotation)
-- Service accounts
-- OAuth tokens
+- Organizations, users, roles, sessions
+- API key creation, rotation, revocation (BetterAuth `apiKey` plugin, prefix `fn_`)
+- OAuth 2.1 / OIDC server (console app authenticates here via PKCE)
 
-**Does NOT own:**
-- Project configuration (Project Service)
-- File metadata (Metadata Service)
-- Audit logs (Audit Service)
-
-**Boundary Rule:** Any service can call the Identity Service to validate a token. No service calls Identity Service to modify auth state (only Identity Service modifies its own data).
+**Backend interaction:** The backend calls `POST /api/internal/verify-api-key` to validate incoming API keys. JWT tokens are verified locally via JWKS.
 
 ---
 
-### 3.2 Project Service
+### 3.2 Project Module (`services/project.py`)
 
 **Owns:**
-- Project CRUD
-- Project configuration
-- Compliance profile assignment
+- Project CRUD and configuration
+- Compliance profile assignment and capability pack activation
 - Metadata schema definitions
 - Storage configuration per project
-- Capability pack activation
 
-**Does NOT own:**
-- Files within projects (File Service)
-- Processing pipeline execution (Processing Service)
-- User management (Identity Service)
-
-**Boundary Rule:** Project Service is the source of truth for "what is this project configured to do?" All other services query Project Service (via cache) before processing any request.
+**Rule:** All other modules read project config via `project_repo.get_config(project_id)` before processing any request. Project config is cached in Redis with a 5-minute TTL.
 
 ---
 
-### 3.3 File Service
+### 3.3 File Module (`services/file.py`)
 
 **Owns:**
 - Upload session lifecycle
-- File record CRUD
-- File version history
-- Folder structure
-- File-to-folder associations
-- File soft delete and restore
-
-**Does NOT own:**
-- Actual bytes stored (Storage Service)
-- Metadata validation (Metadata Service)
-- Processing pipeline execution (Processing Service)
-- Signed URL generation (Storage Service)
-
-**Boundary Rule:** File Service orchestrates — it calls Storage Service for actual storage, Metadata Service for metadata, and emits events to trigger Processing Service.
+- File record CRUD, version history, folder structure
+- Soft delete and restore
+- Download URL generation (delegates to `storage/`)
+- Emits `file.uploaded` event via transactional outbox
 
 ---
 
-### 3.4 Storage Service
+### 3.4 Storage Module (`storage/`)
 
 **Owns:**
-- Storage provider abstraction
-- Provider credential management
-- Signed URL generation
-- File chunk management
-- Storage path construction
-- Provider health checking
+- `StorageProvider` Protocol and S3 implementation
+- `StorageResolver` — resolves provider from project config
+- Signed URL and multipart upload management
 
-**Does NOT own:**
-- File records (File Service)
-- Who can access which file (File Service + Identity Service)
-
-**Boundary Rule:** Storage Service knows nothing about organizations, projects, or users. It receives a storage key and performs the operation. Authorization happens before Storage Service is called.
+**Rule:** Never imported by `routers/` directly — always accessed through `services/file.py`.
 
 ---
 
-### 3.5 Processing Service
+### 3.5 Processing Module (`services/processing.py`)
 
 **Owns:**
-- Processing job lifecycle
-- Pipeline stage execution
-- Worker pool management
-- Processing result storage
+- `ProcessingWorker` — NATS consumer subscribing to `file.uploaded`
+- `PipelineExecutor` — stage registry and orchestration
+- Stage implementations in `services/stages/`
 
-**Does NOT own:**
-- Files (File Service)
-- Search indexing (Search Service — notified via event)
-- PHI detection model (external service or library)
-
-**Boundary Rule:** Processing Service is triggered by events, never by direct HTTP calls. It emits events when processing completes.
+**Rule:** Processing is always triggered by NATS events, never by direct function calls from routers.
 
 ---
 
 ## 4. Communication Patterns
 
-### 4.1 Synchronous Communication (HTTP)
+### 4.1 In-Process Calls (Synchronous)
 
-Used for:
-- Client-facing API requests
-- Service-to-service calls where immediate response is needed
-- Configuration lookups
-- Auth validation
+Within the backend, all module-to-module communication is direct Python function calls. There are no inter-service HTTP calls. The only external HTTP call the backend makes is to the IAM to verify API keys.
 
 ```
-Client → API Gateway → File Service → Storage Service
-                                    → Metadata Service
-                                    → Identity Service (auth)
+Client → FileNest Backend (FastAPI)
+            routers/ → services/file.py
+                              → repositories/file.py  (DB)
+                              → storage/resolver.py   (S3)
+                              → services/project.py   (config)
+                              → core/messaging.py     (outbox)
 ```
 
-Pattern rules:
-- Max 3 levels of synchronous chaining (to prevent distributed deadlocks)
-- All inter-service HTTP calls use internal DNS: `http://file-service.filenest.svc.cluster.local`
-- Circuit breaker on all inter-service calls (using `httpx` with retry + timeout)
-- Timeout: 5 seconds for most calls, 30 seconds for storage operations
+The IAM is the sole external synchronous dependency:
+```
+services/ → IAM POST /api/internal/verify-api-key  (API key validation only)
+```
 
 ### 4.2 Asynchronous Communication (NATS JetStream)
 
@@ -249,18 +209,18 @@ Used for:
 - Inter-service notifications
 
 ```
-File Service
+File module (via outbox)
   → Publishes: file.uploaded
      ↓
-Processing Service (subscriber)
+Processing Worker (NATS subscriber)
   → Runs: virus_scan, ocr, phi_detection
   → Publishes: file.processed
      ↓
-Search Service (subscriber)
+Search indexer (NATS subscriber, same worker binary)
   → Indexes file content
   → Publishes: file.indexed
      ↓
-Webhook Service (subscriber)
+Webhook worker (NATS subscriber)
   → Delivers webhooks to customer endpoints
 ```
 
@@ -275,14 +235,14 @@ filenest.org_abc.proj_xyz.file.uploaded  # Project-specific subscription
 
 | Publisher | Topic | Subscribers |
 |-----------|-------|-------------|
-| File Service | file.uploaded | Processing Service, Audit Service, Webhook Service |
-| File Service | file.deleted | Search Service, Audit Service, Webhook Service |
-| File Service | file.downloaded | Audit Service, Webhook Service |
-| Processing Service | file.processed | Search Service, File Service (status update), Webhook Service |
-| Processing Service | file.virus_detected | File Service (quarantine), Audit Service, Webhook Service |
-| Search Service | file.indexed | Webhook Service |
-| Identity Service | apikey.rotated | All services (cache invalidation) |
-| Project Service | project.config_changed | All services (config cache invalidation) |
+| File module | file.uploaded | Processing worker, Audit, Webhook worker |
+| File module | file.deleted | Search indexer, Audit, Webhook worker |
+| File module | file.downloaded | Audit, Webhook worker |
+| Processing worker | file.processed | Search indexer, File module (status update), Webhook worker |
+| Processing worker | file.virus_detected | File module (quarantine), Audit, Webhook worker |
+| Search indexer | file.indexed | Webhook worker |
+| IAM | apikey.rotated | Backend (Redis cache invalidation) |
+| Project module | project.config_changed | Backend (Redis config cache invalidation) |
 
 ---
 
@@ -736,21 +696,12 @@ Settings:
 ```
 Production Cluster (per region)
 ├── Node Pool: API (c5.xlarge × 5–20 nodes, autoscaling)
-│   ├── api-gateway (2–5 pods)
-│   ├── identity-service (2–5 pods)
-│   ├── project-service (2–5 pods)
-│   ├── file-service (3–20 pods)
-│   ├── storage-service (2–10 pods)
-│   ├── metadata-service (2–5 pods)
-│   ├── search-service (2–5 pods)
-│   ├── audit-service (2–5 pods)
-│   ├── webhook-service (2–5 pods)
-│   ├── compliance-service (2–5 pods)
-│   └── healthcare-service (2–5 pods)
+│   ├── filenest-iam (2–5 pods)          # Next.js BetterAuth IAM
+│   └── filenest-backend (5–50 pods)     # FastAPI — handles all HTTP
 │
 ├── Node Pool: Workers (c5.2xlarge × 5–50 nodes, autoscaling)
-│   ├── processing-workers (3–50 pods)
-│   └── webhook-workers (2–10 pods)
+│   ├── processing-workers (3–50 pods)   # Same backend image, worker entrypoint
+│   └── webhook-workers (2–10 pods)      # Same backend image, worker entrypoint
 │
 ├── Node Pool: Data (r5.2xlarge × 3 nodes, fixed)
 │   ├── PostgreSQL (via RDS or CloudNativePG)
@@ -761,26 +712,31 @@ Production Cluster (per region)
     └── OpenSearch Cluster (3–6 pods)
 ```
 
+Workers share the same Docker image as the API; they're launched with a different command:
+- API: `uvicorn app.main:app`
+- Processing worker: `python -m app.workers.processing`
+- Webhook worker: `python -m app.workers.webhook`
+
 ### 12.2 Helm Chart Structure
 
 ```
-filenest/
+helm/filenest/
 ├── Chart.yaml
 ├── values.yaml
 ├── values.production.yaml
 ├── values.staging.yaml
 ├── templates/
 │   ├── _helpers.tpl
-│   ├── api-gateway/
-│   │   ├── deployment.yaml
-│   │   ├── service.yaml
-│   │   ├── hpa.yaml
-│   │   └── configmap.yaml
-│   ├── file-service/
+│   ├── iam/
 │   │   ├── deployment.yaml
 │   │   ├── service.yaml
 │   │   └── hpa.yaml
-│   ├── ... (one directory per service)
+│   ├── backend/
+│   │   ├── deployment.yaml       # API deployment
+│   │   ├── service.yaml
+│   │   ├── hpa.yaml
+│   │   ├── processing-worker.yaml  # Worker deployment (same image)
+│   │   └── webhook-worker.yaml
 │   ├── ingress.yaml
 │   ├── namespace.yaml
 │   └── rbac.yaml
@@ -833,16 +789,24 @@ VPC
 
 ```yaml
 NetworkPolicy:
-  file-service:
+  filenest-backend:
     ingress:
-      - from: api-gateway
-      - from: processing-service
+      - from: ingress-controller
     egress:
-      - to: storage-service
-      - to: metadata-service
+      - to: filenest-iam (port 3000)    # API key verification
       - to: postgres (port 5432)
       - to: redis (port 6379)
       - to: nats (port 4222)
+      - to: opensearch (port 9200)
+      - to: s3-compatible (port 9000)
+  processing-worker:
+    ingress: []                          # Workers have no inbound HTTP
+    egress:
+      - to: nats (port 4222)
+      - to: postgres (port 5432)
+      - to: redis (port 6379)
+      - to: s3-compatible (port 9000)
+      - to: clamav (port 3310)
 ```
 
 ### 13.3 External Connectivity

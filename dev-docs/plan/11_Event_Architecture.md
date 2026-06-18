@@ -324,7 +324,7 @@ class FileIndexedEvent(BaseEvent):
 ### 4.1 Transactional Outbox
 
 ```python
-# shared/messaging/outbox.py
+# backend/app/core/messaging.py
 class TransactionalOutbox:
     """
     Writes events to the DB in the same transaction as the business operation.

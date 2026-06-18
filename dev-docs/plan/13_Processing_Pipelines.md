@@ -129,7 +129,7 @@ class ProcessingConfig(BaseModel):
 ### 3.1 Worker Process
 
 ```python
-# services/processing/worker.py
+# backend/app/services/processing.py
 import asyncio
 import nats
 from nats.js import JetStreamContext

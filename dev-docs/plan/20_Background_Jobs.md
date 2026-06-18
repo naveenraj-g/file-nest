@@ -35,11 +35,11 @@ All jobs share the same container image as the API services but are invoked via 
 
 ```bash
 # Entry point for all background jobs
-python -m filenest.jobs <job_name> [--dry-run]
+python -m app.jobs <job_name> [--dry-run]
 ```
 
 ```python
-# filenest/jobs/__main__.py
+# backend/app/jobs/__main__.py
 import sys
 import asyncio
 
@@ -580,7 +580,7 @@ spec:
           containers:
             - name: job
               image: "{{ .Values.global.image.registry }}/filenest/api-gateway:{{ .Chart.AppVersion }}"
-              command: ["python", "-m", "filenest.jobs", "upload_cleanup"]
+              command: ["python", "-m", "app.jobs", "upload_cleanup"]
               resources:
                 requests:
                   cpu: "100m"
@@ -608,7 +608,7 @@ spec:
           containers:
             - name: job
               image: "{{ .Values.global.image.registry }}/filenest/api-gateway:{{ .Chart.AppVersion }}"
-              command: ["python", "-m", "filenest.jobs", "retention_enforcement"]
+              command: ["python", "-m", "app.jobs", "retention_enforcement"]
               resources:
                 requests:
                   cpu: "500m"
@@ -635,7 +635,7 @@ spec:
           containers:
             - name: job
               image: "{{ .Values.global.image.registry }}/filenest/api-gateway:{{ .Chart.AppVersion }}"
-              command: ["python", "-m", "filenest.jobs", "processing_stuck_detection"]
+              command: ["python", "-m", "app.jobs", "processing_stuck_detection"]
               resources:
                 requests:
                   cpu: "100m"
@@ -659,7 +659,7 @@ spec:
           containers:
             - name: job
               image: "{{ .Values.global.image.registry }}/filenest/api-gateway:{{ .Chart.AppVersion }}"
-              command: ["python", "-m", "filenest.jobs", "audit_archival"]
+              command: ["python", "-m", "app.jobs", "audit_archival"]
               resources:
                 requests:
                   cpu: "500m"

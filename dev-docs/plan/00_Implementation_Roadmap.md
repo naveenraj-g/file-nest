@@ -1,678 +1,623 @@
-# FileNest v1.0 — Implementation Roadmap
+# FileNest — Implementation Roadmap
 
-**Version:** 1.0.0
-**Status:** Active Planning
-**Last Updated:** 2026-06-17
+**Version:** 2.0.0
+**Target:** v1.0 Production Release
+**Last Updated:** 2026-06-18
 
 ---
 
 ## Overview
 
-This roadmap organizes all 24 engineering documents into a phase-by-phase build order. The primary goal is shipping a working MVP as fast as possible, then layering compliance, advanced features, and production hardening in subsequent phases.
+This roadmap takes the current scaffold to a full **v1.0 production release** across 7 phases.
 
-**Note on scope:** FileNest is a file infrastructure platform. AI products built on top of FileNest (SOAP note generation, audio transcription, conversation memory, etc.) are separate applications that use FileNest as their file backend. Those are out of scope for this roadmap.
+**Scope of v1.0:** Everything — file infrastructure, processing, search, webhooks, console app, SDKs, observability, storage providers, sharing, previews, bulk operations.
 
-**Two tracks:**
-- **MVP (Phases 1–5):** Core file infrastructure that developers can actually integrate and use. No compliance, no multi-cloud. Working product.
-- **Production (Phases 6–8):** Compliance packs, full observability, advanced features, multi-cloud storage.
+**Explicitly out of v1.0 — Compliance Pack (v2.0):** HIPAA, GDPR, WORM, legal hold, PHI/PII detection, retention enforcement, FHIR. These require their own phase after v1.0 ships. The compliance modules are already scaffolded in the codebase following clean architecture so they can be dropped in without touching existing code.
 
-### Pre-existing dependency: IAM
+**Architecture:** Modular monolith — all domain logic in `backend/` as isolated modules (files, projects, processing, search, webhooks, etc.). Each module owns its own service, repository, schemas, and router. No cross-module DB joins. Cross-module work goes through the NATS transactional outbox. When a module needs to become its own service, the refactor is mechanical — no business logic changes needed.
 
-User authentication and **API key lifecycle** are handled by **the IAM** (`iam/`) — a BetterAuth service that acts as an OAuth 2.1 / OIDC server. This is **not built as part of this roadmap**; it already exists and only needs minor config tweaks before the console app can register as an OAuth client.
-
-The IAM's `apiKey` plugin (prefix `fn_`) manages all API key creation, listing, and revocation. The FastAPI backend verifies incoming `fn_live_` / `fn_test_` keys by calling `POST /api/internal/verify-api-key` on the IAM — there is **no identity microservice** in the FileNest backend.
+**Pre-existing:** The IAM (`iam/`) is already complete. It handles users, organisations, API keys (`fn_live_` / `fn_test_`), and OAuth 2.1 PKCE. The `backend/` scaffold exists with the core directory structure and wiring. The frontend auth skeleton (login, callback, onboarding) is started.
 
 ---
 
-## Phase Overview Table
+## Phase Overview
 
-| Phase | Name | Track | Duration | Milestone |
-|-------|------|--------|----------|-----------|
-| 1 | Foundation | MVP | 5 weeks | Files upload to S3, auth works |
-| 2 | Processing & Events | MVP | 5 weeks | Files are processed, webhooks fire |
-| 3 | Metadata & Search | MVP | 5 weeks | Files are searchable |
-| 4 | Console App | MVP | 6 weeks | Usable UI for managing projects |
-| 5 | SDKs & Dev Experience | MVP | 4 weeks | **MVP COMPLETE** |
-| 6 | Production Infrastructure | Production | 7 weeks | Kubernetes, observability, rate limiting |
-| 7 | Advanced File Features | Production | 7 weeks | Sharing, previews, bulk ops, multi-cloud |
-| 8 | Compliance & Domain Packs | Production | 10 weeks | **v1.0 COMPLETE** — HIPAA-ready, GDPR-compliant |
+| Phase | Name | Duration | Gate |
+|-------|------|----------|------|
+| 1 | Foundation | Weeks 1–4 | File upload and download work end-to-end via `curl` |
+| 2 | Processing & Events | Weeks 4–8 | Virus scan runs on every upload; webhooks fire |
+| 3 | Metadata, Search & Folders | Weeks 7–12 | Full-text + metadata search returns results |
+| 4 | Console App | Weeks 9–16 | Developer can manage everything without hitting raw API |
+| 5 | SDKs & Developer Experience | Weeks 13–18 | Node and Python SDKs work; docs live |
+| 6 | Production Infrastructure | Weeks 16–23 | Observable, rate-limited, deployed on Kubernetes |
+| 7 | Advanced Features | Weeks 20–30 | All storage providers, previews, sharing, bulk ops |
 
-**With 4–6 engineers:** MVP ~20 weeks. Full platform ~38 weeks.
-**With 6–10 engineers:** MVP ~12 weeks. Full platform ~26 weeks.
-
-Phases 3, 4, and 5 run in parallel after Phase 2 completes. Phase 7 and 8 overlap.
+Phases 3, 4, and 5 run in parallel after Phase 2.
+Phases 6 and 7 overlap — start Phase 7 when Phase 6 is 60% done.
 
 ---
 
 ## PHASE 1 — Foundation
 
-**Duration:** Weeks 1–5
-**Goal:** Working monorepo, database, auth system, and single-file upload to S3. The skeleton everything else is built on.
+**Duration:** Weeks 1–4
+**Goal:** Working backend with auth, project CRUD, and single-file upload to S3. Console app auth skeleton connected to real data.
 
-**Docs referenced:** `02_System_Architecture`, `03_Database_Design`, `04_Backend_Architecture`, `07_Security_Architecture` (auth sections only)
+**Docs:** `02_System_Architecture`, `03_Database_Design`, `04_Backend_Architecture`, `05_API_Specification`, `07_Security_Architecture` (auth sections)
+
+### What we already have
+
+- `backend/app/` directory structure (core, auth, errors, models, schemas, repositories, services, storage, routers)
+- `Project` and `File` SQLAlchemy models
+- `TenantContext`, `authenticate_request`, `require_scope` wired up
+- S3 storage provider and resolver
+- Health router
+- Docker Compose: PostgreSQL, Redis, MinIO, NATS, ClamAV
+- IAM: auth, API key plugin, OAuth client
+- Frontend: login → callback → onboarding skeleton
 
 ### Deliverables
 
-**Infrastructure & Dev Environment**
-- Monorepo structure (`/services`, `/packages`, `/infra`, `/dashboard`)
-- Docker Compose: PostgreSQL, Redis, MinIO (local S3), NATS, ClamAV
-- Alembic migration tooling wired up
-- `.env` management with Pydantic Settings
-- `make dev` one-command local startup
+**Database**
+- Run initial Alembic migration (`backend/migrations/alembic/versions/001_initial_schema.py`)
+- Tables: `projects`, `files`, `outbox_messages`, `upload_sessions`
+- `organizations`, `users`, `api_keys` — **not here**, they live in IAM's Prisma DB
 
-**Core Database Schema**
-- `projects` table (with storage config, managed/byob mode)
-- `files` table (core columns only: id, org_id, project_id, name, size, mime_type, storage_key, status, created_at)
-- `outbox_messages` table (transactional outbox for NATS events)
-- `upload_sessions` table (for multipart, used in Phase 2)
+**Project API**
+- `POST /v1/projects` — create project (name, slug, storage_mode: managed)
+- `GET /v1/projects` — list projects in org
+- `GET /v1/projects/{id}` — get project
+- `PATCH /v1/projects/{id}` — update name/description
+- `DELETE /v1/projects/{id}` — soft delete
 
-Note: `organizations`, `users`, and `api_keys` tables are **not in the FileNest DB** — they live in the IAM's BetterAuth/Prisma database. The FileNest DB references `organization_id` as a foreign key string only.
+**File Upload & Download**
+- `POST /v1/projects/{id}/files/upload` — single file, multipart/form-data, writes to S3, creates file record (`status=ready`)
+- `GET /v1/projects/{id}/files` — list files (pagination, filter by mime_type/status)
+- `GET /v1/projects/{id}/files/{file_id}` — get file metadata
+- `GET /v1/projects/{id}/files/{file_id}/download` — redirect to 15-min presigned S3 URL
+- `DELETE /v1/projects/{id}/files/{file_id}` — soft delete (`deleted_at` set)
 
-**Auth System**
-- API keys (`fn_live_` / `fn_test_`) created and stored in the IAM (BetterAuth `apiKey` plugin)
-- `authenticate_request` FastAPI dependency: extracts Bearer token, calls IAM's `/api/internal/verify-api-key` for API keys, or decodes JWT locally
-- Key metadata (organizationId, projectId, scopes) stored in IAM's `metadata` field at key creation
-- `require_scope()` dependency for FastAPI route guards
-
-**Core File Upload/Download**
-- `POST /v1/upload` — single file, multipart/form-data, writes to S3 (MinIO locally), creates file record with status=`ready`
-- `GET /v1/files` — list files in project (pagination, basic filters)
-- `GET /v1/files/{file_id}` — get file metadata
-- `GET /v1/files/{file_id}/download` — redirect to presigned S3 URL (15-min TTL)
-- `DELETE /v1/files/{file_id}` — soft delete (status=`deleted`)
-- S3 storage provider only (no abstraction layer yet — that's Phase 7)
-
-**Console App — Auth Skeleton (OAuth PKCE)**
-- IAM config tweaks applied (org slug `filenest`, default role `member`, redirect `/dashboard`)
-- OAuth client record created in IAM for the console app
-- `(auth)/login/page.tsx` — generates PKCE state + verifier, redirects to IAM authorize endpoint
-- `(auth)/callback/page.tsx` — validates state, calls `/api/auth/token`
-- `api/auth/token/route.ts` — server-side code exchange with IAM, sets session cookie
-- `getServerSession()` helper wired up for use in server components
-- `GET /dashboard` — redirect to `/login` if no session; static placeholder page (org name + project list stub)
-
-**Health Checks**
+**Health**
 - `GET /health/live` — always 200
-- `GET /health/ready` — checks DB connection + Redis
+- `GET /health/ready` — checks DB + Redis
+
+**Console App — Auth Connected**
+- Login → callback → `getServerSession()` reads real session
+- First-login onboarding: create org (IAM), generate API key, view dashboard
+- `/dashboard` shows real project list from backend API
+- Session cookie set correctly; `activeOrganizationId` propagated
+
+**Dev Environment**
+- `just dev` starts all containers
+- `just migrate` runs Alembic
+- `just seed-dev` seeds a project with a known `organization_id`
+- `just backend` hot-reloads the FastAPI server
 
 ### Exit Criteria
-- Developer can create an org, generate an API key, and upload a file via `curl`
-- File appears in S3 (MinIO)
+
+- `curl -H "Authorization: Bearer fn_live_..." -F file=@test.pdf http://localhost:8000/v1/projects/{id}/files/upload` → file in MinIO, record in DB
 - Presigned download URL works
-- Local `docker compose up` works for all team members
+- New user signs up via console → creates org → can see empty project list
 
 ---
 
 ## PHASE 2 — Processing & Events
 
-**Duration:** Weeks 5–10
-**Goal:** Files move through a processing pipeline after upload. Webhooks fire on events. Multipart upload works.
+**Duration:** Weeks 4–8
+**Goal:** Files move through a processing pipeline after upload. Webhooks fire on state changes. Multipart upload works.
 
-**Docs referenced:** `11_Event_Architecture`, `13_Processing_Pipelines` (Phase 1+2 stages only), `05_API_Specification` (upload + webhook endpoints)
+**Docs:** `11_Event_Architecture`, `13_Processing_Pipelines`, `05_API_Specification`
 
 ### Deliverables
 
-**Multipart Upload**
-- `POST /v1/upload/multipart/start` — creates upload session, returns `upload_id`
-- `POST /v1/upload/multipart/{upload_id}/part` — returns presigned S3 part URL
-- `POST /v1/upload/multipart/{upload_id}/complete` — assembles parts, triggers processing
-- `DELETE /v1/upload/multipart/{upload_id}` — abort
-- File status during upload: `pending` → `processing` → `ready` | `failed` | `quarantined`
-
-**NATS JetStream**
-- JetStream stream: `filenest` with subjects `filenest.files.*`, `filenest.internal.*`
-- Transactional outbox: `outbox_events` table, `OutboxWorker` publishes rows to NATS
+**NATS JetStream + Transactional Outbox**
+- JetStream stream: `FILENEST_EVENTS`, subjects `filenest.>`
+- `outbox_messages` table + `OutboxWorker`: polls pending rows → publishes to NATS → marks published
+- `TransactionalOutboxPublisher.publish()` called inside the same DB transaction as the business operation
 - Consumer groups: `processing-workers`, `webhook-workers`
 
-**Processing Pipeline — Phase 1 (Parallel)**
-- `ProcessingWorkerProcess`: NATS pull subscriber, semaphore (20 concurrent jobs)
-- `VirusScanStage`: ClamAV via clamd TCP socket. On `FOUND` → status=`quarantined`, fire `file.quarantined` event
-- `MimeValidationStage`: python-magic byte sniff vs declared Content-Type. Mismatch → status=`failed`
+**Multipart Upload**
+- `POST /v1/projects/{id}/files/upload/multipart/start` — creates upload session, returns `upload_id`
+- `GET /v1/projects/{id}/files/upload/multipart/{upload_id}/part-url?part={n}` — returns presigned S3 part URL
+- `POST /v1/projects/{id}/files/upload/multipart/{upload_id}/complete` — assembles parts, triggers processing
+- `DELETE /v1/projects/{id}/files/upload/multipart/{upload_id}` — abort, cleans up S3 parts
+- File status during upload: `uploading` → `processing` → `ready` | `failed` | `quarantined`
 
-**Processing Pipeline — Phase 2 (Sequential stub)**
-- Placeholder stages that pass through (OCR, PHI, PII — implemented in Phase 3 and Phase 8)
-- `ClassificationStage`: metadata-based only (extension → category mapping)
-
-**Processing Pipeline — Phase 3 (Parallel)**
-- `IndexingStage`: sets status=`ready`, fires `file.ready` event
-
-**Webhook Delivery**
-- `POST /v1/webhooks` — create webhook endpoint (URL + events + secret)
-- `GET /v1/webhooks`, `PUT /v1/webhooks/{id}`, `DELETE /v1/webhooks/{id}`
-- `WebhookWorker`: NATS consumer, signs payload with HMAC-SHA256, POST to customer URL
-- Retry: 3 attempts, exponential backoff (1s → 5s → 30s)
-- `webhook_deliveries` table: tracks delivery attempts, response codes
+**Processing Pipeline (parallel first-pass stages)**
+- `ProcessingWorker`: NATS pull subscriber on `filenest.*.*.file.uploaded`, semaphore (20 concurrent)
+- `VirusScanStage`: ClamAV via clamd TCP. On `FOUND` → `status=quarantined`, emit `file.quarantined`
+- `MimeValidationStage`: python-magic byte-sniff vs declared Content-Type; mismatch → `status=failed`
+- `ClassificationStage`: extension → category map (`document`, `image`, `video`, `audio`, `archive`, `other`)
+- After all stages pass → `status=ready`, emit `file.ready`
 
 **File Versioning**
-- Upload to existing file key → creates new version record
-- `GET /v1/files/{id}/versions` — list versions
-- `GET /v1/files/{id}/versions/{version_id}/download`
+- Upload to existing `storage_key` path → creates new `file_versions` row, bumps `version_count`
+- `GET /v1/projects/{id}/files/{file_id}/versions` — list versions with size, created_at
+- `GET /v1/projects/{id}/files/{file_id}/versions/{version_id}/download` — signed URL for specific version
+- `POST /v1/projects/{id}/files/{file_id}/versions/{version_id}/restore` — makes version the current one
+
+**Webhook Delivery**
+- `POST /v1/projects/{id}/webhooks` — register endpoint (url, events[], signing_secret auto-generated)
+- `GET /v1/projects/{id}/webhooks`, `PUT /v1/projects/{id}/webhooks/{id}`, `DELETE /v1/projects/{id}/webhooks/{id}`
+- `GET /v1/projects/{id}/webhooks/{id}/deliveries` — delivery history with status + response code
+- `WebhookWorker`: NATS consumer → signs payload HMAC-SHA256 → POST to customer URL
+- Retry: 3 attempts, exponential backoff (30s → 60s → 120s)
+- `webhook_deliveries` table: tracks delivery attempts, response codes, response body (first 2 KB)
+
+**Audit Logging (Core)**
+- `audit_logs` table — append-only, no UPDATE/DELETE
+- Writes on: upload, download, delete, version restore, webhook create/delete
+- Always in the same DB transaction as the business operation
 
 ### Exit Criteria
-- Upload a file → it appears as `processing` → transitions to `ready` or `quarantined`
-- Upload an EICAR test virus → file is quarantined
-- Webhook fires within 5 seconds of file becoming `ready`
-- Multipart upload of 100 MB file works end-to-end
+
+- Upload EICAR test virus → file status becomes `quarantined` within 10 seconds
+- Upload 200 MB file via multipart → completes, file accessible
+- Webhook fires within 5 seconds of `file.ready`
+- File versioning: upload same key twice → two versions retrievable independently
 
 ---
 
-## PHASE 3 — Metadata & Search
+## PHASE 3 — Metadata, Search & Folders
 
-**Duration:** Weeks 9–14 (overlaps with Phases 4 and 5)
-**Goal:** Files are searchable. Custom metadata schemas work. OCR extracts text from PDFs.
+**Duration:** Weeks 7–12 (overlaps with Phases 4 and 5)
+**Goal:** Files are searchable. Custom metadata schemas work. OCR extracts text from PDFs. Folders organize files.
 
-**Docs referenced:** `10_Search_Architecture`, `03_Database_Design` (metadata tables), `05_API_Specification` (search endpoints), `13_Processing_Pipelines` (OCR + indexing stages)
+**Docs:** `10_Search_Architecture`, `03_Database_Design` (metadata tables), `05_API_Specification`, `13_Processing_Pipelines` (OCR + indexing)
 
 ### Deliverables
 
 **Custom Metadata**
-- `metadata_schemas` table: org-scoped JSON Schema definitions
-- `POST /v1/projects/{id}/metadata-schemas` — define schema
-- `file_metadata` JSONB column: stores per-file metadata
-- `PUT /v1/files/{id}/metadata` — update metadata, validated against schema
+- `metadata_schemas` table: project-scoped JSON Schema definitions
+- `POST /v1/projects/{id}/metadata-schemas` — define/update active schema
+- `GET /v1/projects/{id}/metadata-schemas` — list schemas (with active flag)
+- File `metadata` JSONB column: stores per-file key-value pairs
+- `PUT /v1/projects/{id}/files/{file_id}/metadata` — update metadata, validated against active schema if enforce_schema=true
+- `MetadataValidationError` raised on schema violation (HTTP 422 with field-level errors)
 
-**Folder & Tag System**
-- `folders` table: hierarchical (parent_folder_id), per-project
-- `tags` array on files table
-- `POST /v1/folders`, `GET /v1/folders/{id}/files`
-- `PUT /v1/files/{id}/tags`
+**Folder Hierarchy**
+- `folders` table: `id`, `project_id`, `parent_folder_id`, `name`, `path` (materialized), `created_at`
+- `POST /v1/projects/{id}/folders` — create folder (with optional parent)
+- `GET /v1/projects/{id}/folders` — list top-level + subtree
+- `GET /v1/projects/{id}/folders/{folder_id}/files` — list files in folder
+- `POST /v1/projects/{id}/files/{file_id}/move` — move file to folder (updates `folder_id`)
+- `DELETE /v1/projects/{id}/folders/{folder_id}` — soft delete (requires folder to be empty)
+
+**Tags**
+- `tags` text[] column on `files`
+- `PUT /v1/projects/{id}/files/{file_id}/tags` — replace tag set
+- `POST /v1/projects/{id}/files/{file_id}/tags` — add tags
+- Tags filterable in file list + search
 
 **OpenSearch Integration**
 - One index per project: `filenest-{project_id}`
-- Index mapping: `name`, `mime_type`, `tags`, `metadata`, `ocr_text`, `content_type`, `created_at`, `size`
-- `IndexingStage` (updated from Phase 2 stub): indexes full document on `file.ready`
+- Mapping: `filename`, `mime_type`, `size`, `tags`, `metadata.*`, `ocr_text`, `category`, `folder_id`, `created_at`, `status`
+- `IndexingStage` (replaces Phase 2 stub): indexes on `file.ready`
+- Delete from index on `file.deleted`
 
 **OCR Stage**
-- `OCRStage`: PyMuPDF text layer extraction for PDFs. pytesseract fallback for scanned images.
-- Extracted text stored in `ocr_text` table (separate from files for size)
+- `OCRStage`: PyMuPDF text extraction for PDFs (fast path). pytesseract fallback for scanned images.
+- Extracted text stored in `ocr_texts` table (separate from `files` — avoids large column on main table)
 - OCR text indexed into OpenSearch `ocr_text` field
+- Stage added to pipeline after `MimeValidationStage` (sequential, PDF/image only)
 
 **Search API**
-- `POST /v1/projects/{id}/search` — full-text + metadata filters
-- Query params: `q` (text), `mime_type`, `tags`, `content_type`, `date_from`, `date_to`, `size_min`, `size_max`
-- Response: `hits[]` with file metadata + `highlights` snippets
-- `GET /v1/projects/{id}/files` — list with same filters (no full-text)
+- `POST /v1/projects/{id}/search` — body: `{ q, filters, tags, date_from, date_to, size_min, size_max, folder_id, sort_by, sort_order, limit, offset }`
+- Response: `{ hits: [{ file_id, filename, score, highlights }], total, facets }`
+- `GET /v1/projects/{id}/files` — list with same filter params (no full-text, uses DB not OpenSearch)
+- Facets: `mime_type`, `category`, `tags` counts
 
 ### Exit Criteria
-- Upload a PDF with text → search for a word in it → file appears in results
-- Custom metadata schema defined → file uploaded with metadata → metadata searchable
-- Files organized in folders correctly
+
+- Upload a PDF containing the word "discharge" → `POST /search { q: "discharge" }` → file in results with highlight
+- Custom metadata schema defined → upload file with missing required field → HTTP 422 with field path
+- Files organized in folders → `GET /folders/{id}/files` returns correct subset
+- Search across `tags`, `metadata.patientId`, and `ocr_text` in a single query
 
 ---
 
 ## PHASE 4 — Console App
 
-**Duration:** Weeks 10–18 (overlaps with Phases 3 and 5)
-**Goal:** Usable web UI. Developers and org admins can manage everything without hitting raw API.
+**Duration:** Weeks 9–16 (overlaps with Phases 3 and 5)
+**Goal:** Developers and org admins can manage everything through a UI without touching the raw API.
 
-**Docs referenced:** `24_Admin_Dashboard`
+**Docs:** `24_Admin_Dashboard`, `06_SDK_Specification` (React SDK usage)
 
 ### Deliverables
 
-**Auth**
-- Fully delegated to IAM via OAuth 2.1 PKCE (wired in Phase 1 skeleton, now connected to real data)
-- No `admin_users` table — IAM manages all users and sessions
-- Role-based redirect on login: `member` → `/dashboard`, `superadmin` → `/admin`
-- Session read via `getServerSession()` in all protected layouts
+**Layout & Navigation**
+- `(app)/` route group with session + active org guard
+- `AppSidebar`: Projects, Dashboard, Org settings (Team, Usage)
+- `OrgSwitcher`: switch between orgs (multi-org users)
+- `ThemeSwitcher`: light/dark
 
-**Dashboard Pages**
+**Dashboard — `/dashboard`**
+- Storage used (GB), API requests (30d), files uploaded (30d), processing jobs (30d) — from usage API
+- Recent files list (last 10)
+- Quick actions: Upload file, Create project, Generate API key
 
-| Page | What it does |
-|------|-------------|
-| `/login` | Email + password form |
-| `/dashboard` | Storage used, API request count, recent files, project list |
-| `/projects` | Create project (with domain selection), list all projects |
-| `/projects/{id}/files` | File Explorer: browse folders, upload, download, delete, search |
-| `/projects/{id}/api-keys` | Create keys (with scope checkboxes), view prefix + last-used, revoke |
-| `/projects/{id}/webhooks` | Add/remove webhooks, see delivery history |
-| `/projects/{id}/settings` | Name, description, domain (locked after first upload) |
-| `/org/team` | Invite members, assign roles (Owner/Admin/Member/Viewer/Billing), remove |
-| `/org/usage` | Storage/API/processing meters with progress bars |
+**Projects — `/projects`**
+- List all projects in active org (name, file count, storage used, created date)
+- Create project modal (name, slug auto-generated, storage mode: Managed only for now)
 
-**Onboarding Wizard** (shown on first login)
-1. Choose domain (Generic / Healthcare / Finance / Legal / Insurance — beta label on non-Generic/Healthcare)
-2. Create first project
-3. **Storage mode** — two options shown:
-   - **Managed** (default, recommended) — FileNest provides and manages the storage. Zero config. File bytes go to FileNest's bucket; metadata stays in FileNest's DB.
-   - **Bring Your Own Storage** — customer supplies their own endpoint URL + credentials (MinIO, RestFS, S3, Azure, GCS, R2). Available from Phase 7; shown as "Coming soon" in Phase 4 UI.
-4. Generate first API key
-5. First file upload (drag-and-drop)
+**File Explorer — `/projects/{id}/files`**
+- Folder tree sidebar (collapsible)
+- File list: name, type icon, size, status badge, modified date
+- Upload via `<FileUpload>` component (drag-and-drop, progress bar, file type filtering)
+- Download selected file(s)
+- Delete with confirmation
+- Rename file
+- Move to folder
+- View metadata panel (side drawer with all metadata key-values)
+- Search bar (full-text + tag filter) — calls `/v1/projects/{id}/search`
+- Pagination
 
-**Project Settings → Storage tab** (`/projects/{id}/settings/storage`)
-- Phase 4: shows current storage mode ("Managed — FileNest S3") and a "Switch to custom storage" button (disabled, labeled "Available in Enterprise plan")
-- Phase 7: button enabled, opens BYOB configuration form
+**API Keys — `/projects/{id}/api-keys`**
+- List keys (prefix `fn_live_...`, name, scopes, last used, expires)
+- Create key: name, scopes (checkboxes), optional expiry → show full key once in modal
+- Revoke key with confirmation
+- All key CRUD goes through IAM API (not FileNest backend)
 
-**SDK Integration in Dashboard**
-- File Explorer uses `@filenest/react` `<FileUpload>` component internally
-- Upload progress bars, drag-and-drop, file type filtering
+**Webhooks — `/projects/{id}/webhooks`**
+- List configured webhooks (URL, events, status: active/failing/disabled)
+- Add webhook: URL + event checkboxes + auto-generated signing secret (show once)
+- Enable/disable toggle
+- Delivery history table per webhook (timestamp, event, status, response code)
+- "Test" button — sends a `ping` event
+
+**Project Settings — `/projects/{id}/settings`**
+- General tab: name, description
+- Storage tab: current mode shown ("Managed — FileNest S3"). "Switch to custom storage" button shown but disabled with "Coming in Phase 7"
+- Processing tab: toggle stages (virus scan always on; OCR optional)
+
+**Team — `/org/team`**
+- Invite member by email (calls IAM invite endpoint)
+- Member list: avatar, name, email, role badge
+- Role assignment: Owner / Admin / Member / Viewer
+- Remove member with confirmation
+
+**Usage — `/org/usage`**
+- Storage: used / limit GB progress bar
+- API requests: used / limit per month
+- Processing jobs: used / limit per month
+- Breakdown by project (table)
+
+**Onboarding Wizard** (shown on first login, no active org)
+1. Create org: confirm name, set slug
+2. Create first project: name + slug
+3. Generate first API key: scope preselected, show once
+4. First upload: drag-and-drop with live progress
 
 ### Exit Criteria
-- New user signs up → completes onboarding → uploads a file → downloads it from the UI
-- Admin can create API keys with specific scopes
-- Team member invited via email → accepts → can see the project with correct permissions
+
+- New user signs up → completes onboarding → uploads a file → downloads it — all within the UI, no terminal
+- Admin creates API key with specific scopes → key works in `curl`
+- Team member invited by email → accepts → sees project with correct permissions
+- Webhook configured → file uploaded → delivery visible in history table within 10 seconds
 
 ---
 
 ## PHASE 5 — SDKs & Developer Experience
 
-**Duration:** Weeks 15–20 (overlaps with Phase 4)
-**Goal:** External developers can integrate FileNest in under 30 minutes. Clear docs. Working code examples.
+**Duration:** Weeks 13–18 (overlaps with Phase 4)
+**Goal:** External developers can integrate FileNest in under 30 minutes. Docs live. SDKs published.
 
-**Docs referenced:** `06_SDK_Specification`
+**Docs:** `06_SDK_Specification`
 
 ### Deliverables
 
 **@filenest/node** (npm)
-- `FileNest` client class
-- `files.upload(file, options)` — handles single + multipart automatically (>5MB → multipart)
-- `files.download(fileId)` — returns stream
-- `files.list(projectId, filters)`, `files.get(fileId)`, `files.delete(fileId)`
-- `files.search(projectId, query)` — wraps search API
-- `webhooks.verify(payload, signature, secret)` — HMAC verification helper
-- TypeScript types for all responses
+- `FileNest` client class with `apiKey`, `projectId`, base URL config
+- `files.upload(data, options)` — handles single (<5 MB) and multipart (>5 MB) automatically
+- `files.download(fileId)` — returns Node.js readable stream
+- `files.list(filters)`, `files.get(fileId)`, `files.delete(fileId)`
+- `files.getDownloadUrl(fileId, { ttl })` — returns presigned URL
+- `files.updateMetadata(fileId, metadata)`
+- `search.query({ q, filters, tags, facets })`
+- `webhooks.verify(rawBody, signatureHeader, secret)` — HMAC-SHA256 verification
+- TypeScript types for all request/response shapes
+- Published to npm: `@filenest/node`
 
 **@filenest/react** (npm)
-- `<FileUpload>` — drag-and-drop, progress bars, file type restrictions, size limits
-- `<FileList>` — paginated file list with search input
-- `<FilePreview>` — renders image/PDF inline (basic, full version in Phase 7)
-- Upload token flow: component calls your backend → backend calls FileNest → returns upload token → component uploads directly
+- `<FileNestProvider tokenEndpoint="/api/filenest-token" projectId={...}>`
+- `<FileUpload>` — drag-and-drop, progress bars, file type/size restrictions, `onComplete`, `onError`
+- `<FileExplorer>` — browse folders, search, upload, download, delete
+- `<FilePreview>` — inline image/PDF preview (basic; full previews in Phase 7)
+- `useUpload()` — programmatic upload with progress state
+- `useFiles(filters)` — TanStack Query-backed list with pagination
+- `useSearch()` — debounced full-text + faceted search
+- `useFile(fileId)` — single file detail
+- `useFolder(folderId)` — folder navigation with breadcrumbs
+- Published to npm: `@filenest/react`
 
 **@filenest/nextjs** (npm)
-- `createFileNestHandler()` — Next.js API route factory for upload token generation
-- Server Actions: `uploadFile()`, `deleteFile()`, `listFiles()`
-- `<NextFileUpload>` — wrapper with server action integration
+- `filenestServer({ apiKey, projectId })` — server-side client for server components + actions
+- `createUploadToken({ constraints, metadata, expiresIn })` — for the token endpoint
+- `verifyWebhookSignature(body, signature, secret)` + `parseWebhookEvent(body)`
+- Published to npm: `@filenest/nextjs`
 
 **filenest** (PyPI)
-- `FileNestClient` with same surface as Node SDK
-- `async_upload()`, `async_download()`, `search()`
+- `FileNestClient` and `AsyncFileNestClient` with same surface as Node SDK
+- `files.upload()`, `files.download()`, `files.list()`, `files.delete()`
+- `search.query()`
+- `webhooks.verify(body, signature, secret)`
 - Django and FastAPI integration helpers
+- Published to PyPI: `filenest`
 
 **API Documentation**
-- OpenAPI 3.1 spec generated from FastAPI routes
-- Hosted at `docs.filenest.io` (Mintlify or Stoplight)
+- OpenAPI 3.1 spec generated from FastAPI routes (already at `GET /docs` in dev)
+- Hosted docs site (Mintlify or Stoplight): `docs.filenest.io`
 - Getting started guide: 5 minutes to first upload
-- Code examples in Node, Python, curl for every endpoint
-- Webhook integration guide with signature verification
+- Code examples in Node.js, Python, curl for every endpoint
+- SDK quickstart pages with copy-paste snippets
+- Webhook guide with signature verification examples
 
----
+### Exit Criteria
 
-## ═══════════════════════════════════
-## MVP COMPLETE — End of Phase 5
-## ═══════════════════════════════════
-
-At this point FileNest is a working product:
-- Developers can upload, process, search, and retrieve files via API or SDK
-- Webhooks fire on all file events
-- Admin UI is usable for project management
-- Virus scanning runs on every upload
-- OCR extracts text from PDFs
-- Files are searchable
-
-**What is NOT in MVP:**
-- Multi-cloud storage (S3 only)
-- HIPAA/GDPR/PHI detection
-- WORM, legal hold, retention
-- Rate limiting enforcement
-- Preview generation (Office/video)
-- Sharing system
-- Bulk operations
-- Email notifications
-- Full Kubernetes production deployment
-- SOAP notes / conversation AI
+- Node SDK: `new FileNest({ apiKey, projectId }).files.upload(buffer, { filename: "test.pdf" })` works
+- React SDK: `<FileUpload>` in a bare Next.js app uploads to the right project
+- Python SDK: `AsyncFileNestClient().files.upload(...)` works inside a FastAPI endpoint
+- Webhook: `verifyWebhookSignature` returns `true` on a real delivery, `false` on tampered payload
+- Docs site live with working "Try it" examples
 
 ---
 
 ## PHASE 6 — Production Infrastructure
 
-**Duration:** Weeks 20–27
-**Goal:** The platform can handle real production traffic. Observable, rate-limited, deployed on Kubernetes.
+**Duration:** Weeks 16–23
+**Goal:** Observable, rate-limited, Kubernetes-deployed platform ready for production traffic.
 
-**Docs referenced:** `14_Kubernetes_Deployment`, `15_Observability`, `16_Rate_Limiting`, `17_Usage_Metering`, `22_Email_Notifications`, `20_Background_Jobs` (upload cleanup + stuck detection)
+**Docs:** `14_Kubernetes_Deployment`, `15_Observability`, `16_Rate_Limiting`, `17_Usage_Metering`, `22_Email_Notifications`, `20_Background_Jobs`
 
 ### Deliverables
 
-**Kubernetes (EKS)**
-- 5 node groups: system, api, processing, data, spot
-- 4 namespaces: filenest-prod, filenest-data, filenest-monitoring, filenest-security
-- Helm chart for all services with values.yaml
-- HPA for API and Processing pods (CPU + NATS lag via KEDA)
-- External Secrets Operator + AWS Secrets Manager
-- `STORAGE_CREDENTIAL_KEY` (32-byte AES-256 master key) stored in AWS Secrets Manager, injected at pod startup via External Secrets Operator — never in env files or logs
-- IRSA (IAM Roles for Service Accounts) per service
-- NetworkPolicy: default-deny, allowlist per service
-- RDS Multi-AZ, Velero daily backup
-- `GET /health/ready` wired to HPA readiness probe
-
-**CI/CD**
-- GitHub Actions: test → build → push ECR → helm upgrade --atomic
-- Alembic migration as Helm pre-install/pre-upgrade Job
-- Rollback: `helm rollback` on failed deploy
-
 **Observability**
-- OTel SDK auto-instrumentation: FastAPI, SQLAlchemy, Redis, HTTPX
+- OTel SDK auto-instrumentation: FastAPI, SQLAlchemy, Redis, httpx
 - OTel Collector → Tempo (traces), Prometheus (metrics), Loki (logs)
-- structlog JSON logging with request_id + trace_id on every log line
-- `AuditLogger`: writes to DB + structlog simultaneously
-- 15+ Prometheus metrics (upload count, duration, processing duration, search latency, webhook deliveries, auth failures)
+- structlog JSON logging with `request_id` + `trace_id` on every line
+- 15+ Prometheus metrics: upload count/duration, processing latency, search latency, webhook delivery rate, auth failures, queue depth
 - Grafana dashboards: API Overview, Processing Queue, Storage Usage
-- PagerDuty alerts: API down, error rate > 5%, DB connections exhausted, virus scan unavailable
-- Slack alerts: P95 latency > 2s, webhook failure rate high
-- SLO burn rate alerts (14× for 1h window, 6× for 6h window)
+- Alerting: API down, error rate > 5%, DB connections exhausted, virus scan unavailable, P95 latency > 2s
 
 **Rate Limiting**
-- Token bucket via Redis Lua atomic script
-- Per-org limits (Starter: 100/min, Professional: 1000/min, Enterprise: 10000/min)
-- Per-key limits (live: 500/min, test: 200/min, service account: 2000/min)
+- Token bucket via Redis Lua atomic script (no race condition)
+- Per-org limits (tiers configurable via env): Starter 100/min, Professional 1000/min, Enterprise 10000/min
+- Per-key limits: live 500/min, test 200/min
 - Enforces stricter of org vs key
-- `X-RateLimit-*` headers on all responses
-- 429 response with `retry_after` + `limited_by: "org" | "key"`
+- `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` headers on every response
+- HTTP 429 with `{ error: { code: "rate_limited", retry_after: N, limited_by: "org"|"key" } }`
 
 **Usage Metering**
-- Redis counters per org per month (API calls, upload bytes, download bytes, processing jobs, searches)
+- Redis counters per org per month: API calls, upload bytes, download bytes, processing jobs, searches
 - `UsageFlushJob`: Redis → PostgreSQL `usage_snapshots` every 5 minutes
-- `StorageCalculationJob`: `SUM(size)` from files table hourly
-- `check_upload_allowed()`: enforces storage + processing limits, returns HTTP 402 on breach
-- Usage API: `GET /v1/organizations/{id}/usage` with per-metric used/limit/% breakdown
+- `StorageCalculationJob`: `SUM(size)` from files table hourly per project
+- `GET /v1/organizations/{id}/usage` — returns per-metric used/limit breakdown
+- Enforce storage + processing limits: HTTP 402 on breach with `{ exceeded: "storage"|"requests" }`
 
 **Email Notifications (Core)**
 - AWS SES (primary) + SendGrid (fallback)
-- Mandatory notifications only: virus detected, API key revoked, usage at 95%, plan limit reached, legal hold
-- Jinja2 templates for mandatory types
+- Core notifications: virus detected, API key revoked, usage at 95%, storage limit reached
+- Jinja2 templates (HTML + plain text)
 - `NotificationWorker`: NATS pull subscriber → render → SES/SendGrid
 
-**Background Jobs (Core)**
-- `UploadSessionCleanupJob`: aborts multipart uploads > 24h, marks orphaned file records as FAILED (runs every 30 min)
-- `ProcessingStuckDetectionJob`: re-queues processing jobs stuck > 30 min (runs every 5 min)
+**Background Jobs**
+- `UploadSessionCleanupJob`: aborts multipart uploads > 24h, marks orphaned file records `failed` (every 30 min)
+- `ProcessingStuckDetectionJob`: re-queues jobs stuck > 30 min (every 5 min)
+- Runs as Kubernetes CronJobs using the same backend image: `python -m app.jobs <job_name>`
+
+**Kubernetes (EKS)**
+- Node pools: api (c5.xlarge, 5–20), workers (c5.2xlarge, 5–50), data (r5.2xlarge, 3 fixed), search (r5.2xlarge, 3–6)
+- 3 deployments from one image: `filenest-api`, `processing-worker`, `webhook-worker`
+- HPA: CPU-based for API; KEDA (NATS lag) for processing workers
+- External Secrets Operator + AWS Secrets Manager for all credentials
+- IRSA per deployment (least privilege)
+- NetworkPolicy: default-deny, explicit allowlists
+- RDS Multi-AZ, daily Velero backup
+- `GET /health/ready` wired to readiness probe
+
+**CI/CD**
+- GitHub Actions: test → lint → build → push ECR → `helm upgrade --atomic`
+- Alembic migration as Helm pre-install/pre-upgrade Job
+- Rollback: `helm rollback` on failed health check
 
 ### Exit Criteria
-- 100 concurrent file uploads at once with no errors
-- Rate limit headers present on every response
-- Prometheus metrics visible in Grafana
-- A 30-day S3 lifecycle rule is active for aborting incomplete multipart uploads
+
+- 100 concurrent uploads with no errors and stable P99 latency
+- Rate limit headers on every response; 429 fires correctly on breach
+- Prometheus metrics visible in Grafana; alert fires when a service is killed
 - Kubernetes rolling deploy with zero downtime
+- Usage endpoint returns correct byte counts after 50 uploads
 
 ---
 
-## PHASE 7 — Advanced File Features
+## PHASE 7 — Advanced Features
 
-**Duration:** Weeks 25–34 (overlaps with Phase 8)
-**Goal:** Full feature surface. Sharing, previews, bulk operations, BYOB storage, semantic search.
+**Duration:** Weeks 20–30 (overlaps with Phase 6)
+**Goal:** Full product surface — all storage providers, BYOB, previews, sharing, bulk operations, semantic search.
 
-**Docs referenced:** `12_Storage_Abstraction` (all sections — providers, BYOB, credential schemas §10, encryption §10.3), `07_Security_Architecture` (§7.1 Layer 2), `19_Sharing_System`, `21_Preview_Generation`, `23_Bulk_Operations`, `20_Background_Jobs` (full suite)
+**Docs:** `12_Storage_Abstraction`, `19_Sharing_System`, `21_Preview_Generation`, `23_Bulk_Operations`, `20_Background_Jobs`
 
 ### Deliverables
 
-**Storage Abstraction Layer (All Providers)**
-- `StorageProvider` Protocol — consistent interface for all backends (`upload`, `download_stream`, `generate_signed_url`, `generate_multipart_upload_id`, `complete_multipart`, `delete`, `health_check`)
-- `StorageResolver` — resolves the correct provider per project + environment; branches on `storage_mode` (managed vs. byob)
-- Providers implemented:
-  - AWS S3 (already in Phase 1 — promoted to protocol-conformant class)
-  - Azure Blob Storage
-  - Google Cloud Storage
-  - MinIO (self-hosted S3-compatible — reuses S3Provider with custom endpoint)
-  - Cloudflare R2 (S3-compatible, zero-egress)
-  - **RestFS** — REST-based filesystem Docker image; S3-compatible API, customer self-hosts; configured via endpoint URL + access key + secret (reuses S3Provider with custom endpoint)
+**Storage Abstraction — All Providers**
+- `StorageProvider` Protocol fully implemented for: AWS S3, Azure Blob, GCS, MinIO, Cloudflare R2, RestFS (self-hosted S3-compatible)
+- `StorageResolver` reads `projects.storage_config` to select provider per project
+- All providers expose: `upload`, `download_stream`, `delete`, `copy`, `generate_signed_url`, `generate_multipart_upload_id`, `generate_part_upload_url`, `complete_multipart`, `abort_multipart`, `head`
 
-**BYOB — Dual Storage Mode**
-- `storage_mode`: `managed` (FileNest owns the bucket, default) or `byob` (customer supplies their own)
-- In both modes: file metadata, audit logs, processing results → FileNest PostgreSQL. Actual file bytes → configured storage target.
-- BYOB provider options: S3 (IAM role assumption or static keys), MinIO, RestFS, R2, Azure Blob, GCS
-- For S3-compatible BYOB (MinIO, RestFS, R2): customer provides `endpoint_url` + `bucket_name` + `access_key` + `secret_key`
-- For AWS S3 BYOB: customer provides IAM role ARN + external ID (FileNest assumes the role via STS)
-- Connection verification: `POST /v1/projects/{id}/storage/verify` — FileNest writes + deletes a test object before saving config; returns `{ ok, latencyMs, error }`
-- `POST /v1/projects/{id}/storage` — save storage config (triggers verification first)
-- `GET /v1/projects/{id}/storage` — returns plaintext fields only (`mode`, `provider`, `endpoint_url`, `bucket_name`, `region`); never returns credentials
+**BYOB (Bring Your Own Storage)**
+- `storage_mode`: `managed` (default — FileNest S3 bucket) or `byob` (customer-supplied endpoint)
+- BYOB provider options: S3 (IAM role or static keys), MinIO, RestFS, R2, Azure, GCS
+- `POST /v1/projects/{id}/storage` — save storage config; triggers verification first
+- `POST /v1/projects/{id}/storage/verify` — write + delete a test object; returns `{ ok, latencyMs, error }`
+- `GET /v1/projects/{id}/storage` — plaintext fields only (`mode`, `provider`, `endpoint_url`, `bucket_name`, `region`); credentials never returned
+- Credential encryption: AES-256-GCM with per-record key derivation (HKDF) in `backend/app/core/crypto.py`
+- `STORAGE_CREDENTIAL_KEY` env var — loaded at startup, never logged
 
-**Credential Encryption (`shared/crypto/storage_credentials.py`)**
-- All BYOB credentials encrypted with AES-256-GCM before writing to `storage_configs.config_encrypted`
-- Per-record key derivation: `HKDF(master_key, info="storage_config:{uuid}")` — a compromised row does not expose other rows' keys
-- `STORAGE_CREDENTIAL_KEY` env var (32-byte hex) — loaded at startup, never logged
-- Per-provider encrypted JSON schemas (see `12_Storage_Abstraction.md §10.1–10.2` for full table):
-  - AWS S3 (IAM role): `{ role_arn, external_id }`
-  - AWS S3 (static): `{ access_key_id, secret_access_key }`
-  - Azure: `{ account_name, account_key }`
-  - GCS: `{ service_account_json }` (full key file)
-  - MinIO / RestFS: `{ access_key, secret_key }`
-  - R2: `{ account_id, access_key_id, secret_access_key }`
-- `StorageConfig.__repr__` masks `config_encrypted` — credentials never appear in logs
-
-**BYOB Console UI (Project Settings → Storage tab)**
-- Provider selector: Managed / MinIO / RestFS / AWS S3 / Cloudflare R2 / Azure Blob / Google Cloud
-- Dynamic form: fields change per provider (only shows what that provider needs)
-- "Test connection" button → calls `POST /v1/projects/{id}/storage/verify` → shows ✓ / ✗ + latency
+**BYOB Console UI**
+- Project Settings → Storage tab: provider selector + dynamic form per provider
+- "Test connection" button → calls verify endpoint → shows ✓ / ✗ + latency
 - Save only enabled after successful verification
-- Displays current config in plaintext (endpoint, bucket, region) with "Credentials saved ✓" indicator — never shows raw keys
-- Storage migration path: "Switch provider" → verify new endpoint → background migration job (Phase 7)
+- Storage migration button: switch provider → background migration job
 
 **Storage Migration Worker**
-- `POST /v1/admin/storage/migrate` — triggers background migration from current to new provider
-- Dry run returns file count + estimated duration
-- Worker: streams each file from source provider → uploads to target → verifies size → updates `storage_key` pointer
-- `GET /v1/admin/storage/migrations/{id}` — progress: `{ completed, total, errors, status }`
+- `POST /v1/admin/projects/{id}/storage/migrate` — triggers migration to new provider config
+- Dry run: returns file count + estimated duration
+- Worker: stream each file from source → upload to target → verify size → update `storage_key`
+- `GET /v1/admin/projects/{id}/storage/migrations/{id}` — progress: completed/total/errors/status
 
 **Preview Generation**
-- `PreviewGenerationStage` added to processing pipeline Phase 3
-- PDF → stored as inline preview (PyMuPDF)
-- Images → resized to 2048px max, converted to WebP (PIL)
-- Office files (DOCX, XLSX, PPTX) → Gotenberg (LibreOffice wrapper) → PDF preview
-- OpenDocument formats → Gotenberg
-- Video files → ffmpeg poster frame at 5 seconds → WebP
-- Audio files → waveform image (soundfile + numpy + PIL)
-- `GET /v1/files/{id}/preview` — returns signed preview URL + poster URL + page count
+- `PreviewGenerationStage` added to processing pipeline (sequential, after OCR)
+- PDF → PyMuPDF → inline preview PNG per page
+- Images → PIL → resized to 2048px max, converted to WebP
+- Office files (DOCX, XLSX, PPTX) → Gotenberg (LibreOffice wrapper) → PDF → preview
+- Video → ffmpeg poster frame at 5 seconds → WebP
+- Audio → soundfile + matplotlib waveform → WebP
+- `GET /v1/projects/{id}/files/{file_id}/preview` — returns `{ preview_url, poster_url, page_count, preview_type }`
 - `<FilePreview>` React component: image lightbox, PDF viewer (PDF.js), Office preview (embedded PDF), video player
-- Gotenberg deployed as separate Kubernetes Deployment (2 replicas, 3Gi memory)
 
 **Sharing System**
-- `POST /v1/files/{id}/share-links` — create share link (expiry, max downloads, password, allowed email domain)
-- 32-byte URL-safe token, public URL: `https://share.filenest.io/s/{token}`
-- Password: bcrypt hashed, 10 attempts/hr per token → locked
-- Access token: 15-min JWT, single-use (Redis consumed set)
-- `GET /s/{token}` — public share page (React, shows preview)
-- `POST /s/{token}/access` — verify password → return access token
-- `GET /s/{token}/download` — stream file via signed URL proxy
-- Healthcare projects: public sharing disabled by default (requires explicit override)
+- `POST /v1/projects/{id}/files/{file_id}/share-links` — create link (expiry, max_downloads, optional password, allowed_email_domain)
+- Public URL: `https://share.filenest.io/s/{token}` (32-byte URL-safe token)
+- Password: bcrypt hashed, 10 attempts/hr then locked
+- `GET /s/{token}` — public share page (no auth required, shows preview)
+- `POST /s/{token}/access` — verify password → return 15-min access token
+- `GET /s/{token}/download` — stream via signed URL (counts against max_downloads)
+- `GET /v1/projects/{id}/files/{file_id}/share-links` — list active links
+- `DELETE /v1/share-links/{link_id}` — revoke link
 
 **Bulk Operations**
-- All bulk ops are async (202 Accepted with `job_id`)
-- `BulkJobWorker`: NATS pull subscriber, FOR UPDATE SKIP LOCKED
-- Operations: delete, move, tag, download (zip), metadata update, reprocess
-- Per-file compliance check before delete/move
-- `skipped` (compliance-blocked) vs `failed` (error) distinction
-- Bulk download: streams all files into zip, uploads to storage, returns 1-hour signed URL
-- `GET /v1/bulk-jobs/{id}` — job status + per-file results
-- SDK: `bulkDelete()`, `bulkMove()`, `bulkTag()`, `bulkDownload()` with `waitForCompletion` option
-
-**Full Background Job Suite**
-- `RetentionEnforcementJob`: enforces retention policies (delete/archive/keep) — runs daily
-- `AuditLogArchivalJob`: gzip JSONL to S3 Glacier, keeps 90 days hot in PostgreSQL — runs monthly
-- `ShareLinkExpiryCleanupJob`: deactivates expired + exhausted share links — runs hourly
+- All bulk ops async: `202 Accepted` with `{ job_id }`
+- `BulkJobWorker`: NATS pull subscriber, `FOR UPDATE SKIP LOCKED`
+- `POST /v1/projects/{id}/bulk/delete` — `{ file_ids[] }` → deletes each; skips if not found
+- `POST /v1/projects/{id}/bulk/move` — `{ file_ids[], folder_id }` → moves to folder
+- `POST /v1/projects/{id}/bulk/tag` — `{ file_ids[], tags[], mode: "add"|"replace" }`
+- `POST /v1/projects/{id}/bulk/download` — streams all files into zip → signed URL (1-hour expiry)
+- `POST /v1/projects/{id}/bulk/metadata` — `{ file_ids[], metadata }` → updates metadata on each
+- `POST /v1/projects/{id}/bulk/reprocess` — re-queues processing for selected files
+- `GET /v1/bulk-jobs/{job_id}` — status + per-file results (`completed`, `skipped`, `failed`)
 
 **Semantic Search (Embeddings)**
-- `EmbeddingStage`: OpenAI `text-embedding-3-small` on extracted text (OCR + metadata)
-- OpenSearch `knn_vector` field on index
-- `POST /v1/projects/{id}/search` extended: `mode: "semantic" | "full_text" | "hybrid"`
-- Hybrid search: BM25 score + cosine similarity, RRF fusion
+- `EmbeddingStage`: generates embeddings via OpenAI `text-embedding-3-small` on OCR text + metadata
+- Embeddings stored in OpenSearch `knn_vector` field
+- `POST /v1/projects/{id}/search` extended: `mode: "full_text" | "semantic" | "hybrid"`
+- Hybrid: BM25 + cosine similarity with RRF fusion
 
 **Full Email Notifications**
-- All 17 notification types from `22_Email_Notifications`
-- Notification preferences per user per org
-- In-app notifications: `GET /v1/notifications`, `POST /v1/notifications/{id}/read`
-- Digest mode: batch notifications into daily summary email
+- All notification types from `22_Email_Notifications`: upload complete, processing failed, webhook failing, storage approaching limit, share link accessed, new team member, API key expiring, etc.
+- Per-user notification preferences (email / in-app / both / none per event type)
+- In-app notification bell: `GET /v1/notifications`, `POST /v1/notifications/{id}/read`, `POST /v1/notifications/read-all`
+- Daily digest option: batches notifications into a single summary email
+
+**Full Background Jobs**
+- `RetentionEnforcementJob`: deletes/archives files past their `retain_until` date (daily, skips legal-held files — those are compliance v2)
+- `AuditLogArchivalJob`: gzip JSONL → S3 Glacier for logs older than 90 days (monthly)
+- `ShareLinkExpiryCleanupJob`: deactivates expired + exhausted share links (hourly)
+- `StorageUsageRecalculationJob`: full recalculation from DB when Redis counters drift (weekly)
 
 ### Exit Criteria
-- Upload a DOCX → preview available as PDF in the UI
-- Share a file publicly with a password → recipient accesses it without an account
-- Bulk delete 500 files in one API call → job completes, status report shows per-file results
-- "Find me all files about patient discharge" → semantic search returns relevant results
+
 - Configure a project with a self-hosted MinIO or RestFS endpoint → connection verified → upload a file → it lands in the customer's bucket, not FileNest's
-- Credentials visible in DB are opaque (AES-256-GCM ciphertext) — plaintext never appears outside application memory
+- Upload a DOCX → preview available as PDF in the console UI
+- Share a file publicly with a password → recipient downloads it without an account
+- Bulk delete 500 files in one API call → job completes, status shows per-file results
+- Semantic search: "find all invoices from Q1 2026" returns relevant results ranked by similarity
+- All credentials in DB are AES-256-GCM ciphertext — plaintext never appears outside application memory
 
 ---
 
-## PHASE 8 — Compliance & Domain Packs
+## ═══════════════════════════════════════
+## v1.0 COMPLETE — End of Phase 7
+## ═══════════════════════════════════════
 
-**Duration:** Weeks 30–42 (overlaps with Phase 7)
-**Goal:** HIPAA technical safeguards fully implemented. GDPR erasure works. Domain selection system in place.
+At v1.0, FileNest is a full file infrastructure platform:
+- Upload → process → store → search → share via API, SDK, or console
+- Any S3-compatible storage backend, including customer-supplied (BYOB)
+- Virus scanning on every file
+- OCR + full-text search + semantic search
+- File versioning, folders, tags, custom metadata
+- Webhooks with HMAC signing and retry
+- Sharing with optional password + expiry
+- Bulk operations
+- Preview generation for PDFs, images, Office files, video
+- Observable (OTel traces, Prometheus metrics, structured logs)
+- Rate-limited per org and per key
+- Deployed on Kubernetes with HPA and zero-downtime deploys
 
-**Docs referenced:** `07_Security_Architecture` (encryption, KMS), `08_Compliance_Framework`, `09_Healthcare_Pack`, `18_GDPR_Compliance`, `20_Background_Jobs` (GDPR queue + retention)
+**Explicitly deferred to v2.0 — Compliance Pack:**
 
-### Deliverables
+FileNest stores any kind of file. Compliance requirements are domain-specific and layered on top of the core platform. These are deferred to v2.0:
 
-**Domain Selection System**
-- Domain field on projects: Generic / Healthcare / Finance / Legal / Insurance
-- Domain chosen at project creation (onboarding wizard step 1)
-- **Immutability lock**: domain locked after first file upload (`validate_profile_change()` blocks with HTTP 422)
-- Config dependency validation: `ProjectConfigValidator.validate_with_warnings()` — returns `warnings[]` in API response when configs are partially enabled without their required dependencies
-- v1 status: Generic + Healthcare = GA; Finance / Legal / Insurance = Beta (labeled in UI)
+- **Regulatory compliance per domain** — e.g. healthcare (HIPAA, FHIR), finance (PCI-DSS, SOX), legal (chain-of-custody), government (FedRAMP). Each domain pack adds the specific audit requirements, data handling rules, and certification controls for that industry.
+- **WORM** — immutable S3 Object Lock for write-once records
+- **Legal hold** — block delete/move on flagged files pending litigation or audit
+- **Retention enforcement** — policy-driven auto-delete or auto-archive after a defined period
+- **Customer-managed KMS (BYOK)** — envelope encryption with customer-controlled keys
+- **Sensitive data detection** — scan file content for regulated data patterns (PII, PHI, PAN, etc.) and apply policies based on what's found
 
-**Encryption at Rest (Customer-Managed KMS)**
-- AWS KMS CMK per organization (or customer-provided key via BYOK)
-- All S3 objects encrypted with per-org KMS key (SSE-KMS)
-- KMS key rotation annually (automatic)
-- Per-file encryption key reference stored in `files.kms_key_id`
-- **Storage credential key rotation**: `STORAGE_CREDENTIAL_KEY` promoted to KMS-backed envelope encryption in Phase 8 — `BackgroundCredentialRekeyJob` decrypts all `storage_configs.config_encrypted` with old key → re-encrypts with new KMS-derived key atomically
+The compliance modules are already scaffolded in the codebase with clean interfaces. Adding them in v2.0 requires implementing the service logic, not refactoring existing code.
 
-**PHI / PII Detection**
-- `PHIDetectionStage`: Microsoft Presidio `AnalyzerEngine`, healthcare entity list
-- `PIIDetectionStage`: broader entity list (PERSON, EMAIL, PHONE, SSN, CREDIT_CARD, etc.)
-- Configurable action per project: `log` | `flag` | `quarantine` | `block`
-- Healthcare domain default: `flag` for PHI
-- Generic domain: PHI detection off unless manually enabled (generates warning if enabled without audit logs)
+---
 
-**WORM & Legal Hold**
-- S3 Object Lock COMPLIANCE mode (7-year default for Healthcare)
-- `POST /v1/files/{id}/legal-hold` — places legal hold, logged to audit trail
-- `DELETE /v1/files/{id}/legal-hold` — requires explicit admin action, also logged
-- Legal hold files: cannot be deleted, moved, or shared publicly
-- WORM files: cannot be overwritten or deleted by anyone including FileNest
+## Phase → Component Matrix
 
-**Full Audit Logs**
-- `audit_logs` table: every file event logged with actor, action, resource, result, IP, user agent
-- Tamper-evident: rows are append-only, no UPDATE/DELETE allowed via application
-- PHI-touched files: log entries tagged with `phi_involved: true`
-- Audit log viewer in admin dashboard: filters by date, action, actor, result; expandable detail panel
-- `AuditLogArchivalJob`: exports to gzip JSONL → S3 Glacier, keeps 90 days in hot PostgreSQL
-
-**GDPR Compliance**
-- `GDPRErasureRequest` model: PENDING → PROCESSING → COMPLETED / PARTIAL / REJECTED
-- `process_erasure_request()`: checks legal hold first, then HIPAA retention
-- **GDPR vs HIPAA conflict resolution**: files under HIPAA retention are quarantined (excluded from search/listings/downloads), not deleted. Auto-deleted when `retain_until` passes. HTTP 451 returned for conflicted erasure (GDPR Art. 17(3)(b))
-- `erase_file()`: deletes storage object + versions, deletes OCR text, removes from search index, anonymizes file row (status=`erased`), anonymizes audit log metadata (preserves event shape)
-- `DataPortabilityExport`: streams all files + metadata.json into zip → signed URL (7-day expiry)
-- `GDPRErasureQueueJob`: processes pending requests (FOR UPDATE SKIP LOCKED, max 10 per run)
-- DSAR endpoints: `POST /v1/gdpr/erasure-requests`, `GET /v1/gdpr/erasure-requests/{id}`, `POST /v1/gdpr/export`
-
-**Healthcare Domain Pack (GA)**
-- FHIR R4 DocumentReference mapping: `POST /v1/healthcare/fhir/document-reference`
-- FHIR Binary resource: upload via `POST /v1/healthcare/fhir/binary`
-- FHIR Media resource: imaging files
-- SMART on FHIR auth flow (EHR-launched app support)
-- HIPAA §164.312 technical safeguard coverage (documented in §13 of `09_Healthcare_Pack`)
-- XDS.b document registration stub
-- BAA signature flow (admin dashboard: org owner must sign before Healthcare domain goes live)
-
-**Config Dependency Warnings (Generic Mode)**
-- Enabling PHI detection without HIPAA audit → `warnings[]` in API response with `suggested_fix`
-- 3 dependency rules from `08_Compliance_Framework §11.3` enforced
-
-**Full Background Job Suite (Compliance)**
-- `RetentionEnforcementJob`: honors WORM, skips legal_hold files, logs every action to audit trail
-- `GDPRErasureQueueJob`: processes GDPR queue on 15-minute schedule
-- `AuditLogArchivalJob`: monthly Glacier archival
-
-### Exit Criteria
-- Upload a file with SSN in it on a Healthcare project → file is flagged with PHI entities in metadata
-- Request GDPR erasure on a HIPAA-retained file → file quarantined (HTTP 451), not deleted
-- Place a legal hold on a file → attempt to delete it → blocked
-- Log into Healthcare project in admin → compliance tab shows HIPAA status checklist
+| Component | Introduced | Extended |
+|-----------|-----------|---------|
+| PostgreSQL schema | Phase 1 | Every phase |
+| S3 storage (managed) | Phase 1 | Phase 7 (all providers + BYOB) |
+| FastAPI routes | Phase 1 | Every phase |
+| NATS + transactional outbox | Phase 2 | Phase 6 (observability), Phase 7 (bulk) |
+| Processing pipeline | Phase 2 | Phase 3 (OCR), Phase 7 (previews, embeddings) |
+| File versioning | Phase 2 | — |
+| Webhooks | Phase 2 | Phase 6 (retry + metrics) |
+| Audit logging | Phase 2 | Phase 6 (full observability), Phase 7 (archival) |
+| Custom metadata | Phase 3 | Phase 7 (bulk metadata update) |
+| Folder hierarchy | Phase 3 | — |
+| Tags | Phase 3 | Phase 7 (bulk tag) |
+| OpenSearch + indexing | Phase 3 | Phase 7 (knn_vector, semantic search) |
+| OCR stage | Phase 3 | — |
+| Console App | Phase 4 | Phase 7 (previews, BYOB UI, notifications) |
+| @filenest/node | Phase 5 | Phase 7 (bulk ops) |
+| @filenest/react | Phase 5 | Phase 7 (previews, sharing) |
+| @filenest/nextjs | Phase 5 | — |
+| filenest Python SDK | Phase 5 | — |
+| Observability (OTel + Grafana) | Phase 6 | Phase 7 (audit archival dashboard) |
+| Rate limiting | Phase 6 | — |
+| Usage metering | Phase 6 | — |
+| Email notifications (core) | Phase 6 | Phase 7 (full suite) |
+| Background jobs (core) | Phase 6 | Phase 7 (full suite) |
+| Kubernetes + Helm | Phase 6 | Phase 7 (Gotenberg pod) |
+| CI/CD | Phase 6 | — |
+| All storage providers | Phase 7 | — |
+| BYOB dual-mode | Phase 7 | — |
+| Credential encryption | Phase 7 | v2.0 (KMS envelope) |
+| Storage migration worker | Phase 7 | — |
+| Preview generation | Phase 7 | — |
+| Sharing system | Phase 7 | — |
+| Bulk operations | Phase 7 | — |
+| Semantic search | Phase 7 | — |
+| In-app notifications | Phase 7 | — |
+| Retention job (basic) | Phase 7 | v2.0 (compliance-aware) |
+| Audit log archival | Phase 7 | v2.0 (Glacier + tamper-evident) |
 
 ---
 
 ## Dependency Graph
 
 ```
-Phase 1 (Foundation)
-  └─→ Phase 2 (Processing & Events)
-        ├─→ Phase 3 (Metadata & Search)   ─────────────────────┐
-        ├─→ Phase 4 (Admin Dashboard)     ──────────────────── │ ─┐
-        └─→ Phase 5 (SDKs)                                     │  │
-              │                                                 │  │
-              ▼                                                 │  │
-         [MVP COMPLETE]  ◄────────────────────────────────── ──┘  │
-              │                                                    │
-              └─→ Phase 6 (Production Infra)  ◄─────────────────── ┘
-                    └─→ Phase 7 (Advanced Features) ─────┐
-                                └─→ Phase 8 (Compliance) ◄┘
-                                      [v1.0 COMPLETE]
+Phase 1 — Foundation
+  └─→ Phase 2 — Processing & Events
+        ├─→ Phase 3 — Metadata, Search & Folders  ──┐
+        ├─→ Phase 4 — Console App                  ──┤ (parallel)
+        └─→ Phase 5 — SDKs                         ──┘
+              │
+              ▼
+        Phase 6 — Production Infrastructure
+              │
+              └─→ Phase 7 — Advanced Features
+                        │
+                        ▼
+                   [ v1.0 COMPLETE ]
+                        │
+                        ▼
+                   v2.0 — Compliance Pack
 ```
 
-Phases 3, 4, 5 run in parallel after Phase 2.
-Phases 7 and 8 overlap (start Phase 8 when Phase 7 is 50% done).
-
----
-
-## What Each Phase Touches
-
-| Service / Component | Introduced | Extended |
-|--------------------|-----------|---------|
-| PostgreSQL schema | Phase 1 | Every phase |
-| S3 / Storage (managed) | Phase 1 | Phase 7 (all providers, BYOB) |
-| FastAPI routes | Phase 1 | Every phase |
-| NATS JetStream | Phase 2 | Phase 6, 7, 8 |
-| Processing pipeline | Phase 2 | Phase 3, 7, 8 |
-| Webhooks | Phase 2 | Phase 6 (retry + observability) |
-| OpenSearch | Phase 3 | Phase 7 (embeddings) |
-| Console App (Next.js) | Phase 4 | Phase 7 (previews, BYOB UI), 8 (compliance) |
-| Storage mode UI (managed/BYOB) | Phase 4 (stub, managed only) | Phase 7 (BYOB fully enabled) |
-| Node/React SDKs | Phase 5 | Phase 7 (bulk ops) |
-| Kubernetes / Helm | Phase 6 | Phase 7 (Gotenberg), 8 |
-| Observability | Phase 6 | Phase 8 (audit logs) |
-| Rate Limiting | Phase 6 | — |
-| Usage Metering | Phase 6 | — |
-| Email Notifications | Phase 6 (core) | Phase 7 (full) |
-| `STORAGE_CREDENTIAL_KEY` (env) | Phase 6 (Secrets Manager) | Phase 8 (KMS envelope) |
-| Preview Generation | Phase 7 | — |
-| Sharing System | Phase 7 | — |
-| Bulk Operations | Phase 7 | — |
-| Storage Abstraction (`StorageResolver` + all providers) | Phase 7 | — |
-| BYOB Storage (dual-mode: managed / customer endpoint) | Phase 7 | — |
-| RestFS Provider | Phase 7 | — |
-| Credential Encryption (`shared/crypto/storage_credentials.py`) | Phase 7 | Phase 8 (KMS rekey) |
-| Storage connection verification (`/storage/verify`) | Phase 7 | — |
-| Storage Migration Worker | Phase 7 | — |
-| PHI / PII Detection | Phase 8 | — |
-| WORM / Legal Hold | Phase 8 | — |
-| GDPR Erasure | Phase 8 | — |
-| FHIR / Healthcare Pack | Phase 8 | — |
-| KMS-backed credential rekey job | Phase 8 | — |
-
----
-
-## Team Assignment Recommendation
-
-| Phase | Backend | Frontend | DevOps | QA |
-|-------|---------|----------|--------|-----|
-| 1 | 2 | 0 | 1 | 0 |
-| 2 | 3 | 0 | 1 | 1 |
-| 3 | 2 | 0 | 0 | 1 |
-| 4 | 1 (API support) | 2 | 0 | 1 |
-| 5 | 1 (API support) | 2 (SDK) | 0 | 1 |
-| 6 | 2 | 0 | 2 | 1 |
-| 7 | 3 | 1 | 1 | 1 |
-| 8 | 3 | 1 | 1 | 2 |
-
-Minimum viable team: **4 engineers** (2 backend, 1 frontend, 1 DevOps/full-stack). MVP in ~26 weeks at this size.
-Recommended team: **6–8 engineers**. MVP in ~18 weeks, full platform (v1.0) in ~38 weeks.
-
----
-
-## Out of Scope for FileNest
-
-The following are AI product features that sit **on top of** FileNest as a separate application. They use FileNest APIs and SDKs as their file backend but are not part of this platform:
-
-- SOAP note generation (LLM-based clinical documentation)
-- Audio transcription pipeline (speech-to-text for clinical conversations)
-- Conversation memory / multi-turn clinical session management
-- AI chat with documents
-
-Those products use FileNest the same way any customer would — via API keys, file uploads, webhooks, and FHIR endpoints.

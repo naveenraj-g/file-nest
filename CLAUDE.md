@@ -463,8 +463,6 @@ Auto-generated API references (OpenAPI schema, type definitions) are **not** dup
 
 **MVP = Phases 1–5.** Do not build Phase 6+ features ahead of their phase.
 
-**Out of scope for FileNest:** SOAP note generation, audio transcription, AI chat — those are separate products built on top of FileNest.
-
 ---
 
 ## Dev Environment

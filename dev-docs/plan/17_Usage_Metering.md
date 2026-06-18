@@ -67,7 +67,7 @@ Every 1 day: UsageSummaryJob
 ## 3. Real-Time Counters (Redis)
 
 ```python
-# services/shared/metering.py
+# backend/app/core/metering.py
 class UsageMeter:
 
     METRIC_KEYS = {

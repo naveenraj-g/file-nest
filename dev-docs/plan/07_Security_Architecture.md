@@ -109,7 +109,7 @@ The FileNest FastAPI backend does not maintain an `api_keys` table.
 with a 2-minute TTL to avoid an IAM round-trip on every request. For Phase 1, the direct call is acceptable.
 
 ```python
-# shared/auth/token.py
+# backend/app/auth/dependencies.py
 async def verify_api_key(raw_key: str) -> TenantContext:
     async with httpx.AsyncClient(timeout=5.0) as client:
         resp = await client.post(
@@ -520,9 +520,9 @@ All object storage uses server-side encryption:
 - Nonce: 12-byte random, prepended to the ciphertext, unique per `encrypt` call
 
 ```python
-# shared/crypto/storage_credentials.py — full implementation in 12_Storage_Abstraction.md §10.3
+# backend/app/core/crypto.py — full implementation in 12_Storage_Abstraction.md §10.3
 
-from shared.crypto.storage_credentials import encrypt_credentials, decrypt_credentials
+from app.core.crypto import encrypt_credentials, decrypt_credentials
 
 # Encrypt before DB write (record_id is the storage_config UUID)
 blob = encrypt_credentials(record_id=str(config.id), credentials={
