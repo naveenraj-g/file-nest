@@ -67,9 +67,13 @@ class Settings(BaseSettings):
     # Optional server-side envelope encryption key (32-byte base64-encoded AES-256).
     storage_encryption_key: str | None = None
 
+    # ── IAM ────────────────────────────────────────────────────────────────────
+    # URL of the BetterAuth IAM service. The FastAPI backend calls
+    # /api/internal/verify-api-key on this host to validate fn_ API keys.
+    iam_url: str = Field("http://localhost:3000", alias="IAM_URL")
+
     # ── Security ───────────────────────────────────────────────────────────────
     jwt_secret_key: str = "dev-secret"       # Must be overridden in production
-    api_key_salt: str = "dev-salt"
 
     # ── Upload thresholds ──────────────────────────────────────────────────────
     # Files larger than this threshold are handled as multipart uploads (Phase 2).

@@ -37,10 +37,6 @@ install:
 file:
     uv run uvicorn services.file.main:app --reload --port 8001 --log-level debug
 
-# Run the identity service (hot-reload)
-identity:
-    uv run uvicorn services.identity.main:app --reload --port 8002 --log-level debug
-
 # Run the project service (hot-reload)
 project:
     uv run uvicorn services.project.main:app --reload --port 8003 --log-level debug

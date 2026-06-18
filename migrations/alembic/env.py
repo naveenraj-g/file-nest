@@ -10,7 +10,7 @@ from shared.database import Base
 # Import all models so Alembic sees them for autogenerate
 import services.file.repository  # noqa: F401 — FileRecord (files table)
 import shared.messaging.outbox    # noqa: F401 — OutboxMessage (outbox_messages table)
-import shared.models              # noqa: F401 — Project, ApiKey
+import shared.models              # noqa: F401 — Project
 
 config = context.config
 if config.config_file_name is not None:

@@ -6,9 +6,8 @@ the full schema in a single pass. Import from this package rather than from
 individual model modules to ensure all models are registered before Alembic runs.
 
 Usage:
-    from shared.models import Project, ApiKey
+    from shared.models import Project
 """
-from .api_key import ApiKey
 from .project import Project
 
-__all__ = ["Project", "ApiKey"]
+__all__ = ["Project"]

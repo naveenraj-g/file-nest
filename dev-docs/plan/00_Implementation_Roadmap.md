@@ -18,9 +18,9 @@ This roadmap organizes all 24 engineering documents into a phase-by-phase build 
 
 ### Pre-existing dependency: IAM
 
-User authentication is handled by **`nextjs-iam`** — a standalone BetterAuth service that acts as an OAuth 2.1 / OIDC server. This is **not built as part of this roadmap**; it already exists and only needs minor config tweaks (org slug, default role, API key prefix, agent provider name) before the console app can register as an OAuth client.
+User authentication and **API key lifecycle** are handled by **the IAM** (`iam/`) — a BetterAuth service that acts as an OAuth 2.1 / OIDC server. This is **not built as part of this roadmap**; it already exists and only needs minor config tweaks before the console app can register as an OAuth client.
 
-The FastAPI backend has its own separate token system (`fn_live_` / `fn_test_` API keys) for developer-to-API authentication. These are independent of the IAM user sessions.
+The IAM's `apiKey` plugin (prefix `fn_`) manages all API key creation, listing, and revocation. The FastAPI backend verifies incoming `fn_live_` / `fn_test_` keys by calling `POST /api/internal/verify-api-key` on the IAM — there is **no identity microservice** in the FileNest backend.
 
 ---
 
@@ -61,18 +61,18 @@ Phases 3, 4, and 5 run in parallel after Phase 2 completes. Phase 7 and 8 overla
 - `make dev` one-command local startup
 
 **Core Database Schema**
-- `organizations` table
-- `projects` table (with `domain` column — Healthcare/Generic/etc, set at creation)
-- `users` table
-- `api_keys` table (hashed, prefix stored plaintext)
+- `projects` table (with storage config, managed/byob mode)
 - `files` table (core columns only: id, org_id, project_id, name, size, mime_type, storage_key, status, created_at)
+- `outbox_messages` table (transactional outbox for NATS events)
 - `upload_sessions` table (for multipart, used in Phase 2)
 
+Note: `organizations`, `users`, and `api_keys` tables are **not in the FileNest DB** — they live in the IAM's BetterAuth/Prisma database. The FileNest DB references `organization_id` as a foreign key string only.
+
 **Auth System**
-- API key generation: `fn_live_` / `fn_test_` prefixes, SHA-256 hash stored
-- `APIKeyAuthMiddleware`: extracts key, looks up hash, attaches org + project to request context
-- Scopes: `files:read`, `files:write`, `files:delete`, `webhooks:write`, `admin`
-- `has_scope()` dependency for FastAPI route guards
+- API keys (`fn_live_` / `fn_test_`) created and stored in the IAM (BetterAuth `apiKey` plugin)
+- `authenticate_request` FastAPI dependency: extracts Bearer token, calls IAM's `/api/internal/verify-api-key` for API keys, or decodes JWT locally
+- Key metadata (organizationId, projectId, scopes) stored in IAM's `metadata` field at key creation
+- `require_scope()` dependency for FastAPI route guards
 
 **Core File Upload/Download**
 - `POST /v1/upload` — single file, multipart/form-data, writes to S3 (MinIO locally), creates file record with status=`ready`

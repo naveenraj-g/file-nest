@@ -7,8 +7,8 @@ to the appropriate verifier (JWT or API key), and stores the resolved
 TenantContext in a ContextVar for the rest of the request lifecycle.
 
 Token dispatch rules:
-  - `fn_live_*` / `fn_test_*`  → API key path (verify_api_key + DB lookup)
-  - anything else               → JWT path (verify_jwt, no DB needed)
+  - `fn_live_*` / `fn_test_*`  → API key path (IAM verify-api-key endpoint)
+  - anything else               → JWT path (local HS256 decode, no network)
 
 This function is used as a FastAPI dependency — attach it with
 `Depends(authenticate_request)` on any route that requires auth, or add it
@@ -23,16 +23,13 @@ Usage:
         ...
 """
 from fastapi import Depends, HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.auth.tenant import TenantContext, set_tenant_context
 from shared.auth.token import verify_api_key, verify_jwt
-from shared.database import get_db
 
 
 async def authenticate_request(
     request: Request,
-    db: AsyncSession = Depends(get_db),
 ) -> TenantContext:
     """
     Resolve a TenantContext from the request's Authorization header.
@@ -41,12 +38,10 @@ async def authenticate_request(
     result in the async ContextVar, and returns the context so FastAPI can
     inject it into route handlers.
 
-    A database session is injected only to support API key lookups — JWT
-    verification does not use the DB.
-
     Raises:
         HTTPException 401: If the Authorization header is missing or malformed.
         HTTPException 401: If the token is invalid, expired, revoked, or unknown.
+        HTTPException 503: If the IAM cannot be reached when verifying an API key.
     """
     auth_header = request.headers.get("Authorization", "")
 
@@ -58,9 +53,8 @@ async def authenticate_request(
 
     token = auth_header.removeprefix("Bearer ")
 
-    # Dispatch based on token prefix — API keys use fn_live_ / fn_test_ prefixes
     if token.startswith(("fn_live_", "fn_test_")):
-        ctx = await verify_api_key(token, db)
+        ctx = await verify_api_key(token)
     else:
         ctx = await verify_jwt(token)
 

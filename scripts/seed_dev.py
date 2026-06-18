@@ -1,22 +1,43 @@
 """
 scripts.seed_dev — Bootstrap a local development environment.
 
-Creates a test organisation, project, and API key directly in the database.
-Run this once after `just migrate` to get credentials for curl testing.
+Creates a test organisation and project directly in the FileNest database.
+Run this once after `just migrate` to get a project ID for curl testing.
+
+API key creation:
+    API keys are managed by the IAM (BetterAuth apiKey plugin), not by FileNest.
+    After running this script, create a key via the IAM console or API:
+
+        POST http://localhost:3000/api/auth/api-key/create
+        Authorization: Bearer <your-iam-session-token>
+        Content-Type: application/json
+
+        {
+          "name": "Dev Key",
+          "metadata": {
+            "organizationId": "<org_id printed below>",
+            "projectId":      "<project_id printed below>",
+            "scopes": [
+              "files:upload", "files:download", "files:read",
+              "files:delete", "files:update_metadata",
+              "projects:read", "projects:update",
+              "audit:read", "compliance:manage"
+            ]
+          }
+        }
+
+    The response includes the raw key (shown once). Use it in curl:
+
+        curl -H "Authorization: Bearer fn_live_<key>" http://localhost:8001/v1/files
 
 Usage:
     uv run python scripts/seed_dev.py
-
-Output:
-    Prints the raw API key — store it, it is shown only once.
 
 Environment:
     Reads DATABASE_PRIMARY_URL from the .env file in the project root.
     Run `just dev` first to ensure PostgreSQL is up.
 """
 import asyncio
-import hashlib
-import json
 import os
 import secrets
 import sys
@@ -24,7 +45,6 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-# Ensure project root is on sys.path so shared/* imports work
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from dotenv import load_dotenv  # type: ignore[import]
@@ -34,16 +54,11 @@ load_dotenv()
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 
-def _hash_key(raw_key: str, salt: str) -> str:
-    return hashlib.sha256(f"{salt}:{raw_key}".encode()).hexdigest()
-
-
 async def seed() -> None:
     db_url = os.environ.get(
         "DATABASE_PRIMARY_URL",
         "postgresql+asyncpg://filenest:filenest@localhost:5434/filenest",
     )
-    api_key_salt = os.environ.get("API_KEY_SALT", "dev-salt-change-in-production")
 
     engine = create_async_engine(db_url, echo=False)
     Session = async_sessionmaker(engine, expire_on_commit=False)
@@ -51,24 +66,7 @@ async def seed() -> None:
     async with Session() as session:
         org_id = "org_dev_" + secrets.token_hex(4)
         project_id = str(uuid.uuid4())
-        raw_key = f"fn_live_{secrets.token_urlsafe(32)}"
-        key_hash = _hash_key(raw_key, api_key_salt)
-        key_prefix = raw_key[:20]
         now = datetime.now(UTC)
-
-        all_scopes = [
-            "files:upload",
-            "files:download",
-            "files:read",
-            "files:delete",
-            "files:update_metadata",
-            "api_keys:create",
-            "api_keys:revoke",
-            "projects:read",
-            "projects:update",
-            "audit:read",
-            "compliance:manage",
-        ]
 
         await session.execute(
             __import__("sqlalchemy").text(
@@ -77,25 +75,11 @@ async def seed() -> None:
                 VALUES (:id, :org_id, :name, :slug, 'managed', true, :now, :now)
                 """
             ),
-            {"id": project_id, "org_id": org_id, "name": "Dev Project", "slug": "dev-project", "now": now},
-        )
-
-        key_id = str(uuid.uuid4())
-        await session.execute(
-            __import__("sqlalchemy").text(
-                """
-                INSERT INTO api_keys (id, organization_id, project_id, name, key_hash, key_prefix, scopes, is_test_mode, is_revoked, created_at)
-                VALUES (:id, :org_id, :project_id, :name, :key_hash, :key_prefix, :scopes, false, false, :now)
-                """
-            ),
             {
-                "id": key_id,
+                "id": project_id,
                 "org_id": org_id,
-                "project_id": project_id,
-                "name": "Dev Key",
-                "key_hash": key_hash,
-                "key_prefix": key_prefix,
-                "scopes": json.dumps(all_scopes),
+                "name": "Dev Project",
+                "slug": "dev-project",
                 "now": now,
             },
         )
@@ -109,13 +93,9 @@ async def seed() -> None:
     print("=" * 60)
     print(f"  Organization ID : {org_id}")
     print(f"  Project ID      : {project_id}")
-    print(f"  API Key         : {raw_key}")
     print()
-    print("  Save the API key — it cannot be recovered from the DB.")
-    print()
-    print("  Quick test:")
-    print(f'    curl -H "Authorization: Bearer {raw_key}" \\')
-    print("         http://localhost:8001/v1/files")
+    print("  Next step: create an API key in the IAM.")
+    print("  See the docstring in this file for the curl command.")
     print("=" * 60 + "\n")
 
 

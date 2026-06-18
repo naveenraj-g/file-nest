@@ -1,5 +1,5 @@
 [tool.uv.workspace]
-members = ["shared", "services/storage", "services/file", "services/identity", "services/project"]
+members = ["shared", "services/storage", "services/file", "services/project"]
 
 [tool.uv]
 dev-dependencies = [

@@ -93,58 +93,55 @@ Layer 7: Audit
 
 ### 2.2 API Key Validation Flow
 
+API keys are **stored and managed entirely in the IAM** (BetterAuth `apiKey` plugin).
+The FileNest FastAPI backend does not maintain an `api_keys` table.
+
 ```
 1. Client sends: Authorization: Bearer fn_live_abc123...xyz
-2. Extract token
-3. Check token format (prefix validation)
-4. Compute bcrypt check: bcrypt.checkpw(token, stored_hash)
-   - First check Redis cache for hashed token → saved API key record
-   - Cache key: sha256(token) → api_key record
-   - Cache TTL: 10 minutes
-5. Verify status = 'active'
-6. Verify expires_at > now (if set)
-7. Check IP allowlist (if configured)
-8. Check origin allowlist (if configured)
-9. Build AuthContext { org_id, project_id, scopes, actor_id }
-10. Set PostgreSQL session variable for RLS
+2. Extract token; detect fn_live_ / fn_test_ prefix
+3. POST {IAM_URL}/api/internal/verify-api-key { key: "fn_live_abc123...xyz" }
+4. IAM calls auth.api.verifyApiKey, checks its api_keys table
+5. IAM returns { userId, organizationId, projectId, scopes, isTestMode }
+6. Build TenantContext { organization_id, project_id, scopes, actor_id }
 ```
 
-**Performance note:** bcrypt is intentionally slow. To avoid bcrypt on every request:
-- Hash the raw token with SHA-256 (fast, deterministic)
-- Cache the SHA-256 → AuthContext mapping in Redis (TTL: 10 min)
-- Only bcrypt-check on cache miss
+**Performance note:** In Phase 6+, add a Redis cache keyed on SHA-256(raw_key) → TenantContext
+with a 2-minute TTL to avoid an IAM round-trip on every request. For Phase 1, the direct call is acceptable.
 
 ```python
-async def validate_api_key(raw_token: str) -> AuthContext:
-    # Fast path: cache lookup
-    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-    cache_key = f"apikey_cache:{token_hash}"
+# shared/auth/token.py
+async def verify_api_key(raw_key: str) -> TenantContext:
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        resp = await client.post(
+            f"{settings.iam_url}/api/internal/verify-api-key",
+            json={"key": raw_key},
+        )
+    if resp.status_code != 200:
+        raise HTTPException(401, {"code": "INVALID_API_KEY"})
+    data = resp.json()
+    return TenantContext(
+        organization_id=data["organizationId"],
+        project_id=data.get("projectId"),
+        actor_id=data["userId"],
+        scopes=frozenset(data.get("scopes", [])),
+        is_test_mode=raw_key.startswith("fn_test_"),
+    )
+```
 
-    cached = await redis.get(cache_key)
-    if cached:
-        return AuthContext.model_validate_json(cached)
+**Key creation** — done by the console app (Phase 4) or directly via the IAM API:
 
-    # Slow path: DB lookup + bcrypt check
-    # Get candidate keys (by prefix to limit bcrypt calls)
-    prefix = raw_token[:20]
-    candidates = await db.query(APIKey).filter(
-        APIKey.key_prefix.like(f"{prefix[:12]}%"),
-        APIKey.status == "active",
-    ).all()
+```bash
+POST {IAM_URL}/api/auth/api-key/create
+Authorization: Bearer <iam-session-token>
 
-    for candidate in candidates:
-        if bcrypt.checkpw(raw_token.encode(), candidate.key_hash.encode()):
-            ctx = AuthContext(
-                organization_id=str(candidate.organization_id),
-                project_id=str(candidate.project_id),
-                actor_type="api_key",
-                actor_id=str(candidate.id),
-                scopes=candidate.scopes,
-            )
-            await redis.setex(cache_key, 600, ctx.model_dump_json())
-            return ctx
-
-    raise AuthenticationError("Invalid API key")
+{
+  "name": "My Key",
+  "metadata": {
+    "organizationId": "<org_id>",
+    "projectId": "<project_id>",
+    "scopes": ["files:upload", "files:read", ...]
+  }
+}
 ```
 
 ### 2.3 Service Account Flow (Client Credentials)
