@@ -1,23 +1,16 @@
 """
-services.file.main — FastAPI application factory for the File Service.
+services.identity.main — FastAPI application factory for the Identity Service.
 
-The File Service handles file upload initiation, metadata persistence, download
-URL generation, and file listing. It is the primary service for Phase 1 and
-runs on port 8001 in local development.
+The Identity Service manages API keys. It runs on port 8002 in local development.
 
 Startup sequence (lifespan):
   1. configure_logging() — structlog setup
-  2. Yield control to FastAPI (app is now serving requests)
-  3. close_redis() — drain the Redis connection pool on shutdown
-
-All domain errors (FileNestError subclasses) are caught by the global handler
-and serialised to the standard JSON error envelope before reaching the client.
-FastAPI's built-in validation errors (422) are not overridden.
+  2. Yield control to FastAPI
+  3. close_redis() — drain Redis connection pool on shutdown
 
 Commands:
-    Run locally:   just file
-    API docs:      http://localhost:8001/docs
-    Health check:  GET /v1/health  (implicit via FastAPI startup)
+    Run locally:  just identity
+    API docs:     http://localhost:8002/docs
 """
 from contextlib import asynccontextmanager
 
@@ -41,17 +34,17 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """
-    Construct and configure the File Service FastAPI application.
+    Construct and configure the Identity Service FastAPI application.
 
     Registers:
       - Global FileNestError handler → standard JSON error envelope
-      - All file-service routes under the /v1 prefix
+      - All identity-service routes under the /v1 prefix
 
     Returns:
         A fully configured FastAPI application instance.
     """
     app = FastAPI(
-        title="FileNest — File Service",
+        title="FileNest — Identity Service",
         version="0.1.0",
         lifespan=lifespan,
         docs_url="/docs",
@@ -69,12 +62,11 @@ def create_app() -> FastAPI:
     @app.get("/health", tags=["Health"])
     async def health() -> dict:
         """Liveness probe — returns 200 when the service is up."""
-        return {"status": "ok", "service": "file"}
+        return {"status": "ok", "service": "identity"}
 
     app.include_router(router, prefix="/v1")
 
     return app
 
 
-# Module-level app instance used by uvicorn: `uvicorn services.file.main:app`
 app = create_app()

@@ -7,11 +7,12 @@ set shell := ["bash", "-c"]
 dev:
     docker compose up -d
     @echo ""
-    @echo "  PostgreSQL  → localhost:5432"
-    @echo "  Redis       → localhost:6379"
-    @echo "  RustFS API  → localhost:9000   (console: http://localhost:9001)"
-    @echo "  NATS        → localhost:4222   (monitor: http://localhost:8222)"
-    @echo "  ClamAV      → localhost:3310"
+    @echo "  IAM PostgreSQL   → localhost:5433"
+    @echo "  FileNest PostgreSQL → localhost:5434"
+    @echo "  Redis            → localhost:6379"
+    @echo "  RustFS API       → localhost:9000   (console: http://localhost:9001)"
+    @echo "  NATS             → localhost:4222   (monitor: http://localhost:8222)"
+    @echo "  ClamAV           → localhost:3310"
     @echo ""
 
 # Stop all infrastructure
@@ -61,6 +62,10 @@ migration name:
 # Show migration history
 migrate-history:
     uv run alembic -c migrations/alembic/alembic.ini history --verbose
+
+# Seed the dev database with a test project + API key (run once after migrate)
+seed-dev:
+    uv run python scripts/seed_dev.py
 
 # ── Quality ────────────────────────────────────────────────────────────────────
 

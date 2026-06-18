@@ -22,7 +22,7 @@ Usage:
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, DateTime, Integer, String, Text, select
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import Base
@@ -50,6 +50,7 @@ class FileRecord(Base):
     storage_key = Column(String, nullable=True)     # Set after upload is confirmed
     folder_id = Column(String, nullable=True)
     metadata_json = Column(Text, nullable=False, default="{}")   # JSON blob
+    deleted_at = Column(DateTime(timezone=True), nullable=True)   # Set on soft delete
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at = Column(
         DateTime(timezone=True),
@@ -107,6 +108,7 @@ class FileRepository:
                 FileRecord.id == file_id,
                 FileRecord.organization_id == organization_id,
                 FileRecord.project_id == project_id,
+                FileRecord.deleted_at.is_(None),
             )
         )
         record = result.scalar_one_or_none()
@@ -144,6 +146,7 @@ class FileRepository:
         stmt = select(FileRecord).where(
             FileRecord.organization_id == organization_id,
             FileRecord.project_id == project_id,
+            FileRecord.deleted_at.is_(None),
         )
         if folder_id is not None:
             stmt = stmt.where(FileRecord.folder_id == folder_id)
@@ -153,6 +156,31 @@ class FileRepository:
 
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
+
+    async def soft_delete(
+        self, file_id: str, organization_id: str, project_id: str
+    ) -> FileRecord:
+        """
+        Mark a file as deleted by setting deleted_at to the current timestamp.
+
+        The row is retained for audit purposes. Subsequent calls to `get` and
+        `list` will exclude deleted files.
+
+        Args:
+            file_id:         UUID of the file to delete.
+            organization_id: Tenant filter.
+            project_id:      Project filter.
+
+        Returns:
+            The updated FileRecord with deleted_at set.
+
+        Raises:
+            NotFoundError: If the file does not exist or is already deleted.
+        """
+        record = await self.get(file_id, organization_id, project_id)
+        record.deleted_at = datetime.now(UTC)
+        record.updated_at = datetime.now(UTC)
+        return record
 
     async def update_status(self, file_id: str, status: str) -> FileRecord:
         """

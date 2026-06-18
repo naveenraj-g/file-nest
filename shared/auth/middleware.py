@@ -7,8 +7,8 @@ to the appropriate verifier (JWT or API key), and stores the resolved
 TenantContext in a ContextVar for the rest of the request lifecycle.
 
 Token dispatch rules:
-  - `fn_live_*` / `fn_test_*`  → API key path (verify_api_key)
-  - anything else               → JWT path (verify_jwt)
+  - `fn_live_*` / `fn_test_*`  → API key path (verify_api_key + DB lookup)
+  - anything else               → JWT path (verify_jwt, no DB needed)
 
 This function is used as a FastAPI dependency — attach it with
 `Depends(authenticate_request)` on any route that requires auth, or add it
@@ -22,13 +22,18 @@ Usage:
     async def list_files(ctx: TenantContext = Depends(authenticate_request)):
         ...
 """
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.auth.tenant import TenantContext, set_tenant_context
 from shared.auth.token import verify_api_key, verify_jwt
+from shared.database import get_db
 
 
-async def authenticate_request(request: Request) -> TenantContext:
+async def authenticate_request(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> TenantContext:
     """
     Resolve a TenantContext from the request's Authorization header.
 
@@ -36,9 +41,12 @@ async def authenticate_request(request: Request) -> TenantContext:
     result in the async ContextVar, and returns the context so FastAPI can
     inject it into route handlers.
 
+    A database session is injected only to support API key lookups — JWT
+    verification does not use the DB.
+
     Raises:
         HTTPException 401: If the Authorization header is missing or malformed.
-        HTTPException 401: If the token is invalid, expired, or unknown.
+        HTTPException 401: If the token is invalid, expired, revoked, or unknown.
     """
     auth_header = request.headers.get("Authorization", "")
 
@@ -52,7 +60,7 @@ async def authenticate_request(request: Request) -> TenantContext:
 
     # Dispatch based on token prefix — API keys use fn_live_ / fn_test_ prefixes
     if token.startswith(("fn_live_", "fn_test_")):
-        ctx = await verify_api_key(token)
+        ctx = await verify_api_key(token, db)
     else:
         ctx = await verify_jwt(token)
 

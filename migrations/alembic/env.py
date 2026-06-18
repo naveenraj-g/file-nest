@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from shared.config import settings
 from shared.database import Base
 
-# Import all models so Alembic sees them
-import services.file.repository  # noqa: F401
-import shared.messaging.outbox    # noqa: F401
+# Import all models so Alembic sees them for autogenerate
+import services.file.repository  # noqa: F401 — FileRecord (files table)
+import shared.messaging.outbox    # noqa: F401 — OutboxMessage (outbox_messages table)
+import shared.models              # noqa: F401 — Project, ApiKey
 
 config = context.config
 if config.config_file_name is not None:

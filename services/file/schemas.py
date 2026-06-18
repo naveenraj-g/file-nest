@@ -82,3 +82,24 @@ class FileListResponse(BaseModel):
     items: list[FileResponse]
     total: int
     cursor: str | None = None   # None means this is the last page
+
+
+class DownloadUrlResponse(BaseModel):
+    """Presigned download URL returned by GET /files/{id}/download."""
+
+    url: str
+    expires_at: datetime
+
+
+class ConfirmUploadResponse(BaseModel):
+    """Returned after the client confirms a completed upload."""
+
+    id: str
+    status: FileStatus
+
+
+class DeleteResponse(BaseModel):
+    """Returned after a successful soft delete."""
+
+    id: str
+    deleted: bool = True
