@@ -15,7 +15,7 @@ User  ──<  Organization  ──<  Project  ──<  File
 
 - A **user** can belong to multiple **organizations**.
 - An **organization** is the top-level tenant — it maps to a customer account. It owns members, teams, roles, and API keys. Lives in the **IAM database** (BetterAuth `organization` plugin).
-- A **project** belongs to one organization and is the unit of storage/processing configuration. Lives in the **FileNest PostgreSQL database** (`services/project/`). The `organization_id` foreign key links it back to IAM without a cross-DB join.
+- A **project** belongs to one organization and is the unit of storage/processing configuration. Lives in the **FileNest PostgreSQL database** (`backend/app/`). The `organization_id` foreign key links it back to IAM without a cross-DB join.
 - **Files, metadata, webhooks, compliance settings** all belong to a project and live in the FileNest database.
 
 ### Data ownership rules
@@ -51,9 +51,9 @@ Three separate deployments — each is its own project:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  nextjs-iam  (E:\work\code\nextjs-iam)                      │
+│  iam/  — FileNest IAM                                       │
 │  BetterAuth · Prisma · PostgreSQL                           │
-│  OAuth 2.1 / OIDC server, user & org management            │
+│  OAuth 2.1 / OIDC server, user & org management, API keys  │
 │  Runs at: IAM_URL (e.g. https://auth.filenest.io)           │
 └────────────────────────┬────────────────────────────────────┘
                          │  OAuth 2.1 PKCE
@@ -67,7 +67,7 @@ Three separate deployments — each is its own project:
                          │  REST API  (Bearer token from IAM)
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  services/  — FileNest FastAPI Backend                      │
+│  backend/  — FileNest FastAPI Backend (single process)      │
 │  Python · FastAPI · PostgreSQL · Redis · NATS · OpenSearch  │
 │  File operations, processing, search, compliance            │
 │  Runs at: API_URL (e.g. https://api.filenest.io)            │
@@ -100,37 +100,32 @@ Three separate deployments — each is its own project:
 
 ---
 
-## Monorepo Structure (planned)
-
-> **This is a reference structure.** Use it as a starting point — you can implement your own layout as long as you follow the clean architecture rules, skills, and standards documented here.
+## Monorepo Structure
 
 ```
 filenest/
-├── iam/                 # nextjs-iam (E:\work\code\nextjs-iam) — copied/linked here
-│   └── ...              # BetterAuth · Prisma · OAuth 2.1 server. See nextjs-iam for internals.
-├── services/
-│   ├── identity/        # Orgs, users, roles, API keys, service accounts
-│   ├── project/         # Project CRUD, config, capability packs
-│   ├── file/            # Upload, download, versioning, folders
-│   ├── storage/         # Provider abstraction + resolver
-│   ├── metadata/        # Schema validation, custom metadata
-│   ├── search/          # OpenSearch indexing + query
-│   ├── processing/      # Pipeline orchestration, worker, stages
-│   ├── audit/           # Audit logging + export
-│   ├── webhook/         # Event delivery to customer endpoints
-│   ├── compliance/      # Legal hold, WORM, retention, GDPR
-│   └── healthcare/      # FHIR, PHI detection, XDS
-├── shared/
-│   ├── models/          # SQLAlchemy ORM models
-│   ├── schemas/         # Pydantic request/response DTOs
-│   ├── database/        # Session management (get_db, get_read_db)
-│   ├── cache/           # Redis client
-│   ├── messaging/       # NATS publisher + transactional outbox
-│   ├── auth/            # authenticate_request, require_auth, require_scope
-│   ├── config/          # Pydantic Settings
-│   ├── exceptions/      # FileNestError hierarchy
-│   ├── logging/         # structlog setup
-│   └── telemetry/       # OpenTelemetry init
+├── iam/                 # BetterAuth IAM — OAuth 2.1 server, API key management
+│   └── src/
+├── backend/             # Single FastAPI application — all file infrastructure logic
+│   ├── app/
+│   │   ├── main.py          # FastAPI factory + lifespan
+│   │   ├── core/            # config, database, logging, messaging (outbox)
+│   │   ├── auth/            # TenantContext, authenticate_request, require_scope
+│   │   ├── errors/          # FileNestError hierarchy + exception handlers
+│   │   ├── models/          # SQLAlchemy ORM: Project, File
+│   │   ├── schemas/         # Pydantic request/response models
+│   │   ├── repositories/    # DB access layer (tenant-scoped queries)
+│   │   ├── services/        # Business logic layer
+│   │   ├── storage/         # StorageProvider protocol + S3 impl + StorageResolver
+│   │   └── routers/         # HTTP handlers (thin — delegate to services)
+│   ├── migrations/
+│   │   ├── alembic.ini
+│   │   ├── env.py
+│   │   └── alembic/versions/
+│   ├── scripts/
+│   │   └── seed_dev.py      # Bootstrap dev DB (project only — keys via IAM)
+│   ├── tests/
+│   └── pyproject.toml
 ├── frontend/
 │   └── web/             # FileNest Console — Next.js OAuth client of the IAM
 │       └── src/
@@ -323,18 +318,20 @@ modules/
 
 ## FastAPI — Clean Architecture Rules
 
-Every service follows the same internal layout. Dependency direction is strict: **routes → service → repository → DB**. No layer skips another.
+Single FastAPI application in `backend/`. Dependency direction is strict: **routers → services → repositories → DB**. No layer skips another.
 
 ```
-services/{name}/
-├── main.py          # create_app() factory — middleware, router, lifecycle
-├── router.py        # Route registration (prefix="/v1")
-├── routes/          # HTTP handlers only — validate input, call service, return schema
-├── service.py       # All business logic — the only place for rules
-├── repository.py    # All DB access — no business logic, always include tenant filters
-├── schemas.py       # Pydantic request/response models (no ORM models here)
-├── dependencies.py  # FastAPI Depends() wiring
-└── events.py        # Outbox writes — never publish to NATS directly from service
+backend/app/
+├── main.py              # FastAPI app factory + lifespan
+├── core/                # Shared infrastructure (config, db, logging, messaging)
+├── auth/                # Authentication (TenantContext, dependencies, JWKS + API key verify)
+├── errors/              # Domain exception hierarchy + FastAPI exception handlers
+├── models/              # SQLAlchemy ORM models (Project, File, ...)
+├── schemas/             # Pydantic request/response DTOs (never return ORM objects)
+├── repositories/        # All DB queries — tenant-scoped, no business logic
+├── services/            # All business logic — coordinates repo + storage + outbox
+├── storage/             # StorageProvider protocol, S3 impl, StorageResolver singleton
+└── routers/             # HTTP handlers — validate input, call service, return schema
 ```
 
 ### Mandatory patterns

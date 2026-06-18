@@ -15,8 +15,8 @@ build/
 uv.lock
 
 # Alembic
-migrations/alembic/versions/*.py
-!migrations/alembic/versions/.gitkeep
+backend/migrations/alembic/versions/*.py
+!backend/migrations/alembic/versions/.gitkeep
 
 # Node / Frontend
 node_modules/

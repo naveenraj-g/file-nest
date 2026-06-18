@@ -1,0 +1,32 @@
+"""
+app.storage.provider — StorageProvider Protocol (interface).
+
+Every storage backend must satisfy this Protocol. Service code always depends on
+this interface — never on a concrete class like S3StorageProvider directly.
+
+Usage:
+    from app.storage.provider import StorageProvider
+
+    provider: StorageProvider = await resolver.get_provider(project_id)
+    url = await provider.generate_presigned_upload_url(key, content_type, size_bytes)
+"""
+from typing import Protocol, runtime_checkable
+
+
+@runtime_checkable
+class StorageProvider(Protocol):
+    """Structural interface for all FileNest storage backends."""
+
+    async def generate_presigned_upload_url(
+        self, key: str, content_type: str, size_bytes: int, *, expires_in: int = 3600,
+    ) -> str: ...
+
+    async def generate_presigned_download_url(
+        self, key: str, *, filename: str | None = None, expires_in: int = 3600,
+    ) -> str: ...
+
+    async def delete_object(self, key: str) -> None: ...
+
+    async def object_exists(self, key: str) -> bool: ...
+
+    async def copy_object(self, source_key: str, dest_key: str) -> None: ...
