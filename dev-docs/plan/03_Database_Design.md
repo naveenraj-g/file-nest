@@ -487,7 +487,68 @@ CREATE TABLE storage_configs (
 
 ---
 
-### 4.10 metadata_schemas
+### 4.10 storage_migrations
+
+Tracks a background job that copies all file bytes for a project from one storage
+provider to another. Triggered when a customer switches storage config (e.g. managed
+S3 → their own MinIO). A dry-run step is mandatory before the actual copy runs.
+
+```sql
+CREATE TABLE storage_migrations (
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id             UUID NOT NULL,
+    project_id                  UUID NOT NULL REFERENCES projects(id),
+
+    -- Source — null means the FileNest platform managed default.
+    source_config_id            UUID REFERENCES storage_configs(id),
+    source_provider             VARCHAR(50) NOT NULL,
+
+    -- Target — the new StorageConfig being migrated to.
+    target_config_id            UUID NOT NULL REFERENCES storage_configs(id),
+    target_provider             VARCHAR(50) NOT NULL,
+
+    -- Job state.
+    -- pending → dry_run → in_progress → completed | completed_with_errors | failed | cancelled
+    status                      VARCHAR(50) NOT NULL DEFAULT 'pending'
+                                    CHECK (status IN (
+                                        'pending', 'dry_run', 'in_progress', 'paused',
+                                        'completed', 'completed_with_errors', 'failed', 'cancelled'
+                                    )),
+    is_dry_run                  BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Progress counters — updated in real time by the migration worker.
+    total_files                 INTEGER,
+    completed_files             INTEGER NOT NULL DEFAULT 0,
+    failed_files                INTEGER NOT NULL DEFAULT 0,
+    skipped_files               INTEGER NOT NULL DEFAULT 0,
+    total_bytes                 BIGINT,
+    migrated_bytes              BIGINT NOT NULL DEFAULT 0,
+
+    -- Timing.
+    started_at                  TIMESTAMPTZ,
+    completed_at                TIMESTAMPTZ,
+    estimated_duration_seconds  INTEGER,
+
+    -- Cutover: when the project's active config was switched to the target.
+    cutover_at                  TIMESTAMPTZ,
+
+    -- Error tracking.
+    last_error                  TEXT,
+    -- Per-file error log: [{file_id, error, timestamp}, ...]
+    error_log                   JSONB NOT NULL DEFAULT '[]',
+
+    created_by                  TEXT,   -- user_id from IAM (string FK, no cross-DB constraint)
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_storage_migrations_project
+    ON storage_migrations(project_id, status);
+```
+
+---
+
+### 4.11 metadata_schemas
 
 ```sql
 CREATE TABLE metadata_schemas (
@@ -531,7 +592,7 @@ CREATE INDEX idx_metadata_schemas_project_id ON metadata_schemas(project_id)
 
 ---
 
-### 4.11 folders
+### 4.12 folders
 
 ```sql
 CREATE TABLE folders (
@@ -570,7 +631,7 @@ CREATE INDEX idx_folders_path ON folders(project_id, path text_pattern_ops);
 
 ---
 
-### 4.12 files
+### 4.13 files
 
 ```sql
 CREATE TABLE files (
@@ -685,7 +746,7 @@ CREATE INDEX idx_files_retain_until ON files(project_id, retain_until)
 
 ---
 
-### 4.13 file_versions
+### 4.14 file_versions
 
 ```sql
 CREATE TABLE file_versions (
@@ -725,7 +786,7 @@ CREATE INDEX idx_file_versions_file_id ON file_versions(file_id, version_number 
 
 ---
 
-### 4.14 upload_sessions
+### 4.15 upload_sessions
 
 ```sql
 CREATE TABLE upload_sessions (
@@ -773,7 +834,7 @@ CREATE INDEX idx_upload_sessions_expires_at ON upload_sessions(expires_at)
 
 ---
 
-### 4.15 processing_jobs
+### 4.16 processing_jobs
 
 ```sql
 CREATE TABLE processing_jobs (
@@ -822,7 +883,7 @@ CREATE INDEX idx_processing_jobs_status ON processing_jobs(status, queued_at)
 
 ---
 
-### 4.16 processing_job_stages
+### 4.17 processing_job_stages
 
 ```sql
 CREATE TABLE processing_job_stages (
@@ -861,7 +922,7 @@ CREATE INDEX idx_processing_job_stages_job_id ON processing_job_stages(job_id);
 
 ---
 
-### 4.17 audit_logs
+### 4.18 audit_logs
 
 ```sql
 -- IMPORTANT: This table is APPEND-ONLY. No UPDATE or DELETE is permitted.
@@ -940,7 +1001,7 @@ CREATE POLICY audit_logs_select ON audit_logs FOR SELECT
 
 ---
 
-### 4.18 webhooks
+### 4.19 webhooks
 
 ```sql
 CREATE TABLE webhooks (
@@ -981,7 +1042,7 @@ CREATE INDEX idx_webhooks_project_id ON webhooks(project_id) WHERE status = 'act
 
 ---
 
-### 4.19 webhook_deliveries
+### 4.20 webhook_deliveries
 
 ```sql
 CREATE TABLE webhook_deliveries (
@@ -1025,7 +1086,7 @@ CREATE INDEX idx_webhook_deliveries_retry ON webhook_deliveries(next_attempt_at)
 
 ---
 
-### 4.20 compliance_profiles
+### 4.21 compliance_profiles
 
 ```sql
 CREATE TABLE compliance_profiles (
@@ -1080,7 +1141,7 @@ INSERT INTO compliance_profiles (name, is_system_profile, config) VALUES
 
 ---
 
-### 4.21 events (outbox pattern)
+### 4.22 events (outbox pattern)
 
 ```sql
 -- Transactional outbox: events written atomically with DB changes,
@@ -1113,7 +1174,7 @@ CREATE INDEX idx_events_pending ON events(created_at)
 
 ---
 
-### 4.22 tags (global tag registry)
+### 4.23 tags (global tag registry)
 
 ```sql
 CREATE TABLE tags (

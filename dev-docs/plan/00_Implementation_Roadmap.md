@@ -59,15 +59,20 @@ Phases 6 and 7 overlap — start Phase 7 when Phase 6 is 60% done.
 
 **Database**
 - Run initial Alembic migration (`backend/migrations/alembic/versions/001_initial_schema.py`)
-- Tables: `projects`, `files`, `outbox_messages`, `upload_sessions`
+- Tables: `projects`, `files`, `storage_configs`, `storage_migrations`, `outbox_messages`, `upload_sessions`
 - `organizations`, `users`, `api_keys` — **not here**, they live in IAM's Prisma DB
 
 **Project API**
-- `POST /v1/projects` — create project (name, slug, storage_mode: managed)
+- `POST /v1/projects` — create project. Body includes `storage_mode` (managed | byob) and `storage_provider` (s3 | azure_blob | gcs | minio | r2 | restfs). For Phase 1 `byob` accepts the fields but BYOB full configuration is enforced from Phase 7 onward.
 - `GET /v1/projects` — list projects in org
 - `GET /v1/projects/{id}` — get project
 - `PATCH /v1/projects/{id}` — update name/description
 - `DELETE /v1/projects/{id}` — soft delete
+
+**Storage Config API (foundation — full BYOB wiring in Phase 7)**
+- `GET /v1/projects/{id}/storage` — return current storage config (non-sensitive fields: mode, provider, region, bucket, endpoint_url)
+- `POST /v1/projects/{id}/storage/verify` — connectivity test: write + delete a probe object → `{ ok, latency_ms, error }`
+- A `StorageConfig` row is created automatically when a project is created (managed S3 defaults from platform settings)
 
 **File Upload & Download**
 - `POST /v1/projects/{id}/files/upload` — single file, multipart/form-data, writes to S3, creates file record (`status=ready`)
@@ -586,8 +591,10 @@ The compliance modules are already scaffolded in the codebase with clean interfa
 | Background jobs (core) | Phase 6 | Phase 7 (full suite) |
 | Kubernetes + Helm | Phase 6 | Phase 7 (Gotenberg pod) |
 | CI/CD | Phase 6 | — |
+| `StorageConfig` + `StorageMigration` models | Phase 1 | Phase 7 (BYOB credentials wired) |
+| Storage provider selection at project creation | Phase 1 | Phase 7 (full BYOB enforcement) |
 | All storage providers | Phase 7 | — |
-| BYOB dual-mode | Phase 7 | — |
+| BYOB dual-mode (full credential flow) | Phase 7 | — |
 | Credential encryption | Phase 7 | v2.0 (KMS envelope) |
 | Storage migration worker | Phase 7 | — |
 | Preview generation | Phase 7 | — |
