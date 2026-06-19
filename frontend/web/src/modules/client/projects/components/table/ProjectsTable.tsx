@@ -47,7 +47,10 @@ import { useProjectStore } from "@/modules/client/projects/stores/project.store"
 import { projectKeys } from "@/modules/client/projects/queries/project.queries";
 import { projectsTableColumns } from "./ProjectsTableColumn";
 import { ProjectsCard } from "./ProjectsCard";
-import type { TProject, TProjectList } from "@/modules/entities/schemas/project";
+import type {
+  TProject,
+  TProjectList,
+} from "@/modules/entities/schemas/project";
 
 const INITIAL_PAGE_SIZE = 20;
 
@@ -61,7 +64,9 @@ export function ProjectsTable({ initialData }: ProjectsTableProps) {
   const queryClient = useQueryClient();
 
   const [rows, setRows] = React.useState<TProject[]>(initialData.items ?? []);
-  const [pageCount, setPageCount] = React.useState(initialData.total_pages ?? 1);
+  const [pageCount, setPageCount] = React.useState(
+    initialData.total_pages ?? 1,
+  );
 
   const columns = React.useMemo(() => projectsTableColumns(), []);
 
@@ -76,32 +81,50 @@ export function ProjectsTable({ initialData }: ProjectsTableProps) {
   // ── Derive API params from table state ─────────────────────────────────────
 
   const providerFilter = (
-    state.columnFilters.find((f) => f.id === "storage_provider")?.value as string[] | undefined
+    state.columnFilters.find((f) => f.id === "storage_provider")?.value as
+      | string[]
+      | undefined
   )?.[0];
   const modeFilter = (
-    state.columnFilters.find((f) => f.id === "storage_mode")?.value as string[] | undefined
+    state.columnFilters.find((f) => f.id === "storage_mode")?.value as
+      | string[]
+      | undefined
   )?.[0];
 
-  const queryParams = React.useMemo(() => ({
-    page: state.pagination.pageIndex + 1,
-    page_size: state.pagination.pageSize,
-    sort_by: (state.sorting[0]?.id ?? "created_at") as
-      "name" | "created_at" | "storage_provider" | "storage_mode",
-    sort_dir: (state.sorting[0]?.desc === false ? "asc" : "desc") as "asc" | "desc",
-    search: state.globalFilter || undefined,
-    storage_provider: providerFilter,
-    storage_mode: modeFilter as "managed" | "byob" | undefined,
-  }), [state, providerFilter, modeFilter]);
+  const queryParams = React.useMemo(
+    () => ({
+      page: state.pagination.pageIndex + 1,
+      page_size: state.pagination.pageSize,
+      sort_by: (state.sorting[0]?.id ?? "created_at") as
+        | "name"
+        | "created_at"
+        | "storage_provider"
+        | "storage_mode",
+      sort_dir: (state.sorting[0]?.desc === false ? "asc" : "desc") as
+        | "asc"
+        | "desc",
+      search: state.globalFilter || undefined,
+      storage_provider: providerFilter,
+      storage_mode: modeFilter as "managed" | "byob" | undefined,
+    }),
+    [state, providerFilter, modeFilter],
+  );
 
   // Reset to page 0 when filters or search change
-  const prevFiltersRef = React.useRef({ search: state.globalFilter, filters: state.columnFilters });
+  const prevFiltersRef = React.useRef({
+    search: state.globalFilter,
+    filters: state.columnFilters,
+  });
   React.useEffect(() => {
     const prev = prevFiltersRef.current;
     if (
       state.globalFilter !== prev.search ||
       state.columnFilters !== prev.filters
     ) {
-      prevFiltersRef.current = { search: state.globalFilter, filters: state.columnFilters };
+      prevFiltersRef.current = {
+        search: state.globalFilter,
+        filters: state.columnFilters,
+      };
       resetPage();
     }
   }, [state.globalFilter, state.columnFilters, resetPage]);
@@ -113,13 +136,16 @@ export function ProjectsTable({ initialData }: ProjectsTableProps) {
     !state.globalFilter &&
     state.columnFilters.length === 0;
 
-  const { data, isPending: isFetching } = useServerActionQuery(listProjectsAction, {
-    input: { payload: queryParams },
-    queryKey: projectKeys.list(queryParams),
-    initialData: isInitialQuery ? initialData : undefined,
-    staleTime: 30_000,
-    placeholderData: (prev: TProjectList | undefined) => prev,
-  });
+  const { data, isPending: isFetching } = useServerActionQuery(
+    listProjectsAction,
+    {
+      input: { payload: queryParams },
+      queryKey: projectKeys.list(queryParams),
+      initialData: isInitialQuery ? initialData : undefined,
+      staleTime: 30_000,
+      placeholderData: (prev: TProjectList | undefined) => prev,
+    },
+  );
 
   React.useEffect(() => {
     if (data) {
@@ -172,7 +198,7 @@ export function ProjectsTable({ initialData }: ProjectsTableProps) {
   const toolbar = (
     <DataTableToolbar table={table}>
       <DataTableGlobalSearch table={table} placeholder="Search projects…" />
-      <Button size="sm" onClick={() => onOpen("createProject")}>
+      <Button size="default" onClick={() => onOpen("createProject")}>
         <Plus className="h-4 w-4 mr-1.5" />
         New project
       </Button>
