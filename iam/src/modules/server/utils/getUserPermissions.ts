@@ -1,4 +1,5 @@
 import { prisma } from "../../../../prisma/db";
+import { DEFAULT_ORG_ROLE_PERMISSIONS, orgPermissionJsonToKeys } from "./org-permissions";
 
 export async function getUserPermissions(
   userId: string,
@@ -18,18 +19,19 @@ export async function getUserPermissions(
     select: { permission: true },
   });
 
+  // Fallback for orgs that existed before default roles were seeded:
+  // only owners get a fallback — every other role gets no permissions
+  // until explicitly granted via the invite flow.
+  if (orgRoles.length === 0) {
+    if (roles.includes("owner")) {
+      return new Set(DEFAULT_ORG_ROLE_PERMISSIONS.owner);
+    }
+    return new Set();
+  }
+
   const keys: string[] = [];
   for (const row of orgRoles) {
-    try {
-      const parsed = JSON.parse(row.permission) as Record<string, string[]>;
-      for (const [resource, actions] of Object.entries(parsed)) {
-        for (const action of actions) {
-          keys.push(`${resource}:${action}`);
-        }
-      }
-    } catch {
-      // skip malformed rows
-    }
+    keys.push(...orgPermissionJsonToKeys(row.permission));
   }
   return new Set(keys);
 }

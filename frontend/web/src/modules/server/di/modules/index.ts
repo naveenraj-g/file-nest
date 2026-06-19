@@ -3,3 +3,4 @@
  * Import from here in container.ts to keep it tidy as new domains are added.
  */
 export { registerProjectModule } from "./project/project.module";
+export { registerStorageConfigModule } from "./storage-config/storage-config.module";

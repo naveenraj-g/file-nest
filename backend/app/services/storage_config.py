@@ -15,9 +15,10 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import TenantContext
+from app.core.crypto import encrypt_storage_credentials
 from app.core.logging import get_logger
 from app.repositories.storage_config import StorageConfigRepository
-from app.schemas.storage_config import StorageConfigResponse, StorageVerifyResponse
+from app.schemas.storage_config import StorageConfigResponse, StorageConfigUpdateRequest, StorageVerifyResponse
 from app.storage.resolver import storage_resolver
 
 logger = get_logger(__name__)
@@ -43,6 +44,47 @@ class StorageConfigService:
         self._session = session
         self._ctx = ctx
         self._repo = repo
+
+    async def update_config(self, project_id: str, req: StorageConfigUpdateRequest) -> StorageConfigResponse:
+        """
+        Save BYOB credentials for a project's storage configuration.
+
+        Sensitive fields are AES-256-GCM encrypted before write. After saving,
+        status is set to pending_verification — call verify() to promote to active.
+
+        Raises:
+            NotFoundError: If no storage config exists for the project.
+            StorageError:  If STORAGE_ENCRYPTION_KEY is missing or invalid.
+        """
+        credentials = {
+            "access_key_id": req.access_key_id,
+            "secret_access_key": req.secret_access_key,
+        }
+        if req.kms_key_id:
+            credentials["kms_key_id"] = req.kms_key_id
+
+        config_encrypted = encrypt_storage_credentials(credentials)
+
+        record = await self._repo.update(
+            project_id,
+            self._ctx.organization_id,
+            bucket_name=req.bucket_name,
+            region=req.region,
+            endpoint_url=req.endpoint_url,
+            config_encrypted=config_encrypted,
+            server_side_encryption=req.server_side_encryption,
+            kms_key_id=req.kms_key_id,
+        )
+        await self._session.commit()
+
+        logger.info(
+            "storage_config.updated",
+            project_id=project_id,
+            organization_id=self._ctx.organization_id,
+            provider=record.provider,
+        )
+
+        return self._to_response(record)
 
     async def get_config(self, project_id: str) -> StorageConfigResponse:
         """
@@ -72,7 +114,7 @@ class StorageConfigService:
         try:
             provider = await storage_resolver.get_provider(project_id)
             await provider.upload(probe_key, b"filenest-probe", "text/plain")
-            await provider.delete(probe_key)
+            await provider.delete_object(probe_key)
             latency_ms = (time.monotonic() - start) * 1000
 
             await self._repo.update_status(

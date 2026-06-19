@@ -51,9 +51,17 @@ migrate-down:
 migration name:
     cd backend && uv run alembic -c migrations/alembic.ini revision --autogenerate -m "{{ name }}"
 
+# Show current DB revision
+migrate-current:
+    cd backend && uv run alembic -c migrations/alembic.ini current
+
 # Show migration history
 migrate-history:
     cd backend && uv run alembic -c migrations/alembic.ini history --verbose
+
+# Check if migrations are up to date (exits non-zero if pending)
+migrate-check:
+    cd backend && uv run alembic -c migrations/alembic.ini check
 
 # Seed the dev database with a test project (run once after migrate)
 seed-dev:

@@ -26,17 +26,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { authClient } from "@/modules/client/auth/auth-client";
-
-const DEFAULT_SCOPES = [
-  "files:upload",
-  "files:download",
-  "files:read",
-  "files:delete",
-  "files:update_metadata",
-  "projects:read",
-  "projects:update",
-];
 
 export default function GetApiKeyPage() {
   const router = useRouter();
@@ -58,23 +47,21 @@ export default function GetApiKeyPage() {
   async function generateKey() {
     setLoading(true);
 
-    const { data, error } = await authClient.apiKey.create({
-      name: "default",
-      organizationId: orgId,
-      metadata: {
-        organizationId: orgId,
-        projectId: projectId || null,
-        scopes: DEFAULT_SCOPES,
-      },
+    const res = await fetch("/api/onboarding/api-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orgId, projectId: projectId || null }),
     });
 
-    if (error || !data) {
-      toast.error(error?.message ?? "Failed to generate API key");
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast.error(data.error ?? "Failed to generate API key");
       setLoading(false);
       return;
     }
 
-    const rawKey = data.key;
+    const rawKey = (data as { key: string }).key;
     setApiKey(rawKey);
     setGenerated(true);
     sessionStorage.setItem("fn_onboarding_key", rawKey);
@@ -142,6 +129,13 @@ export default function GetApiKeyPage() {
             </Button>
           </>
         )}
+        <Button
+          variant="ghost"
+          className="w-full text-muted-foreground"
+          onClick={() => router.push("/dashboard")}
+        >
+          Skip for now
+        </Button>
       </CardContent>
     </Card>
   );

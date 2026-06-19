@@ -24,15 +24,46 @@ modules/client/
 │   └── pages/                 # Full-page components used by app/[locale]/(marketing)/ routes
 ├── auth/                      # Login/callback/signup UI components
 ├── dashboard/                 # Dashboard widgets + hooks
-├── projects/                  # Projects list + project detail client components
+├── projects/                  # Projects feature — IAM-style sub-structure
+│   ├── components/            # Table renderer + column definitions
+│   │   ├── ProjectsTable.tsx       # useDataTable + DataTable + DataTableToolbar
+│   │   └── ProjectsTableColumn.tsx # ColumnDef[] factory — uses projectStore.getState() (not hook)
+│   ├── forms/                 # One file per operation (RHF + zsa-react)
+│   │   ├── CreateProjectForm.tsx   # Accepts onSuccess? callback; uses FormInput/FormSelect
+│   │   └── StorageConfigForm.tsx   # BYOB credentials update; provider-conditional fields
+│   ├── modals/                # Dialog/AlertDialog wrappers — subscribe to project store
+│   │   ├── CreateProjectModal.tsx  # Dialog wrapping CreateProjectForm
+│   │   └── DeleteProjectModal.tsx  # AlertDialog (destructive) — calls deleteProjectAction
+│   ├── provider/              # Mounts all modals once, hydration-guarded
+│   │   └── ProjectModalProvider.tsx
+│   ├── stores/                # Zustand store (modal type, selected row, trigger counter)
+│   │   └── project.store.ts
+│   └── types/                 # Local TS types (not Zod — those live in entities/schemas/)
+│       └── project.type.ts
 ├── files/                     # FileUpload, FileExplorer, FilePreview wrappers + hooks
 ├── onboarding/                # Onboarding wizard step components
 ├── settings/                  # Settings sub-page components (Appearance, Profile, …)
 └── shared/                    # Shared cross-feature UI
-    └── components/
-        ├── layout/            # AppSidebar, Header, OrgSwitcher, ThemeSwitcher
-        └── tables/            # TanStack Table shared column helpers
+    ├── components/
+    │   ├── layout/            # AppSidebar, Header, OrgSwitcher, ThemeSwitcher
+    │   └── tables/            # TanStack Table shared column helpers
+    ├── custom-form-fields.tsx # FormInput, FormTextarea, FormSelect, FormSwitch, FormCheckbox
+    └── error/
+        └── handle-zsa-error.ts
 ```
+
+### Per-feature sub-structure (IAM pattern)
+
+Every product feature (`projects/`, `files/`, etc.) follows this sub-structure inside `modules/client/`:
+
+| Sub-folder | Contents |
+|---|---|
+| `components/` | Table renderer (`XxxTable.tsx`) + column factory (`XxxTableColumn.tsx`) |
+| `forms/` | One `.tsx` file per mutation: `CreateXxxForm.tsx`, `EditXxxForm.tsx`, etc. |
+| `modals/` | One `.tsx` file per modal: `CreateXxxModal.tsx`, `DeleteXxxModal.tsx` |
+| `provider/` | `XxxModalProvider.tsx` — mounts all modals with SSR hydration guard |
+| `stores/` | `xxx.store.ts` — Zustand store: `modalType`, `isOpen`, `projectData`, `trigger`, `onOpen`, `onClose`, `incrementTrigger` |
+| `types/` | `xxx.type.ts` — local TS aliases only; Zod schemas belong in `entities/schemas/` |
 
 ### Rules for `modules/client/`
 
@@ -40,9 +71,239 @@ modules/client/
 - **Never import from `modules/server/`** in client files — this breaks server-only boundaries.
 - **Import from `modules/entities/schemas/`** for Zod types — those are safe in both environments.
 - **Split large components** — if JSX exceeds ~120 lines, extract sub-sections into co-located files.
-- **Feature sub-folders** (`dashboard/`, `projects/`, `files/`) contain components *and* hooks for that feature.
 - **`(marketing)/` mirrors the `(marketing)` route group** — keeps landing-page code isolated from the product UI.
 - **Reference:** `E:\work\code\drgodly` for folder conventions and the compound `data-theme` theme system.
+
+---
+
+## Custom Form Fields — `shared/custom-form-fields.tsx`
+
+All RHF-controlled form fields use Controller-based wrappers from `@/modules/client/shared/custom-form-fields`. These are generic over `FieldValues` and read/write the form via `useController`.
+
+```tsx
+import {
+  FormInput,
+  FormTextarea,
+  FormSelect,
+  FormSelectOption,
+  FormSwitch,
+  FormCheckbox,
+} from "@/modules/client/shared/custom-form-fields";
+
+// Usage inside a form component:
+<FormInput
+  name="name"
+  control={form.control}
+  label="Project name"
+  placeholder="My Project"
+  autoFocus
+  onChangeSideEffect={(e) => {
+    // optional side effect after onChange — used for slug autofill
+    if (!slugEdited) form.setValue("slug", toSlug(e.target.value));
+  }}
+/>
+
+<FormSelect name="storage_mode" control={form.control} label="Storage mode">
+  <FormSelectOption value="managed">Managed</FormSelectOption>
+  <FormSelectOption value="byob">BYOB</FormSelectOption>
+</FormSelect>
+```
+
+**Key rules:**
+- Never use raw `<Input>` with `{...register("field")}` in product forms — always use these wrappers.
+- `onChangeSideEffect` is available on `FormInput` for cross-field side effects (e.g. slug autofill from name).
+- `FormSelect` wraps `NativeSelect`; use `FormSelectOption` for options (re-exported as alias).
+
+---
+
+## Zustand Store Pattern — `stores/xxx.store.ts`
+
+Each product feature has one Zustand store that owns modal state and a refetch trigger:
+
+```typescript
+import { create } from "zustand";
+import type { TProject } from "@/modules/entities/schemas/project";
+
+export type ProjectModalType = "createProject" | "deleteProject";
+
+export const useProjectStore = create<ProjectStoreState>((set) => ({
+  modalType: null,
+  projectData: null,
+  isOpen: false,
+  trigger: 0,
+  onOpen: (type, data) => set({ modalType: type, isOpen: true, projectData: data ?? null }),
+  onClose: () => set({ modalType: null, isOpen: false, projectData: null }),
+  incrementTrigger: () => set((s) => ({ trigger: s.trigger + 1 })),
+}));
+
+// Non-hook access for column definitions (not React components):
+export const projectStore = useProjectStore;
+```
+
+**Usage in column definitions (non-React context):**
+```typescript
+// Column definitions are not React components — cannot call hooks
+projectStore.getState().onOpen("deleteProject", row.original);
+```
+
+**Usage in React components:**
+```typescript
+const { onOpen } = useProjectStore();
+```
+
+---
+
+## TanStack Table Pattern
+
+### Column factory — `XxxTableColumn.tsx`
+
+```typescript
+export function projectsTableColumns(): ColumnDef<TProjectRow>[] {
+  return [
+    {
+      accessorKey: "name",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+      cell: ({ row }) => <div>{row.original.name}</div>,
+      meta: { label: "Name", variant: "text" },  // "text" | "select" | "date" | "number"
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "storage_provider",
+      meta: {
+        label: "Provider",
+        variant: "select",
+        options: [{ value: "s3", label: "S3" }, /* … */],
+      },
+      enableColumnFilter: true,
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <DataTableRowActions row={row} actions={[
+          { label: "Open files", icon: Files, onClick: (r) => { /* navigate */ } },
+          { label: "Delete", icon: Trash2, destructive: true, separator: true,
+            onClick: (r) => projectStore.getState().onOpen("deleteProject", r.original) },
+        ]} />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      meta: { exportable: false },
+    },
+  ];
+}
+```
+
+### Table component — `XxxTable.tsx`
+
+```tsx
+"use client";
+export function ProjectsTable({ projects, error }: IProjectsTableProps) {
+  const { onOpen } = useProjectStore();
+  const columns = React.useMemo(() => projectsTableColumns(), []);
+  const { table } = useDataTable({
+    columns,
+    data: projects,
+    initialSorting: [{ id: "created_at", desc: true }],
+    initialPageSize: 20,
+  });
+
+  if (error) {
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>Failed to load</EmptyTitle>
+          <EmptyDescription>{error}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+
+  return (
+    <DataTable table={table} emptyState={
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia><Icon className="h-8 w-8 text-muted-foreground" /></EmptyMedia>
+          <EmptyTitle>No items yet</EmptyTitle>
+          <EmptyDescription>Create your first item.</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button size="sm" onClick={() => onOpen("createX")}>New item</Button>
+        </EmptyContent>
+      </Empty>
+    }>
+      <DataTableToolbar table={table}>
+        <Button size="sm" onClick={() => onOpen("createX")}>New item</Button>
+      </DataTableToolbar>
+    </DataTable>
+  );
+}
+```
+
+**Import path for table utilities:**
+```typescript
+import {
+  DataTable, DataTableToolbar, DataTableColumnHeader, DataTableRowActions,
+  useDataTable, formatDate,
+} from "@/modules/client/shared/components/tables";
+```
+
+**`Empty` is a compound component** — never use `<Empty title="…" />` props form:
+```tsx
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty";
+```
+
+---
+
+## Modal Pattern
+
+### Create modal — `modals/CreateXxxModal.tsx`
+
+```tsx
+"use client";
+export function CreateProjectModal() {
+  const isOpen = useProjectStore((s) => s.isOpen);
+  const modalType = useProjectStore((s) => s.modalType);
+  const onClose = useProjectStore((s) => s.onClose);
+  const incrementTrigger = useProjectStore((s) => s.incrementTrigger);
+
+  const open = isOpen && modalType === "createProject";
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>New project</DialogTitle>
+          <DialogDescription>…</DialogDescription>
+        </DialogHeader>
+        <CreateProjectForm onSuccess={() => { incrementTrigger(); onClose(); }} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+### Delete modal — `modals/DeleteXxxModal.tsx`
+
+Uses `AlertDialog` (not `Dialog`). Reads row data from the store. Calls `deleteXxxAction` via `useServerAction`.
+
+### Provider — `provider/XxxModalProvider.tsx`
+
+```tsx
+"use client";
+export function ProjectModalProvider() {
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => { setIsMounted(true); }, []);
+  if (!isMounted) return null;
+  return (
+    <>
+      <CreateProjectModal />
+      <DeleteProjectModal />
+    </>
+  );
+}
+```
+
+Render `<XxxModalProvider />` once per RSC page that hosts the table. No props needed.
 
 ---
 

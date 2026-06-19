@@ -113,6 +113,19 @@ class S3StorageProvider:
         except BotoCoreError as exc:
             raise StorageError(f"Failed to check existence of '{key}'", detail={"error": str(exc)}) from exc
 
+    async def upload(self, key: str, data: bytes, content_type: str) -> None:
+        """Upload bytes directly to the bucket (used for connectivity probes)."""
+        try:
+            async with self._session.client("s3", **self._client_kwargs()) as s3:
+                await s3.put_object(
+                    Bucket=self._bucket_name,
+                    Key=key,
+                    Body=data,
+                    ContentType=content_type,
+                )
+        except (BotoCoreError, ClientError) as exc:
+            raise StorageError(f"Failed to upload '{key}'", detail={"error": str(exc)}) from exc
+
     async def copy_object(self, source_key: str, dest_key: str) -> None:
         """Copy an object within the bucket (versioning, Phase 3)."""
         try:

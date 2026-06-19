@@ -48,6 +48,37 @@ class StorageConfigRepository:
             raise NotFoundError(f"No storage config found for project {project_id}")
         return record
 
+    async def update(
+        self,
+        project_id: str,
+        organization_id: str,
+        *,
+        bucket_name: str,
+        region: str | None,
+        endpoint_url: str | None,
+        config_encrypted: bytes,
+        server_side_encryption: str,
+        kms_key_id: str | None,
+    ) -> StorageConfig:
+        """
+        Write BYOB credential fields to an existing StorageConfig row.
+
+        Sets status to pending_verification so the caller must run
+        the verify probe before files can be uploaded.
+
+        Raises:
+            NotFoundError: If no config exists for this project.
+        """
+        record = await self.get_for_project(project_id, organization_id)
+        record.bucket_name = bucket_name
+        record.region = region
+        record.endpoint_url = endpoint_url
+        record.config_encrypted = config_encrypted
+        record.server_side_encryption = server_side_encryption
+        record.kms_key_id = kms_key_id
+        record.status = "pending_verification"
+        return record
+
     async def update_status(
         self, project_id: str, organization_id: str, status: str, last_verified_at=None
     ) -> StorageConfig:

@@ -87,6 +87,10 @@ import {
   validAudiencesRef,
 } from "./oauth-client-origins";
 import { getUserPermissions } from "../utils/getUserPermissions";
+import {
+  DEFAULT_ORG_ROLE_PERMISSIONS,
+  orgPermissionKeysToJson,
+} from "../utils/org-permissions";
 
 // ── Types for customSession context payload ──────────────────────────────────
 interface NavNode {
@@ -601,6 +605,23 @@ export const authConfig = {
       ac,
       dynamicAccessControl: {
         enabled: true,
+      },
+      organizationHooks: {
+        afterCreateOrganization: async ({ organization }) => {
+          // Seed the owner role with full permissions so the org creator's JWT
+          // carries the right scopes from the very first session after org creation.
+          // All other roles get no permissions until granted via the invite flow.
+          await prisma.organizationRole.create({
+            data: {
+              id: randomUUID(),
+              organizationId: organization.id,
+              role: "owner",
+              permission: orgPermissionKeysToJson(
+                DEFAULT_ORG_ROLE_PERMISSIONS.owner!,
+              ),
+            },
+          });
+        },
       },
     }),
 

@@ -1,28 +1,33 @@
 /**
  * server/utils/api-client — typed fetch wrapper for the FileNest backend.
  *
- * Reads FILENEST_API_URL and FILENEST_API_KEY from the server environment,
- * attaches the Authorization header, and throws ApiError on non-2xx responses
- * so callers never need to inspect res.ok themselves.
+ * Attaches the caller's JWT (fetched from the IAM using the session cookie) as a
+ * Bearer token on every request. The backend validates the JWT via JWKS and builds
+ * the TenantContext from the embedded permissions and activeOrganizationId claims.
+ *
+ * API keys (fn_live_ / fn_test_) are for SDK / server-to-server calls only —
+ * the console always uses the JWT path.
  *
  * @module
  */
 "server-only";
 
 import { ApiError } from "@/modules/server/shared/errors/mappers/map-error-to-zsa";
+import { getAuthToken } from "@/modules/server/auth/jwt-token";
 
 const API_URL = process.env.FILENEST_API_URL ?? "http://localhost:8000";
-const API_KEY = process.env.FILENEST_API_KEY ?? "";
 
 export async function filenestApi<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const token = await getAuthToken();
+
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${API_KEY}`,
+      Authorization: `Bearer ${token}`,
       ...(options.headers ?? {}),
     },
     cache: "no-store",
@@ -32,7 +37,8 @@ export async function filenestApi<T>(
     let message = res.statusText;
     try {
       const body = await res.json();
-      message = body?.detail?.message ?? body?.detail ?? body?.message ?? message;
+      message =
+        body?.detail?.message ?? body?.detail ?? body?.message ?? message;
     } catch {
       // leave message as statusText
     }

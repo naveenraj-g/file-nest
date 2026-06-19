@@ -35,32 +35,10 @@ import {
   TDeleteOrgRoleValidationSchema,
 } from "@/modules/entities/schemas/admin/organizations/organizations.schema";
 import { parseMetadata } from "@/modules/server/utils/helper";
-
-// BetterAuth stores one row per (organizationId, role) with permission as a JSON
-// object: { [resource]: string[] }. Internally we use "resource:action" key strings.
-
-function orgPermissionKeysToJson(keys: string[]): string {
-  const grouped: Record<string, string[]> = {};
-  for (const key of keys) {
-    const colonIdx = key.indexOf(":");
-    if (colonIdx < 1) continue;
-    const resource = key.slice(0, colonIdx);
-    const action = key.slice(colonIdx + 1);
-    (grouped[resource] ??= []).push(action);
-  }
-  return JSON.stringify(grouped);
-}
-
-function orgPermissionJsonToKeys(json: string): string[] {
-  try {
-    const parsed = JSON.parse(json) as Record<string, string[]>;
-    return Object.entries(parsed).flatMap(([resource, actions]) =>
-      actions.map((action) => `${resource}:${action}`),
-    );
-  } catch {
-    return [];
-  }
-}
+import {
+  orgPermissionKeysToJson,
+  orgPermissionJsonToKeys,
+} from "@/modules/server/utils/org-permissions";
 
 export class OrganizationsService implements IOrganizationsService {
   async listOrganizations(): Promise<TListOrganizationsResponseSchema> {

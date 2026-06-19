@@ -40,7 +40,9 @@ export async function POST(request: Request) {
 
   if (!code || !code_verifier || !redirect_uri) {
     return NextResponse.json(
-      { error: "Missing required parameters: code, code_verifier, redirect_uri" },
+      {
+        error: "Missing required parameters: code, code_verifier, redirect_uri",
+      },
       { status: 400 },
     );
   }
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
 
   try {
     const tokenRes = await axios.post<Record<string, unknown>>(
-      `${process.env.NEXT_PUBLIC_BETTER_AUTH_URL}/api/auth/oauth2/token`,
+      `${process.env.BETTER_AUTH_URL}/api/auth/oauth2/token`,
       params.toString(),
       {
         headers: {
@@ -87,6 +89,9 @@ export async function POST(request: Request) {
         { status: error.response.status },
       );
     }
-    return NextResponse.json({ error: "Token exchange failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Token exchange failed" },
+      { status: 500 },
+    );
   }
 }

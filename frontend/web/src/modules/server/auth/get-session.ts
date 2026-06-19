@@ -28,13 +28,10 @@ export async function getServerSession(): Promise<AuthResponse | null> {
 
   let res: Response;
   try {
-    res = await fetch(
-      `${process.env.NEXT_PUBLIC_BETTER_AUTH_URL}/api/auth/get-session`,
-      {
-        headers: { cookie },
-        cache: "no-store",
-      },
-    );
+    res = await fetch(`${process.env.BETTER_AUTH_URL}/api/auth/get-session`, {
+      headers: { cookie },
+      cache: "no-store",
+    });
   } catch {
     // IAM unreachable (e.g. not running locally) — treat as unauthenticated.
     return null;

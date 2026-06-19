@@ -41,10 +41,11 @@ def _get_jwks_client() -> PyJWKClient:
 
 async def _verify_api_key(raw_key: str) -> TenantContext:
     """
-    Call the IAM's internal verify-api-key endpoint to validate an API key.
+    Validate an API key via BetterAuth's built-in verify endpoint on the IAM.
 
-    The IAM checks its BetterAuth api_keys table and returns the metadata
-    (organizationId, projectId, scopes) stored when the key was created.
+    The IAM returns the full api_key record. organizationId is stored as
+    referenceId (because the plugin is configured with references="organization").
+    projectId and scopes are in metadata, embedded when the key was created.
 
     Raises:
         HTTPException 401: Key invalid, revoked, or expired.
@@ -53,7 +54,7 @@ async def _verify_api_key(raw_key: str) -> TenantContext:
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(
-                f"{settings.iam_url}/api/internal/verify-api-key",
+                f"{settings.iam_url}/api/auth/api-key/verify",
                 json={"key": raw_key},
             )
     except httpx.RequestError:
@@ -74,21 +75,28 @@ async def _verify_api_key(raw_key: str) -> TenantContext:
         )
 
     data = resp.json()
+    key = data.get("key") or {}
+    metadata = key.get("metadata") or {}
     return TenantContext(
-        organization_id=data.get("organizationId") or "",
-        project_id=data.get("projectId"),
-        actor_id=data.get("userId") or "",
-        scopes=frozenset(data.get("scopes", [])),
+        organization_id=key.get("referenceId") or metadata.get("organizationId") or "",
+        project_id=metadata.get("projectId"),
+        actor_id=key.get("userId") or "",
+        scopes=frozenset(metadata.get("scopes", [])),
         is_test_mode=raw_key.startswith("fn_test_"),
     )
 
 
 def _verify_jwt(token: str) -> TenantContext:
     """
-    Verify a JWT using the IAM's JWKS endpoint.
+    Verify a console-issued JWT using the IAM's JWKS endpoint.
 
-    Accepts EdDSA (BetterAuth default) and RS256 (compatibility). The issuer and
-    audience must match settings.iam_url (BetterAuth sets aud == iss by convention).
+    The IAM embeds the following claims via buildUserContext / definePayload:
+      - sub                  → user ID
+      - activeOrganizationId → active org for this session
+      - permissions[]        → "resource:action" strings from the org role
+
+    JWTs are always org-level (no project_id). project_id comes only from
+    project-scoped API keys.
 
     Raises:
         HTTPException 401: Expired, tampered, or malformed token.
@@ -99,9 +107,7 @@ def _verify_jwt(token: str) -> TenantContext:
             token,
             signing_key.key,
             algorithms=["EdDSA", "RS256"],
-            audience=settings.iam_url,
-            issuer=settings.iam_url,
-            options={"verify_aud": True},
+            options={"verify_aud": False},
         )
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -120,10 +126,10 @@ def _verify_jwt(token: str) -> TenantContext:
         )
 
     return TenantContext(
-        organization_id=payload.get("org_id") or payload.get("org") or "",
-        project_id=payload.get("project_id") or payload.get("project"),
+        organization_id=payload.get("activeOrganizationId") or "",
+        project_id=None,
         actor_id=payload.get("sub") or "",
-        scopes=frozenset(payload.get("scopes", [])),
+        scopes=frozenset(payload.get("permissions", [])),
     )
 
 

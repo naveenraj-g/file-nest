@@ -15,11 +15,12 @@
  */
 import { createContainer } from "@evyweb/ioctopus";
 import { DI_SYMBOLS, type DI_RETURN_TYPES } from "./types";
-import { registerProjectModule } from "./modules";
+import { registerProjectModule, registerStorageConfigModule } from "./modules";
 
 const ApplicationContainer = createContainer();
 
 registerProjectModule(ApplicationContainer);
+registerStorageConfigModule(ApplicationContainer);
 
 export function getInjection<K extends keyof typeof DI_SYMBOLS>(
   symbol: K,

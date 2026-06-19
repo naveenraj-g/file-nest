@@ -26,10 +26,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const iamUrl =
-    process.env.NEXT_PUBLIC_BETTER_AUTH_URL ?? "http://localhost:5000";
-  const origin =
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+  const iamUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:5000";
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
   const hdrs = await headers();
   const cookieHeader = hdrs.get("cookie") ?? "";
@@ -55,7 +53,12 @@ export async function POST(request: Request) {
 
   if (!createRes.ok) {
     return NextResponse.json(
-      { error: createData.message ?? createData.error ?? "Failed to create organisation." },
+      {
+        error:
+          createData.message ??
+          createData.error ??
+          "Failed to create organisation.",
+      },
       { status: createRes.status },
     );
   }

@@ -70,7 +70,7 @@ export default async function DashboardPage() {
               Create your first project to start uploading files.
             </p>
             <Button asChild size="sm" className="mt-4">
-              <Link href="/projects/new">
+              <Link href="/projects">
                 <Plus className="h-4 w-4 mr-1.5" />
                 New project
               </Link>
@@ -113,7 +113,7 @@ export default async function DashboardPage() {
         {recent.length > 0 && (
           <div className="flex justify-end">
             <Button asChild size="sm" variant="outline">
-              <Link href="/projects/new">
+              <Link href="/projects">
                 <Plus className="h-4 w-4 mr-1.5" />
                 New project
               </Link>
