@@ -24,6 +24,7 @@ from app.errors.handlers import (
     unhandled_exception_handler,
     validation_exception_handler,
 )
+from app.di.container import Container
 from app.routers import api_router
 from app.routers.health import router as health_router
 
@@ -33,6 +34,8 @@ import app.core.messaging  # noqa: F401
 
 configure_logging()
 logger = get_logger(__name__)
+
+container = Container()
 
 
 @asynccontextmanager

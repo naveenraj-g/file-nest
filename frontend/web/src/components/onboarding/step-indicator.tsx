@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 
 const STEPS = [
   { path: "/onboarding/create-org", label: "Create org" },
+  { path: "/onboarding/create-project", label: "First project" },
   { path: "/onboarding/get-api-key", label: "API key" },
   { path: "/onboarding/install-sdk", label: "Install SDK" },
 ];

@@ -11,6 +11,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { authClient } from "@/modules/client/auth/auth-client";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, Check, ChevronsUpDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -55,11 +56,7 @@ export function OrgSwitcher({ activeOrgId }: OrgSwitcherProps) {
   async function handleSwitch(orgId: string) {
     if (orgId === activeOrgId || switching) return;
     setSwitching(true);
-    await fetch("/api/org/switch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgId }),
-    });
+    await authClient.organization.setActive({ organizationId: orgId });
     router.refresh();
     setSwitching(false);
   }

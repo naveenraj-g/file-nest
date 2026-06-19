@@ -441,11 +441,7 @@ export const authConfig = {
       void sendAuthEmail({
         to: user.email,
         subject: "Verify email",
-        html: getEmailVerificationTemplate(
-          url,
-          user.name,
-          "FileNest",
-        ),
+        html: getEmailVerificationTemplate(url, user.name, "FileNest"),
       });
     },
   },
@@ -685,7 +681,15 @@ export const authConfig = {
       },
     }),
 
-    apiKey({ defaultPrefix: "fn_" }),
+    apiKey({
+      defaultPrefix: "fn_",
+      // referenceId = organizationId; BA validates the caller is a member of
+      // that org before creating the key. Enables listApiKeys?organizationId=...
+      references: "organization",
+      // Allow callers to embed { organizationId, projectId, scopes } in the
+      // key record so verify-api-key can return the full tenant context.
+      enableMetadata: true,
+    }),
 
     agentAuth({
       providerName: "FileNest IAM",

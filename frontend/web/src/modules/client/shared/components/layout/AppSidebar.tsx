@@ -1,118 +1,57 @@
 /**
  * AppSidebar — collapsible left navigation for the FileNest Console.
  *
- * Uses the shadcn Sidebar primitive. When expanded shows icon + label;
- * when collapsed shows icon only with tooltip. State persists via the
- * sidebar_state cookie managed by SidebarProvider.
+ * Uses static menu data from menu-datas.ts — no API fetch on render.
+ * Superadmin users get an additional Admin group appended.
+ * State persists via the sidebar_state cookie managed by SidebarProvider.
  *
  * @module
  */
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  FolderOpen,
-  LayoutDashboard,
-  Settings,
-  ShieldAlert,
-  Users,
-  BarChart2,
-  HardDrive,
-  Webhook,
-} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { AppTitle } from "./AppTitle";
+import { NavGroup } from "./NavGroup";
+import { SidebarNavUser } from "./SidebarNavUser";
+import { mainNavGroups, adminNavGroups } from "./menu-datas";
 
-const NAV_ITEMS = [
-  { href: "/dashboard",   label: "Dashboard",  icon: LayoutDashboard },
-  { href: "/projects",    label: "Projects",   icon: FolderOpen },
-  { href: "/org/team",    label: "Team",       icon: Users },
-  { href: "/org/usage",   label: "Usage",      icon: BarChart2 },
-  { href: "/settings",    label: "Settings",   icon: Settings },
-] as const;
+type TUser = {
+  name?: string | null;
+  email: string;
+  image?: string | null;
+};
 
 interface AppSidebarProps {
+  user: TUser;
   userRole?: string | null;
 }
 
-export function AppSidebar({ userRole }: AppSidebarProps) {
-  const pathname = usePathname();
+export function AppSidebar({ user, userRole }: AppSidebarProps) {
+  const navGroups = [
+    ...mainNavGroups,
+    ...(userRole === "superadmin" ? adminNavGroups : []),
+  ];
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" side="left">
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild className="pointer-events-none">
-              <div>
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground shrink-0">
-                  <HardDrive className="h-4 w-4" />
-                </div>
-                <span className="font-semibold truncate">FileNest</span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <AppTitle />
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-                const active = pathname === href || pathname.startsWith(`${href}/`);
-                return (
-                  <SidebarMenuItem key={href}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={label}>
-                      <Link href={href}>
-                        <Icon />
-                        <span>{label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {userRole === "superadmin" && (
-          <SidebarGroup className="mt-auto">
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip="Admin"
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Link href="/admin/users">
-                      <ShieldAlert />
-                      <span>Admin</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        {navGroups.map((group) => (
+          <NavGroup key={group.title} {...group} />
+        ))}
       </SidebarContent>
 
       <SidebarFooter>
-        <p className="px-2 py-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-          v0.1.0 · Phase 1
-        </p>
+        <SidebarNavUser user={user} />
       </SidebarFooter>
 
       <SidebarRail />

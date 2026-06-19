@@ -4,8 +4,12 @@ app.services.file — Business logic for file management.
 All file business rules live here. Coordinates with FileRepository (DB),
 TransactionalOutboxPublisher (events), and StorageResolver (storage backend).
 
+project_id always comes from the URL path parameter, not the token. The router
+validates that a project-scoped token's project_id matches the URL before
+constructing this service.
+
 Usage:
-    svc = FileService(session=session, ctx=ctx)
+    svc = FileService(session=session, ctx=ctx, project_id=project_id)
     result = await svc.init_upload(request_body)
 """
 import json
@@ -13,9 +17,10 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.models import TenantContext, require_project_context
+from app.auth.models import TenantContext
 from app.core.messaging import TransactionalOutboxPublisher
 from app.repositories.file import FileRepository
+
 from app.schemas.file import (
     ConfirmUploadResponse,
     DeleteResponse,
@@ -37,36 +42,39 @@ class FileService:
     """
     Orchestrates file operations for a single request.
 
-    All operations assert that ctx.project_id is non-null — file operations
-    are always project-scoped.
+    project_id is explicit (from the URL path) rather than read from ctx so that
+    org-level tokens can operate on any project within the org.
 
     Args:
-        session: Active DB session (owns commit/rollback).
-        ctx:     Resolved caller identity.
+        session:    Active DB session (owns commit/rollback).
+        ctx:        Resolved caller identity.
+        project_id: Project UUID from the URL path parameter.
     """
 
-    def __init__(self, session: AsyncSession, ctx: TenantContext) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        repo: FileRepository,
+        outbox: TransactionalOutboxPublisher,
+        ctx: TenantContext,
+        project_id: str,
+    ) -> None:
         self._session = session
         self._ctx = ctx
-        self._repo = FileRepository(session)
-        self._outbox = TransactionalOutboxPublisher(session)
-
-    def _project_id(self) -> str:
-        """Return project_id or raise 400 if this is an org-level token."""
-        return require_project_context(self._ctx)
+        self._project_id = project_id
+        self._repo = repo
+        self._outbox = outbox
 
     async def init_upload(self, req: UploadInitRequest) -> UploadInitResponse:
         """
         Create a file record and return a presigned PUT URL.
 
         The client PUTs bytes directly to storage — bytes never route through
-        this service. Call confirm_upload after PUT succeeds.
+        this service. Call confirm_upload after the PUT succeeds.
         """
-        project_id = self._project_id()
-
         record = await self._repo.create(
             organization_id=self._ctx.organization_id,
-            project_id=project_id,
+            project_id=self._project_id,
             filename=req.filename,
             content_type=req.content_type,
             size_bytes=req.size_bytes,
@@ -74,20 +82,20 @@ class FileService:
             metadata_json=json.dumps(req.metadata),
         )
 
-        key = _storage_key(self._ctx.organization_id, project_id, record.id)
+        key = _storage_key(self._ctx.organization_id, self._project_id, record.id)
         record.storage_key = key
 
-        provider = await storage_resolver.get_provider(project_id)
+        provider = await storage_resolver.get_provider(self._project_id)
         upload_url = await provider.generate_presigned_upload_url(
             key, req.content_type, req.size_bytes, expires_in=3600,
         )
         expires_at = datetime.now(UTC) + timedelta(hours=1)
 
         await self._outbox.publish(
-            f"filenest.{self._ctx.organization_id}.{project_id}.file.upload.initiated",
+            f"filenest.{self._ctx.organization_id}.{self._project_id}.file.upload.initiated",
             {"file_id": record.id, "filename": req.filename, "size_bytes": req.size_bytes},
             organization_id=self._ctx.organization_id,
-            project_id=project_id,
+            project_id=self._project_id,
         )
 
         await self._session.commit()
@@ -98,39 +106,35 @@ class FileService:
 
     async def confirm_upload(self, file_id: str) -> ConfirmUploadResponse:
         """Mark a file as ready after the client has PUT the bytes to storage."""
-        project_id = self._project_id()
-        await self._repo.get(file_id, self._ctx.organization_id, project_id)
+        await self._repo.get(file_id, self._ctx.organization_id, self._project_id)
         record = await self._repo.update_status(file_id, "ready")
         await self._session.commit()
         return ConfirmUploadResponse(id=record.id, status=record.status)
 
     async def get_file(self, file_id: str) -> FileResponse:
         """Return the full metadata record for a single file."""
-        project_id = self._project_id()
-        record = await self._repo.get(file_id, self._ctx.organization_id, project_id)
+        record = await self._repo.get(file_id, self._ctx.organization_id, self._project_id)
         return self._to_response(record)
 
     async def get_download_url(self, file_id: str, *, ttl: int = 3600) -> DownloadUrlResponse:
         """Generate a presigned download URL for a file."""
-        project_id = self._project_id()
-        record = await self._repo.get(file_id, self._ctx.organization_id, project_id)
+        record = await self._repo.get(file_id, self._ctx.organization_id, self._project_id)
 
-        provider = await storage_resolver.get_provider(project_id)
+        provider = await storage_resolver.get_provider(self._project_id)
         url = await provider.generate_presigned_download_url(
             record.storage_key, filename=record.filename, expires_in=ttl,
         )
         return DownloadUrlResponse(url=url, expires_at=datetime.now(UTC) + timedelta(seconds=ttl))
 
     async def delete_file(self, file_id: str) -> DeleteResponse:
-        """Soft-delete a file. Bytes removed from storage via background event."""
-        project_id = self._project_id()
-        record = await self._repo.soft_delete(file_id, self._ctx.organization_id, project_id)
+        """Soft-delete a file. Bytes are removed from storage via background event."""
+        record = await self._repo.soft_delete(file_id, self._ctx.organization_id, self._project_id)
 
         await self._outbox.publish(
-            f"filenest.{self._ctx.organization_id}.{project_id}.file.deleted",
+            f"filenest.{self._ctx.organization_id}.{self._project_id}.file.deleted",
             {"file_id": record.id, "storage_key": record.storage_key, "filename": record.filename},
             organization_id=self._ctx.organization_id,
-            project_id=project_id,
+            project_id=self._project_id,
         )
 
         await self._session.commit()
@@ -140,9 +144,8 @@ class FileService:
         self, *, folder_id: str | None = None, limit: int = 50, cursor: str | None = None,
     ) -> FileListResponse:
         """Return a cursor-paginated list of files in the current project."""
-        project_id = self._project_id()
         records = await self._repo.list(
-            self._ctx.organization_id, project_id,
+            self._ctx.organization_id, self._project_id,
             folder_id=folder_id, limit=limit, cursor=cursor,
         )
         items = [self._to_response(r) for r in records]

@@ -43,7 +43,14 @@ export default async function AppLayout({
   return (
     <SidebarProvider defaultOpen={sidebarOpen}>
       <div className="flex h-svh w-full overflow-hidden bg-background">
-        <AppSidebar userRole={session.user.role} />
+        <AppSidebar
+            user={{
+              name: session.user.name,
+              email: session.user.email,
+              image: session.user.image,
+            }}
+            userRole={session.user.role}
+          />
         <div className="flex flex-1 flex-col overflow-hidden min-w-0">
           <Header user={session.user} orgId={orgId} />
           <main className="flex-1 overflow-y-auto p-6">{children}</main>

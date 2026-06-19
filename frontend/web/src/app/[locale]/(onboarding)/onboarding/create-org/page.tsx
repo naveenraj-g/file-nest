@@ -85,7 +85,7 @@ export default function CreateOrgPage({ searchParams }: CreateOrgPageProps) {
       return;
     }
 
-    router.push(`/onboarding/get-api-key?orgId=${data.orgId}`);
+    router.push(`/onboarding/create-project?orgId=${data.orgId}`);
   }
 
   return (

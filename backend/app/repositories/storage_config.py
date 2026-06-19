@@ -1,0 +1,59 @@
+"""
+app.repositories.storage_config — Database access layer for storage_configs.
+
+Every query includes organization_id + project_id to prevent cross-tenant leaks.
+No business logic here — conditionals belong in services.
+
+Usage:
+    from app.repositories.storage_config import StorageConfigRepository
+"""
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.errors import NotFoundError
+from app.models.storage_config import StorageConfig
+
+
+class StorageConfigRepository:
+    """Async repository for StorageConfig CRUD. All queries are tenant-scoped."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def create(self, **kwargs) -> StorageConfig:
+        """Insert a new StorageConfig row and flush to get the DB-assigned id."""
+        record = StorageConfig(**kwargs)
+        self._session.add(record)
+        await self._session.flush()
+        return record
+
+    async def get_for_project(
+        self, project_id: str, organization_id: str, environment: str = "production"
+    ) -> StorageConfig:
+        """
+        Fetch the active storage config for a project+environment.
+
+        Raises:
+            NotFoundError: If no config exists.
+        """
+        result = await self._session.execute(
+            select(StorageConfig).where(
+                StorageConfig.project_id == project_id,
+                StorageConfig.organization_id == organization_id,
+                StorageConfig.environment == environment,
+            )
+        )
+        record = result.scalar_one_or_none()
+        if record is None:
+            raise NotFoundError(f"No storage config found for project {project_id}")
+        return record
+
+    async def update_status(
+        self, project_id: str, organization_id: str, status: str, last_verified_at=None
+    ) -> StorageConfig:
+        """Update the verification status of a config."""
+        record = await self.get_for_project(project_id, organization_id)
+        record.status = status
+        if last_verified_at is not None:
+            record.last_verified_at = last_verified_at
+        return record

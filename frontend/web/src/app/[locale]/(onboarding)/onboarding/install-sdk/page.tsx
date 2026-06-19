@@ -1,9 +1,9 @@
 /**
  * Install-SDK onboarding step.
  *
- * Shows language-specific install + usage snippets, pre-filled with the API
- * key stored in sessionStorage from the previous step. Completing this step
- * redirects to the dashboard — onboarding is done.
+ * Shows language-specific install + usage snippets pre-filled with both the
+ * API key and the project ID stored in sessionStorage from the previous steps.
+ * Completing this step redirects to the dashboard — onboarding is done.
  *
  * @module
  */
@@ -30,17 +30,17 @@ const SDKS: {
   id: SDK;
   label: string;
   install: string;
-  snippet: (key: string) => string;
+  snippet: (key: string, projectId: string) => string;
 }[] = [
   {
     id: "node",
     label: "Node.js",
     install: "npm install @filenest/node",
-    snippet: (key) => `import { FileNest } from "@filenest/node";
+    snippet: (key, projectId) => `import { FileNest } from "@filenest/node";
 
 const fn = new FileNest({
   apiKey: "${key}",
-  projectId: "YOUR_PROJECT_ID",
+  projectId: "${projectId}",
 });
 
 const file = await fn.files.upload({
@@ -55,11 +55,11 @@ console.log(file.id);`,
     id: "python",
     label: "Python",
     install: "pip install filenest",
-    snippet: (key) => `from filenest import AsyncFileNest
+    snippet: (key, projectId) => `from filenest import AsyncFileNest
 
 async with AsyncFileNest(
     api_key="${key}",
-    project_id="YOUR_PROJECT_ID",
+    project_id="${projectId}",
 ) as fn:
     file = await fn.files.upload(
         filename="report.pdf",
@@ -95,10 +95,13 @@ export default function InstallSdkPage() {
   const router = useRouter();
   const [selected, setSelected] = React.useState<SDK>("node");
   const [apiKey, setApiKey] = React.useState("YOUR_API_KEY");
+  const [projectId, setProjectId] = React.useState("YOUR_PROJECT_ID");
 
   React.useEffect(() => {
-    const stored = sessionStorage.getItem("fn_onboarding_key");
-    if (stored) setApiKey(stored);
+    const storedKey = sessionStorage.getItem("fn_onboarding_key");
+    const storedProjectId = sessionStorage.getItem("fn_onboarding_project_id");
+    if (storedKey) setApiKey(storedKey);
+    if (storedProjectId) setProjectId(storedProjectId);
   }, []);
 
   const sdk = SDKS.find((s) => s.id === selected)!;
@@ -146,10 +149,10 @@ export default function InstallSdkPage() {
             </p>
             <div className="relative rounded-md border bg-muted/50">
               <div className="absolute right-2 top-2">
-                <CopyButton text={sdk.snippet(apiKey)} />
+                <CopyButton text={sdk.snippet(apiKey, projectId)} />
               </div>
               <pre className="overflow-x-auto p-3 pr-10 font-mono text-sm leading-relaxed">
-                <code>{sdk.snippet(apiKey)}</code>
+                <code>{sdk.snippet(apiKey, projectId)}</code>
               </pre>
             </div>
           </div>

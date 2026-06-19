@@ -2,599 +2,417 @@
 
 ## Purpose
 Build and scaffold **server-side components** for the FileNest platform.
-Covers: FastAPI services (clean architecture), shared infrastructure, Node.js SDK,
-Python SDK, Next.js server components / server actions / route handlers / webhooks.
+Covers: FastAPI backend (clean architecture), Next.js console app server layer
+(server actions, server components, route handlers, webhooks), Node.js SDK, Python SDK.
 
 ## When to invoke
-- User asks to add a new FastAPI service or extend an existing one
-- User asks to implement a new endpoint, service method, or repository method
-- User asks to use the Node.js SDK (`@filenest/node`) or Python SDK (`filenest`) on the server
-- User asks to build Next.js server components, server actions, or webhook handlers
-- User asks to wire up auth, NATS events, audit logging, or processing pipelines
+- Adding a new FastAPI endpoint, service method, or repository method
+- Adding a new Next.js server action, server component, or route handler
+- Adding a new domain to the console app (entities → service → use cases → controllers → actions)
+- Wiring up auth, NATS events, audit logging, or processing pipelines
 
 ---
 
-## Modules Folder Structure — `modules/server/` and `modules/entities/`
+## Console App — Next.js Modules Architecture
 
-Server-only code and shared types live in two separate layers. Never import from `modules/server/` in client components.
+The console app (`frontend/web/src/modules/`) follows a strict clean-architecture layering.
+**Dependency direction is one-way:** presentation → core → infrastructure → external API.
 
 ```
 modules/
-├── entities/                      # Framework-free types and Zod schemas (safe in both environments)
-│   └── schemas/                   # One file per domain entity: file.ts, project.ts, organization.ts
-└── server/                        # Server-only Next.js code
-    ├── auth/                      # getServerSession(), session types, auth helpers
-    ├── actions/                   # zsa server actions — one file per feature
-    │   ├── project.actions.ts
-    │   ├── file.actions.ts
-    │   └── org.actions.ts
-    └── utils/                     # Shared server utilities (formatting, fetch helpers)
+├── entities/                          # Framework-free Zod schemas (safe in browser + server)
+│   └── schemas/
+│       ├── transport/
+│       │   └── index.ts              # TransportOptionsSchema — imported by every actions.ts
+│       └── {domain}/                 # One subdirectory per domain (project/, file/, org/, …)
+│           ├── response.ts           # Zod schemas for API response shapes
+│           ├── input.ts              # Zod schemas for mutations (form + controller validation)
+│           ├── actions.ts            # ZSA action envelope schemas (payload + transportOptions)
+│           ├── forms.ts              # Flat React Hook Form schemas (may differ from input.ts)
+│           └── index.ts              # Barrel export — import from here, never from sub-files
+│
+└── server/
+    ├── auth/                          # getServerSession(), session types
+    ├── presentation/
+    │   └── actions/
+    │       ├── procedures.ts          # authenticatedProcedure (ZSA gate — checks session)
+    │       └── {domain}.actions.ts    # ZSA actions — thin: gate + runWithTransport + controller call
+    ├── core/
+    │   └── {domain}/
+    │       ├── domain/
+    │       │   └── interfaces/
+    │       │       └── {domain}.service.interface.ts   # IXxxService — use cases depend on this
+    │       ├── application/
+    │       │   └── usecases/
+    │       │       ├── listXxx.usecase.ts              # getInjection("IXxxService").list()
+    │       │       ├── createXxx.usecase.ts
+    │       │       ├── updateXxx.usecase.ts
+    │       │       └── deleteXxx.usecase.ts
+    │       ├── infrastructure/
+    │       │   └── services/
+    │       │       └── {domain}.rest.service.ts        # Implements IXxxService via filenestApi
+    │       └── interface-adapters/
+    │           └── controllers/
+    │               ├── listXxx.controller.ts           # validate input → use case → presenter
+    │               ├── createXxx.controller.ts
+    │               ├── updateXxx.controller.ts
+    │               ├── deleteXxx.controller.ts
+    │               └── index.ts                        # Barrel export
+    ├── di/
+    │   ├── types.ts                   # DI_SYMBOLS + DI_RETURN_TYPES
+    │   ├── container.ts               # ApplicationContainer + getInjection()
+    │   └── modules/
+    │       ├── index.ts               # Barrel of all registerXxxModule()
+    │       └── {domain}/
+    │           └── {domain}.module.ts # container.bind(DI_SYMBOLS.IXxxService).toClass(XxxRestService)
+    ├── shared/
+    │   └── errors/
+    │       ├── schema-parse-error.ts              # InputParseError, OutputParseError (wrap ZodError)
+    │       └── mappers/
+    │           ├── zsa-error-codes.ts             # ZSA_ERROR_CODES constants
+    │           ├── zsa-error-handling.ts          # throwZSAErrorFromStatus(status, message)
+    │           └── map-error-to-zsa.ts            # mapErrorToZSA(err) + ApiError class
+    └── utils/
+        ├── api-client.ts              # filenestApi<T>(path, options?) — typed fetch to backend
+        └── run-with-transport.ts      # runWithTransport() — revalidatePath/redirect + error mapping
 ```
-
-### Rules for `modules/server/`
-
-- **Server actions use zsa** (`createServerAction`) — never plain async functions called directly from client.
-- **Always call `revalidatePath()`** in mutation actions so the page re-fetches after write.
-- **Auth check first** — every action/route handler calls `getServerSession()` and throws/redirects if no session.
-- **`modules/entities/schemas/`** contains Zod schemas; import them in both actions and client validation — never duplicate schemas.
-- **Split by feature** — one file per domain in `server/actions/` (e.g. `file.actions.ts`, `project.actions.ts`).
-- **No business logic in route handlers** — route handlers call server actions or `filenestServer()` SDK methods, then `revalidatePath()`. That's it.
 
 ---
 
-## Clean Architecture: Every Service Follows This Layout
+## Naming Conventions
 
-```
-services/{name}/
-├── main.py          # FastAPI app factory (create_app)
-├── router.py        # Route registration (prefix="/v1")
-├── routes/          # HTTP handlers — thin, delegate to service
-│   └── *.py
-├── service.py       # Business logic — the only place for rules
-├── repository.py    # DB queries — no business logic here
-├── schemas.py       # Pydantic request/response models
-├── dependencies.py  # FastAPI Depends() wiring
-└── events.py        # NATS event publishers (outbox writes)
-```
+| Pattern | Naming | Example |
+|---|---|---|
+| Calls external REST API | `{domain}.rest.service.ts` / `XxxRestService` / `IXxxService` | `project.rest.service.ts` |
+| Direct DB/ORM access (Prisma/SQLAlchemy) | `{domain}.repository.ts` / `XxxRepository` / `IXxxRepository` | _(backend Python only)_ |
 
-**Dependency rule:** routes → service → repository → DB. No layer skips another.
+**Rule:** if it calls `filenestApi` (HTTP), it is a **service**. If it queries Prisma/SQLAlchemy directly, it is a **repository**.
 
 ---
 
-## App Factory Pattern
+## Runtime Call Chain
+
+```
+RSC page  /  client component
+  └─► {domain}Action()                    ZSA gate (authenticatedProcedure) + runWithTransport
+        └─► {operation}Controller()       validate input (InputParseError) → use case → presenter (OutputParseError)
+              └─► {operation}UseCase()    getInjection("IXxxService") → service.method()
+                    └─► XxxRestService    filenestApi("/v1/...") → Zod parse response
+```
+
+---
+
+## Adding a New Domain — Step-by-step
+
+### 1. Entity schemas — `entities/schemas/{domain}/`
+
+```typescript
+// response.ts — what the backend returns
+export const XxxSchema = z.object({ id: z.string(), name: z.string(), /* … */ });
+export type TXxx = z.infer<typeof XxxSchema>;
+export const XxxListSchema = z.object({ items: z.array(XxxSchema), total: z.number() });
+export type TXxxList = z.infer<typeof XxxListSchema>;
+
+// input.ts — what forms/controllers validate
+export const CreateXxxSchema = z.object({ name: z.string().min(1), /* … */ });
+export type TCreateXxx = z.infer<typeof CreateXxxSchema>;
+
+// actions.ts — ZSA envelope (payload + transportOptions on EVERY action)
+export const CreateXxxActionSchema = z.object({
+  payload: CreateXxxSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TCreateXxxAction = z.infer<typeof CreateXxxActionSchema>;
+
+// index.ts — barrel
+export * from "./response";
+export * from "./input";
+export * from "./actions";
+export * from "./forms";
+```
+
+**Rule:** `transportOptions` is present on **every** action schema — reads included — so any action can trigger revalidation.
+
+### 2. Domain interface — `core/{domain}/domain/interfaces/{domain}.service.interface.ts`
+
+```typescript
+export interface IXxxService {
+  list(): Promise<TXxxList>;
+  create(dto: TCreateXxx): Promise<TXxx>;
+  update(id: string, dto: TUpdateXxx): Promise<TXxx>;
+  delete(id: string): Promise<void>;
+}
+```
+
+### 3. REST service — `core/{domain}/infrastructure/services/{domain}.rest.service.ts`
+
+```typescript
+"server-only";
+export class XxxRestService implements IXxxService {
+  async list(): Promise<TXxxList> {
+    const raw = await filenestApi<unknown>("/v1/xxxs");
+    const parsed = XxxListSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+  async create(dto: TCreateXxx): Promise<TXxx> {
+    const raw = await filenestApi<unknown>("/v1/xxxs", {
+      method: "POST",
+      body: JSON.stringify(dto),
+    });
+    const parsed = XxxSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+  // update, delete follow same pattern
+}
+```
+
+### 4. Use cases — `core/{domain}/application/usecases/`
+
+```typescript
+// listXxx.usecase.ts
+"server-only";
+export async function listXxxUseCase(): Promise<TXxxList> {
+  const service = getInjection("IXxxService");
+  return service.list();
+}
+```
+
+### 5. Controllers — `core/{domain}/interface-adapters/controllers/`
+
+```typescript
+// createXxx.controller.ts
+"server-only";
+function presenter(data: TXxx): TXxx { return data; }
+export type TCreateXxxControllerOutput = ReturnType<typeof presenter>;
+
+export async function createXxxController(input: unknown): Promise<TCreateXxxControllerOutput> {
+  const parsed = await CreateXxxSchema.safeParseAsync(input);
+  if (!parsed.success) throw new InputParseError(parsed.error);
+  const data = await createXxxUseCase(parsed.data);
+  return presenter(data);
+}
+```
+
+Always export a barrel `index.ts` from the controllers folder.
+
+### 6. DI wiring
+
+```typescript
+// di/modules/{domain}/{domain}.module.ts
+export function registerXxxModule(container: Container): void {
+  container.bind(DI_SYMBOLS.IXxxService).toClass(XxxRestService);
+}
+
+// di/types.ts — add entry:
+export const DI_SYMBOLS = { /* existing… */ IXxxService: Symbol.for("IXxxService") };
+export interface DI_RETURN_TYPES { /* existing… */ IXxxService: IXxxService; }
+
+// di/modules/index.ts — add export:
+export { registerXxxModule } from "./{domain}/{domain}.module";
+
+// di/container.ts — add registration:
+registerXxxModule(ApplicationContainer);
+```
+
+### 7. Server action — `presentation/actions/{domain}.actions.ts`
+
+```typescript
+"use server";
+export const listXxxAction = authenticatedProcedure
+  .createServerAction()
+  .input(ListXxxActionSchema, { skipInputParsing: true })
+  .handler(async ({ input }: { input: TListXxxAction }) => {
+    return await runWithTransport<TListXxxControllerOutput>(async () => {
+      const data = await listXxxController();
+      return { result: data, transport: input.transportOptions };
+    });
+  });
+
+export const createXxxAction = authenticatedProcedure
+  .createServerAction()
+  .input(CreateXxxActionSchema, { skipInputParsing: true })
+  .handler(async ({ input }: { input: TCreateXxxAction }) => {
+    return await runWithTransport<TCreateXxxControllerOutput>(async () => {
+      const data = await createXxxController(input.payload);
+      return { result: data, transport: input.transportOptions };
+    });
+  });
+```
+
+---
+
+## Key files — server utilities
+
+| File | Purpose |
+|---|---|
+| `server/utils/api-client.ts` | `filenestApi<T>(path, options?)` — reads `FILENEST_API_URL` + `FILENEST_API_KEY`, throws `ApiError(status, message)` on non-2xx |
+| `server/utils/run-with-transport.ts` | Wraps action executor; on success runs `revalidatePath`/`redirect`; on error calls `mapErrorToZSA` |
+| `server/shared/errors/schema-parse-error.ts` | `InputParseError` / `OutputParseError` — wrap `ZodError` into typed error classes |
+| `server/shared/errors/mappers/map-error-to-zsa.ts` | `mapErrorToZSA(err)` — converts `InputParseError`, `OutputParseError`, `ApiError` → `ZSAError`; re-throws Next.js control errors untouched |
+| `server/shared/errors/mappers/zsa-error-handling.ts` | `throwZSAErrorFromStatus(status, message)` — maps HTTP status codes → `ZSAError` codes |
+| `server/di/container.ts` | `getInjection(symbol)` — typed DI lookup used by use cases |
+| `server/presentation/actions/procedures.ts` | `authenticatedProcedure` — ZSA gate, calls `getServerSession()`, throws `NOT_AUTHORIZED` if no session |
+
+---
+
+## Error pipeline (end-to-end)
+
+```
+filenestApi()          throws ApiError(statusCode, message) on non-2xx
+  ↓
+runWithTransport()     catch → mapErrorToZSA(err)
+  ↓
+mapErrorToZSA()        ApiError      → throwZSAErrorFromStatus(status)
+                       InputParseError → ZSAError("INPUT_PARSE_ERROR", { fieldErrors })
+                       OutputParseError → ZSAError("OUTPUT_PARSE_ERROR")
+                       Next.js redirect/notFound → re-thrown unchanged
+  ↓ (client mutations only)
+handleZSAError()       INPUT_PARSE_ERROR → form.setError() per field
+                       NOT_AUTHORIZED / FORBIDDEN / NOT_FOUND / CONFLICT → toast
+                       fallback → toast
+```
+
+Client import: `@/modules/client/shared/error/handle-zsa-error`
+
+---
+
+## Consuming actions in RSC pages
+
+```tsx
+// Server component — await action directly (no useServerAction hook needed)
+const [data] = await listProjectsAction({});
+const projects = data?.items ?? [];
+```
+
+## Consuming actions in client components
+
+```tsx
+"use client";
+import { useServerAction } from "zsa-react";
+import { createProjectAction } from "@/modules/server/presentation/actions/project.actions";
+import { handleZSAError } from "@/modules/client/shared/error/handle-zsa-error";
+
+const { execute, isPending } = useServerAction(createProjectAction, {
+  onSuccess: () => toast.success("Project created"),
+  onError: ({ err }) => handleZSAError({ err, form, fallbackMessage: "Failed to create project" }),
+});
+
+await execute({
+  payload: { name, storage_mode, storage_provider },
+  transportOptions: { shouldRevalidate: true, url: "/projects" },
+});
+```
+
+---
+
+## FastAPI Backend — Clean Architecture
+
+```
+backend/app/
+├── main.py              # FastAPI factory + lifespan
+├── core/                # config, db, logging, messaging (outbox)
+├── auth/                # TenantContext, authenticate_request, require_scope
+├── errors/              # FileNestError hierarchy + exception handlers
+├── models/              # SQLAlchemy ORM models
+├── schemas/             # Pydantic request/response DTOs
+├── repositories/        # All DB queries — tenant-scoped, no business logic
+├── services/            # All business logic — coordinates repo + storage + events
+├── storage/             # StorageProvider protocol, S3 impl, StorageResolver
+└── routers/             # HTTP handlers — validate, call service, return schema
+```
+
+**Dependency rule:** routers → services → repositories → DB. No layer skips another.
+
+### Auth
 
 ```python
-# services/{name}/main.py
-from fastapi import FastAPI
-from shared.database import init_db
-from shared.cache import init_redis
-from shared.messaging import init_nats
-from shared.telemetry import init_telemetry
-from shared.logging import setup_logging
-from .router import router
-from .middleware import TenantContextMiddleware, RequestIDMiddleware
-
-def create_app() -> FastAPI:
-    app = FastAPI(title="FileNest {Name} Service", version="1.0.0",
-                  docs_url="/docs" if settings.env != "production" else None)
-
-    app.add_middleware(RequestIDMiddleware)
-    app.add_middleware(TenantContextMiddleware)
-    app.include_router(router, prefix="/v1")
-
-    @app.on_event("startup")
-    async def startup():
-        await init_db()
-        await init_redis()
-        await init_nats()
-        init_telemetry(service_name="{name}-service")
-        setup_logging(service_name="{name}-service")
-
-    return app
+# Every route uses Depends(require_scope("scope:name"))
+@router.post("/projects/{project_id}/files/upload", response_model=UploadInitResponse)
+async def init_upload(
+    project_id: str,
+    body: UploadInitRequest,
+    svc: FileService = Depends(_get_service),
+) -> UploadInitResponse:
+    require_scope(svc._ctx, "files:upload")
+    return await svc.init_upload(body)
 ```
 
----
+Token prefixes: `fn_live_` / `fn_test_` (API key), `fn_sa_` (service account), `fn_upload_token_` (browser upload)
 
-## Auth & Tenant Context
+Scopes: `files:upload`, `files:download`, `files:read`, `files:delete`, `files:update_metadata`,
+`projects:read`, `projects:update`, `api_keys:create`, `api_keys:revoke`, `audit:read`, `compliance:manage`
 
-```python
-# shared/auth/middleware.py — authentication (token → AuthContext)
-# shared/auth/tenant.py    — ContextVar holding current tenant
-# shared/auth/permissions.py — scope-based authorization
-
-# In dependencies.py — use these Depends():
-from shared.auth.tenant import require_auth
-from shared.auth.permissions import require_scope
-
-# Route example:
-@router.post("/files", response_model=FileResponse)
-async def upload_file(
-    body: CreateUploadSessionRequest,
-    auth: AuthContext = Depends(require_scope("files:upload")),
-    service: FileService = Depends(get_file_service),
-):
-    return await service.create_upload_session(body, auth)
-```
-
-Token prefixes:
-- `fn_live_...` / `fn_test_...` → API key (server-to-server)
-- `fn_sa_...` → Service account
-- `fn_upload_token_...` → Short-lived browser token (constrained scopes only)
-
-Scopes: `files:upload`, `files:download`, `files:read`, `files:delete`,
-`files:update_metadata`, `api_keys:create`, `api_keys:revoke`,
-`projects:read`, `projects:update`, `audit:read`, `compliance:manage`
-
----
-
-## Database Session (shared/database/session.py)
+### Repository pattern (Python — direct DB access)
 
 ```python
-# Write queries use primary engine; read queries use read replica
-from shared.database import get_db, get_read_db
-
-# In dependencies.py:
-async def get_file_service(
-    db: AsyncSession = Depends(get_db),
-    read_db: AsyncSession = Depends(get_read_db),
-    cache: Redis = Depends(get_redis),
-) -> FileService:
-    return FileService(db=db, read_db=read_db, cache=cache)
-```
-
-Session auto-commits on success, auto-rolls back on exception. Never call `db.commit()` manually inside a service — the session context manager handles it.
-
----
-
-## Repository Pattern
-
-```python
-# services/{name}/repository.py
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
-from shared.models import File
-
-class FileRepository:
-    def __init__(self, db: AsyncSession, read_db: AsyncSession):
-        self.db = db
-        self.read_db = read_db
-
-    async def get(self, file_id: str, auth: AuthContext) -> File | None:
-        result = await self.read_db.execute(
-            select(File).where(
-                File.id == file_id,
-                File.organization_id == auth.organization_id,
-                File.project_id == auth.project_id,
-                File.deleted_at.is_(None),
-            )
+class ProjectRepository:
+    async def list(self, organization_id: str) -> list[Project]:
+        result = await self.db.execute(
+            select(Project)
+            .where(Project.organization_id == organization_id, Project.deleted_at.is_(None))
         )
-        return result.scalar_one_or_none()
+        return list(result.scalars().all())
 
-    async def create(self, file: File) -> File:
-        self.db.add(file)
-        await self.db.flush()   # Get the DB-assigned id without committing
-        return file
-
-    async def soft_delete(self, file_id: str, auth: AuthContext) -> None:
-        await self.db.execute(
-            update(File)
-            .where(File.id == file_id, File.organization_id == auth.organization_id)
-            .values(deleted_at=datetime.utcnow())
-        )
+    async def create(self, project: Project) -> Project:
+        self.db.add(project)
+        await self.db.flush()   # get DB-assigned id; session context manager commits
+        return project
 ```
 
----
-
-## Service Layer (business logic)
+### Exceptions — raise these, never raw HTTP
 
 ```python
-# services/{name}/service.py
-class FileService:
-    def __init__(self, db, read_db, cache, repo=None, audit=None, event_publisher=None):
-        self.db = db
-        self.repo = repo or FileRepository(db, read_db)
-        self.audit = audit or AuditLogger(db)
-        self.events = event_publisher or TransactionalOutboxPublisher()
-
-    async def create_upload_session(
-        self, request: CreateUploadSessionRequest, auth: AuthContext
-    ) -> UploadSessionResponse:
-        # 1. Load project config
-        project_config = await self.project_client.get_config(auth.project_id)
-
-        # 2. Validate against policies
-        await self._validate_upload_policies(request, project_config)
-
-        # 3. Validate metadata schema if enforced
-        if project_config.metadata.enforce_schema:
-            schema = await self.metadata_service.get_active_schema(auth.project_id)
-            await self.metadata_service.validate(request.metadata, schema)
-
-        # 4. Persist file record (status=uploading)
-        file_record = File(
-            organization_id=auth.organization_id,
-            project_id=auth.project_id,
-            filename=sanitize_filename(request.filename),
-            original_filename=request.filename,
-            size=request.size,
-            mime_type=request.mime_type or "application/octet-stream",
-            status=FileStatus.UPLOADING,
-            metadata=request.metadata or {},
-        )
-        await self.repo.create(file_record)
-
-        # 5. Generate presigned upload URL from storage provider
-        upload_session = await self._create_upload_session(file_record, request, project_config)
-        return upload_session
+from app.errors import (
+    FileNotFoundError,        # → 404
+    AuthenticationError,      # → 401
+    AuthorizationError,       # → 403
+    MetadataValidationError,  # → 422
+    WORMViolationError,       # → 409
+    LegalHoldViolationError,  # → 409
+    FileTooLargeError,        # → 413
+    FileQuarantinedError,     # → 409
+)
 ```
 
----
-
-## Transactional Outbox (events)
+### Transactional outbox (events)
 
 ```python
-# services/{name}/events.py
-# Write event to DB in the SAME transaction as the business operation.
-# OutboxWorker polls and publishes to NATS separately.
-
-from shared.messaging.outbox import TransactionalOutboxPublisher
-
-class FileEventPublisher:
-    def __init__(self, db: AsyncSession):
-        self.publisher = TransactionalOutboxPublisher()
-        self.db = db
-
-    async def file_uploaded(self, file: File, auth: AuthContext) -> None:
-        await self.publisher.publish(
-            event_type="file.uploaded",
-            subject_id=str(file.id),
-            payload=FileUploadedPayload.from_file(file).model_dump(),
-            organization_id=auth.organization_id,
-            project_id=auth.project_id,
-            db=self.db,
-        )
-```
-
-NATS subject format: `filenest.{org_id}.{project_id}.{event_type}`
-Events: `file.uploaded`, `file.processed`, `file.deleted`, `file.versioned`,
-`file.virus_detected`, `file.legal_hold_set`, `file.worm_committed`
-
----
-
-## Audit Logging
-
-```python
-# Audit logger writes to the same transaction — guaranteed completeness
-await self.audit.log(
-    event_type="file.deleted",
-    subject_type="file",
-    subject_id=str(file_id),
-    payload={"filename": file.filename, "size": file.size},
-    auth=auth,
-    request=request,          # Optional: captures IP + user-agent
-    phi_involved=False,
+# Write to outbox_messages in the SAME transaction as the business op.
+# OutboxWorker publishes to NATS separately — never call NATS directly.
+await self.outbox.publish(
+    subject=f"filenest.{ctx.organization_id}.{ctx.project_id}.file.uploaded",
+    payload={"file_id": str(file.id), "filename": file.filename},
     db=self.db,
 )
 ```
 
-Always audit: create, delete, download, legal hold changes, WORM commits, metadata updates.
-
----
-
-## Exception Hierarchy (shared/exceptions)
-
-```python
-# Raise these — the global handler converts them to JSON responses
-from shared.exceptions import (
-    FileNotFoundError,        # 404
-    AuthenticationError,      # 401
-    AuthorizationError,       # 403
-    MetadataValidationError,  # 422 — pass errors=[{field, message, value}]
-    WORMViolationError,       # 409
-    LegalHoldViolationError,  # 409
-    FileTooLargeError,        # 413
-    FileQuarantinedError,     # 409
-)
-```
-
----
-
-## Storage Provider (injected, never hardcoded)
-
-```python
-# services/storage/resolver.py — resolves provider from project config
-from services.storage.resolver import StorageResolver
-
-provider = await storage_resolver.get_provider(auth.project_id, auth.environment)
-
-# Provider interface methods:
-await provider.generate_signed_url(key, ttl_seconds=3600, method="PUT")
-await provider.generate_multipart_upload_id(key, content_type)
-await provider.generate_part_upload_url(key, upload_id, part_number)
-await provider.complete_multipart(key, upload_id, parts)
-await provider.delete(key)
-await provider.copy(source_key, dest_key)
-await provider.download_stream(key)   # AsyncIterator[bytes]
-```
-
-Supported providers: `s3`, `azure_blob`, `gcs`, `minio`, `r2` — resolved from DB config per project.
-
----
-
-## Processing Pipeline (services/processing)
-
-```python
-# New stages must implement:
-class MyStage:
-    async def execute(self, event: FileUploadedEvent) -> dict:
-        # Return dict of stage results
-        ...
-
-# Register in PipelineExecutor.STAGE_REGISTRY:
-STAGE_REGISTRY = {
-    "virus_scan": VirusScanStage,
-    "mime_validation": MimeValidationStage,
-    "ocr": OCRStage,
-    "phi_detection": PHIDetectionStage,
-    "pii_detection": PIIDetectionStage,
-    "classification": ClassificationStage,
-    "thumbnail": ThumbnailStage,
-    "preview": PreviewStage,
-    "embedding": EmbeddingStage,
-    "indexing": IndexingStage,
-}
-```
-
-`virus_scan` and `mime_validation` run in parallel first. If virus found → quarantine + halt. All others run sequentially.
-
----
-
-## Node.js SDK (`@filenest/node`) — server-side usage
-
-```typescript
-import { FileNest } from '@filenest/node';
-
-const filenest = new FileNest({
-  apiKey: process.env.FILENEST_API_KEY!,
-  projectId: process.env.FILENEST_PROJECT_ID!,
-  environment: 'production',
-});
-
-// Upload (Buffer or Stream)
-const file = await filenest.files.upload({
-  filename: 'report.pdf',
-  data: buffer,
-  mimeType: 'application/pdf',
-  metadata: { patientId: 'P-12345', documentType: 'LabReport' },
-  tags: ['clinical'],
-});
-
-// List with metadata filters
-const { data, pagination } = await filenest.files.list({
-  metadata: { patientId: 'P-12345' },
-  sortBy: 'created_at',
-  sortOrder: 'desc',
-  limit: 20,
-});
-
-// Signed download URL
-const { url, expiresAt } = await filenest.files.getDownloadUrl('file_xyz', { ttl: 3600 });
-
-// Search
-const results = await filenest.search.query({
-  q: 'lab report',
-  filters: { metadata: { patientId: 'P-12345' }, tags: ['urgent'] },
-  facets: ['documentType'],
-});
-
-// Generate upload token for frontend
-const token = await filenest.uploadTokens.create({
-  maxSize: 50 * 1024 * 1024,
-  allowedMimeTypes: ['application/pdf', 'image/*'],
-  maxFiles: 5,
-  folderId: 'folder_abc',
-  metadata: { uploadedBy: userId },
-  expiresIn: 3600,
-});
-
-// Compliance
-await filenest.compliance.setLegalHold('file_xyz', { reason: 'Audit 2026-Q2', indefinite: true });
-await filenest.compliance.commitWorm('file_xyz', { confirm: true, reason: 'SEC requirement' });
-
-// Webhook verification
-const isValid = filenest.webhooks.verify(rawBody, signatureHeader, process.env.WEBHOOK_SECRET!);
-```
-
----
-
-## Next.js Server Components
-
-```tsx
-// app/patients/[patientId]/documents/page.tsx
-import { filenestServer } from '@filenest/nextjs/server';
-
-const fn = filenestServer({
-  apiKey: process.env.FILENEST_API_KEY!,
-  projectId: process.env.FILENEST_PROJECT_ID!,
-});
-
-export default async function PatientDocumentsPage({ params }: { params: { patientId: string } }) {
-  const { data: files } = await fn.files.list({
-    metadata: { patientId: params.patientId },
-    sortBy: 'created_at',
-    sortOrder: 'desc',
-    limit: 50,
-  });
-
-  return (
-    <ul>
-      {files.map(file => (
-        <li key={file.id}>{file.filename} — {file.metadata.documentType}</li>
-      ))}
-    </ul>
-  );
-}
-```
-
----
-
-## Next.js Server Actions
-
-```typescript
-// app/actions/files.ts
-'use server';
-import { filenestServer } from '@filenest/nextjs/server';
-import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
-
-const fn = filenestServer({
-  apiKey: process.env.FILENEST_API_KEY!,
-  projectId: process.env.FILENEST_PROJECT_ID!,
-});
-
-export async function uploadFile(formData: FormData) {
-  const session = await auth();
-  if (!session) throw new Error('Unauthorized');
-
-  const file = formData.get('file') as File;
-  const patientId = formData.get('patientId') as string;
-
-  const result = await fn.files.upload({
-    filename: file.name,
-    data: Buffer.from(await file.arrayBuffer()),
-    mimeType: file.type,
-    metadata: { patientId, documentType: 'LabReport', uploadedBy: session.user.id },
-  });
-
-  revalidatePath('/patients/' + patientId);
-  return result;
-}
-
-export async function deleteFile(fileId: string) {
-  await fn.files.delete(fileId);
-  revalidatePath('/files');
-}
-```
-
----
-
-## Next.js Token Endpoint (Route Handler)
-
-```typescript
-// app/api/filenest-token/route.ts
-import { createUploadToken } from '@filenest/nextjs/server';
-import { auth } from '@/auth';
-
-export async function POST(req: Request) {
-  const session = await auth();
-  if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { folderId, documentType } = await req.json();
-
-  const token = await createUploadToken({
-    apiKey: process.env.FILENEST_API_KEY!,
-    projectId: process.env.FILENEST_PROJECT_ID!,
-    constraints: {
-      maxSize: 50 * 1024 * 1024,
-      allowedMimeTypes: ['application/pdf', 'image/*'],
-      maxFiles: 10,
-    },
-    metadata: { uploadedBy: session.user.id, documentType: documentType || 'general' },
-    folderId,
-    expiresIn: 3600,
-  });
-
-  return Response.json(token);
-}
-```
-
----
-
-## Next.js Webhook Handler
-
-```typescript
-// app/api/webhooks/filenest/route.ts
-import { verifyWebhookSignature, parseWebhookEvent } from '@filenest/nextjs/server';
-
-export async function POST(req: Request) {
-  const body = await req.text();
-  const signature = req.headers.get('x-filenest-signature') ?? '';
-
-  if (!verifyWebhookSignature(body, signature, process.env.FILENEST_WEBHOOK_SECRET!)) {
-    return new Response('Invalid signature', { status: 401 });
-  }
-
-  const event = parseWebhookEvent(body);
-
-  switch (event.type) {
-    case 'file.uploaded':    await handleFileUploaded(event.data);   break;
-    case 'file.processed':   await handleFileProcessed(event.data);  break;
-    case 'file.virus_detected': await handleVirus(event.data);       break;
-  }
-
-  return new Response('OK', { status: 200 });
-}
-```
-
----
-
-## Python SDK (`filenest`) — server-side usage
-
-```python
-from filenest import FileNest, AsyncFileNest
-
-# Sync client
-fn = FileNest(api_key=os.environ["FILENEST_API_KEY"], project_id=os.environ["FILENEST_PROJECT_ID"])
-
-# Async client (preferred in FastAPI/async context)
-async with AsyncFileNest(api_key=..., project_id=...) as fn:
-    file = await fn.files.upload(
-        filename="report.pdf",
-        data=pdf_bytes,
-        mime_type="application/pdf",
-        metadata={"patientId": "P-12345", "documentType": "LabReport"},
-    )
-    url = await fn.files.get_download_url(file.id, ttl=3600)
-
-# FastAPI dependency pattern
-from functools import lru_cache
-
-@lru_cache(maxsize=1)
-def get_filenest() -> AsyncFileNest:
-    return AsyncFileNest(api_key=settings.FILENEST_API_KEY, project_id=settings.FILENEST_PROJECT_ID)
-
-# Webhook verification
-from filenest import verify_webhook_signature
-if not verify_webhook_signature(body, signature, settings.WEBHOOK_SECRET):
-    raise HTTPException(status_code=401, detail="Invalid signature")
-```
-
----
-
-## Structured Logging
+### Structured logging
 
 ```python
 import structlog
 logger = structlog.get_logger()
 
-# Always include tenant context in log entries
-logger.info("file_upload_started",
-    file_id=file_id,
-    organization_id=auth.organization_id,
-    project_id=auth.project_id,
-    size=request.size,
+# Always include tenant context
+logger.info("file.uploaded",
+    file_id=str(file.id),
+    organization_id=ctx.organization_id,
+    project_id=ctx.project_id,
 )
 ```
 
 ---
 
-## Key rules
+## Key rules (all layers)
 
-1. **Routes are thin** — validate input via Pydantic schemas, call one service method, return response model.
-2. **Service owns all business logic** — no raw SQL or storage calls in routes or repositories.
-3. **Repository owns all DB access** — always include `organization_id` + `project_id` in queries (RLS enforcement).
-4. **Always use the outbox for events** — never publish directly to NATS from a service method.
-5. **Audit every mutation** — upload, delete, download, legal-hold, WORM, metadata-update.
-6. **Storage provider is injected** — never import a specific provider class directly in service code.
-7. **`await db.flush()` not `await db.commit()`** — the session context manager commits; flush just gets the DB-assigned id.
-8. **Config from `ProjectConfig`** — industry-specific behaviour (HIPAA, WORM, retention) comes from project config, never hardcoded conditionals.
+1. **Action is thin** — ZSA gate + `runWithTransport` + one controller call. No business logic, no filenestApi calls.
+2. **Controller validates input** — `Schema.safeParseAsync(input)` → `InputParseError`; then use case; then presenter → `OutputParseError`.
+3. **Use case coordinates** — calls `getInjection("IXxxService")`; no HTTP, no Zod, no business logic beyond coordination.
+4. **Service calls the API** — `filenestApi` calls + response `safeParse` + `OutputParseError` on drift.
+5. **`transportOptions` on every action schema** — present by default, even for reads.
+6. **`skipInputParsing: true`** on all `.input()` calls — controller handles Zod validation, not ZSA.
+7. **Repository = DB access (Python)** — always include `organization_id` + `project_id` in every query.
+8. **Service = external API call (TypeScript)** — `XxxRestService` implements `IXxxService` via `filenestApi`.
+9. **Outbox for all events (Python)** — never publish to NATS directly from a service method.
+10. **Audit every mutation (Python)** — upload, delete, download, legal-hold, WORM, metadata-update.

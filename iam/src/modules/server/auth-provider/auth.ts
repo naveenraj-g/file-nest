@@ -7,7 +7,7 @@
  * @category Auth Provider
  */
 
-import { betterAuth } from "better-auth"
-import { authConfig } from "./auth.config"
+import { betterAuth } from "better-auth";
+import { authConfig } from "./auth.config";
 
-export const auth = betterAuth(authConfig)
+export const auth = betterAuth(authConfig);

@@ -397,9 +397,15 @@ export class OrganizationsService implements IOrganizationsService {
       context: { operationId, organizationId: payload.organizationId },
     });
     try {
-      await auth.api.deleteOrganization({
-        body: { organizationId: payload.organizationId },
-        headers: await headers(),
+      // auth.api.deleteOrganization requires the caller to be an org member,
+      // which superadmins are not. Delete via Prisma directly instead —
+      // cascade handles members, teams, invitations, and API keys.
+      // await auth.api.deleteOrganization({
+      //   body: { organizationId: payload.organizationId },
+      //   headers: await headers(),
+      // });
+      await prisma.organization.delete({
+        where: { id: payload.organizationId },
       });
       const data = { success: true };
       logOperation("success", {

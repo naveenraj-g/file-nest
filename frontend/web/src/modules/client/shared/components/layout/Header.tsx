@@ -24,6 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, Settings, User } from "lucide-react";
+import { authClient } from "@/modules/client/auth/auth-client";
+import { toast } from "sonner";
 
 interface HeaderProps {
   user: { name?: string | null; email: string };
@@ -34,8 +36,15 @@ export function Header({ user, orgId }: HeaderProps) {
   const router = useRouter();
 
   async function handleSignOut() {
-    await fetch("/api/auth/signout", { method: "POST" });
-    router.push("/");
+    const { data, error } = await authClient.signOut();
+    if (!data?.success || !data) {
+      toast.error("Something went wrong!", { description: error?.message });
+      return;
+    }
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    // Hard redirect clears the full Next.js router cache
+    window.location.href = "/";
   }
 
   const initials = (user.name ?? user.email)
@@ -67,7 +76,9 @@ export function Header({ user, orgId }: HeaderProps) {
           <DropdownMenuContent align="end" className="w-52">
             <div className="px-3 py-2">
               <p className="text-sm font-medium truncate">{user.name ?? "—"}</p>
-              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {user.email}
+              </p>
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>

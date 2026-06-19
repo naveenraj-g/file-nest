@@ -1,9 +1,13 @@
 /**
  * Get-API-key onboarding step.
  *
- * Generates an org-scoped API key via the IAM authClient. The key is shown
- * once and must be copied before proceeding. The raw key is stored in
- * sessionStorage for the install-sdk step's code snippets.
+ * Generates a project-scoped API key via the IAM. The key carries both
+ * organizationId (as referenceId, for org-level listing) and projectId
+ * (in metadata) so the FileNest backend can build the full tenant context
+ * from a single key verification call.
+ *
+ * The key is shown once — copy it before proceeding. The raw key and the
+ * project ID are stored in sessionStorage for the install-sdk step's snippets.
  *
  * @module
  */
@@ -22,46 +26,55 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { authClient } from "@/modules/client/auth/auth-client";
 
-// authClient is the browser-side Better Auth client — imported from the
-// console app's lib/auth.ts (create this file pointing at the IAM URL).
-// For now we call the IAM directly via fetch to avoid a dependency gap.
+const DEFAULT_SCOPES = [
+  "files:upload",
+  "files:download",
+  "files:read",
+  "files:delete",
+  "files:update_metadata",
+  "projects:read",
+  "projects:update",
+];
+
 export default function GetApiKeyPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orgId = searchParams.get("orgId") ?? "";
 
+  const [projectId, setProjectId] = React.useState("");
   const [apiKey, setApiKey] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
   const [hasCopied, setHasCopied] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [generated, setGenerated] = React.useState(false);
 
+  React.useEffect(() => {
+    const stored = sessionStorage.getItem("fn_onboarding_project_id");
+    if (stored) setProjectId(stored);
+  }, []);
+
   async function generateKey() {
     setLoading(true);
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_BETTER_AUTH_URL}/api/auth/api-key/create`,
-      {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "Default",
-          ...(orgId ? { referenceId: orgId } : {}),
-        }),
+    const { data, error } = await authClient.apiKey.create({
+      name: "default",
+      organizationId: orgId,
+      metadata: {
+        organizationId: orgId,
+        projectId: projectId || null,
+        scopes: DEFAULT_SCOPES,
       },
-    );
+    });
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      toast.error(data.message ?? "Failed to generate API key");
+    if (error || !data) {
+      toast.error(error?.message ?? "Failed to generate API key");
       setLoading(false);
       return;
     }
 
-    const rawKey = (data as { key: string }).key;
+    const rawKey = data.key;
     setApiKey(rawKey);
     setGenerated(true);
     sessionStorage.setItem("fn_onboarding_key", rawKey);
@@ -82,8 +95,9 @@ export default function GetApiKeyPage() {
       <CardHeader>
         <CardTitle>Your API key</CardTitle>
         <CardDescription>
-          This key authenticates your application with FileNest. It will only
-          be shown once — copy it now and store it securely.
+          This key authenticates your application with FileNest and is scoped to
+          your project. It will only be shown once — copy it now and store it
+          securely.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -112,12 +126,12 @@ export default function GetApiKeyPage() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Store this key as{" "}
+              Store this as{" "}
               <code className="rounded bg-muted px-1 py-0.5 font-mono">
                 FILENEST_API_KEY
               </code>{" "}
-              in your environment variables. You can create additional keys in
-              Settings → API Keys.
+              in your environment. You can create additional project-scoped keys
+              in Project Settings → API Keys.
             </p>
             <Button
               className="w-full"
