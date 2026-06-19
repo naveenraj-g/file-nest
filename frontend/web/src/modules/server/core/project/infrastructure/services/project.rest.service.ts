@@ -23,13 +23,19 @@ import {
   type TProjectList,
   type TCreateProject,
   type TUpdateProject,
+  type TListProjectsParams,
 } from "@/modules/entities/schemas/project";
 import { OutputParseError } from "@/modules/server/shared/errors/schema-parse-error";
 import type { IProjectService } from "../../domain/interfaces/project.service.interface";
 
 export class ProjectRestService implements IProjectService {
-  async list(): Promise<TProjectList> {
-    const raw = await filenestApi<unknown>("/v1/projects");
+  async list(params?: TListProjectsParams): Promise<TProjectList> {
+    const qs = params ? "?" + new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== "")
+        .map(([k, v]) => [k, String(v)])
+    ).toString() : "";
+    const raw = await filenestApi<unknown>(`/v1/projects${qs}`);
     const parsed = ProjectListSchema.safeParse(raw);
     if (!parsed.success) throw new OutputParseError(parsed.error);
     return parsed.data;

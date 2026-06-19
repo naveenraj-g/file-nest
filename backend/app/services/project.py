@@ -20,6 +20,7 @@ from app.repositories.storage_config import StorageConfigRepository
 
 from app.schemas.project import (
     CreateProjectRequest,
+    ProjectListParams,
     ProjectListResponse,
     ProjectResponse,
     UpdateProjectRequest,
@@ -111,11 +112,23 @@ class ProjectService:
         record = await self._repo.get(project_id, self._ctx.organization_id)
         return self._to_response(record)
 
-    async def list_projects(self) -> ProjectListResponse:
-        """Return all active projects in the caller's organisation."""
-        records = await self._repo.list(self._ctx.organization_id)
+    async def list_projects(self, params: ProjectListParams) -> ProjectListResponse:
+        """
+        Return a page of projects matching the given filters, sort, and page params.
+
+        Args:
+            params: Validated query parameters from GET /v1/projects.
+        """
+        import math
+        records, total = await self._repo.list(self._ctx.organization_id, params)
         items = [self._to_response(r) for r in records]
-        return ProjectListResponse(items=items, total=len(items))
+        return ProjectListResponse(
+            items=items,
+            total=total,
+            page=params.page,
+            page_size=params.page_size,
+            total_pages=math.ceil(total / params.page_size) if total else 1,
+        )
 
     async def update_project(self, project_id: str, req: UpdateProjectRequest) -> ProjectResponse:
         """

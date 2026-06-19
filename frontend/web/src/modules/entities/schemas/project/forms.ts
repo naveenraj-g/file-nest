@@ -14,7 +14,7 @@ export const CreateProjectFormSchema = z.object({
   slug: z.string().optional(),
   description: z.string().optional(),
   storage_mode: z.enum(["managed", "byob"]),
-  storage_provider: z.enum(["s3", "azure_blob", "gcs", "minio", "r2", "restfs"]),
+  storage_provider: z.enum(["s3", "azure_blob", "gcs", "minio", "r2", "rustfs"]),
 });
 
 export type TCreateProjectForm = z.infer<typeof CreateProjectFormSchema>;

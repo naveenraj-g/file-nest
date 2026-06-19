@@ -13,17 +13,24 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useServerAction } from "zsa-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
-  FormInput,
-  FormTextarea,
-  FormSelect,
-  FormSelectOption,
-} from "@/modules/client/shared/custom-form-fields";
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
+import {
+  Field,
+  FieldLabel,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+} from "@/components/ui/field";
 import { createProjectAction } from "@/modules/server/presentation/actions/project.actions";
 import {
   CreateProjectFormSchema,
@@ -35,6 +42,23 @@ import type { TProject } from "@/modules/entities/schemas/project";
 interface CreateProjectFormProps {
   onSuccess?: (data: TProject) => void;
 }
+
+const STORAGE_MODES = [
+  { value: "managed", label: "Managed — FileNest provisions storage for you" },
+  { value: "byob", label: "BYOB — Bring your own bucket" },
+] as const;
+
+const STORAGE_PROVIDERS = [
+  { value: "rustfs", label: "RustFS" },
+  { value: "s3", label: "Amazon S3" },
+  { value: "azure_blob", label: "Azure Blob Storage" },
+  { value: "gcs", label: "Google Cloud Storage" },
+  { value: "minio", label: "MinIO" },
+  { value: "r2", label: "Cloudflare R2" },
+] as const;
+
+// Providers available in managed mode. Everything else is "coming soon".
+const MANAGED_AVAILABLE = new Set<string>(["rustfs"]);
 
 function toSlug(name: string) {
   return name
@@ -57,7 +81,7 @@ export function CreateProjectForm({ onSuccess }: CreateProjectFormProps = {}) {
       slug: "",
       description: "",
       storage_mode: "managed",
-      storage_provider: "s3",
+      storage_provider: "rustfs",
     },
   });
 
@@ -84,73 +108,169 @@ export function CreateProjectForm({ onSuccess }: CreateProjectFormProps = {}) {
   const slug = form.watch("slug");
   const storageMode = form.watch("storage_mode");
 
+  // When switching to managed mode, reset provider to the first available one
+  // if the currently selected provider isn't supported in managed mode.
+  React.useEffect(() => {
+    if (storageMode === "managed") {
+      const current = form.getValues("storage_provider");
+      if (!MANAGED_AVAILABLE.has(current)) {
+        form.setValue("storage_provider", "rustfs");
+      }
+    }
+  }, [storageMode, form]);
+
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-      <FormInput
-        name="name"
-        control={form.control}
-        label="Project name"
-        placeholder="My Project"
-        autoFocus
-        onChangeSideEffect={(e) => {
-          if (!slugEdited) {
-            form.setValue("slug", toSlug(e.target.value), { shouldValidate: false });
-          }
-        }}
-      />
+      <FieldGroup>
+        <Controller
+          name="name"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Project name</FieldLabel>
+              <Input
+                {...field}
+                id={field.name}
+                placeholder="My Project"
+                autoFocus
+                aria-invalid={fieldState.invalid}
+                onChange={(e) => {
+                  field.onChange(e);
+                  if (!slugEdited) {
+                    form.setValue("slug", toSlug(e.target.value), {
+                      shouldValidate: false,
+                    });
+                  }
+                }}
+              />
+              {fieldState.invalid && (
+                <FieldError errors={[fieldState.error]} />
+              )}
+            </Field>
+          )}
+        />
 
-      <FormInput
-        name="slug"
-        control={form.control}
-        label="Slug"
-        description={`Used in API calls: ${slug || "my-project"}`}
-        placeholder="my-project"
-        onChangeSideEffect={(e) => {
-          setSlugEdited(true);
-          form.setValue("slug", toSlug(e.target.value), { shouldValidate: false });
-        }}
-      />
+        <Controller
+          name="slug"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Slug</FieldLabel>
+              <FieldDescription>
+                Used in API calls: {slug || "my-project"}
+              </FieldDescription>
+              <Input
+                {...field}
+                id={field.name}
+                placeholder="my-project"
+                aria-invalid={fieldState.invalid}
+                onChange={(e) => {
+                  setSlugEdited(true);
+                  form.setValue("slug", toSlug(e.target.value), {
+                    shouldValidate: false,
+                  });
+                }}
+              />
+              {fieldState.invalid && (
+                <FieldError errors={[fieldState.error]} />
+              )}
+            </Field>
+          )}
+        />
 
-      <FormTextarea
-        name="description"
-        control={form.control}
-        label="Description (optional)"
-        placeholder="A short description of this project"
-      />
+        <Controller
+          name="description"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Description (optional)</FieldLabel>
+              <Textarea
+                {...field}
+                id={field.name}
+                placeholder="A short description of this project"
+                aria-invalid={fieldState.invalid}
+              />
+              {fieldState.invalid && (
+                <FieldError errors={[fieldState.error]} />
+              )}
+            </Field>
+          )}
+        />
 
-      <FormSelect
-        name="storage_mode"
-        control={form.control}
-        label="Storage mode"
-      >
-        <FormSelectOption value="managed">
-          Managed — FileNest provisions storage for you
-        </FormSelectOption>
-        <FormSelectOption value="byob">
-          BYOB — Bring your own bucket
-        </FormSelectOption>
-      </FormSelect>
+        <Controller
+          name="storage_mode"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Storage mode</FieldLabel>
+              <NativeSelect
+                id={field.name}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                aria-invalid={fieldState.invalid}
+                className="w-full"
+              >
+                {STORAGE_MODES.map(({ value, label }) => (
+                  <NativeSelectOption key={value} value={value}>
+                    {label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              {fieldState.invalid && (
+                <FieldError errors={[fieldState.error]} />
+              )}
+            </Field>
+          )}
+        />
 
-      {storageMode === "byob" && (
-        <p className="text-xs text-muted-foreground">
-          You&apos;ll enter bucket credentials in{" "}
-          <strong className="text-foreground">Project Settings → Storage</strong>{" "}
-          after creation.
-        </p>
-      )}
+        {storageMode === "byob" && (
+          <p className="text-xs text-muted-foreground">
+            You&apos;ll enter bucket credentials in{" "}
+            <strong className="text-foreground">
+              Project Settings → Storage
+            </strong>{" "}
+            after creation.
+          </p>
+        )}
 
-      <FormSelect
-        name="storage_provider"
-        control={form.control}
-        label="Storage provider"
-      >
-        <FormSelectOption value="s3">Amazon S3</FormSelectOption>
-        <FormSelectOption value="azure_blob">Azure Blob Storage</FormSelectOption>
-        <FormSelectOption value="gcs">Google Cloud Storage</FormSelectOption>
-        <FormSelectOption value="minio">MinIO</FormSelectOption>
-        <FormSelectOption value="r2">Cloudflare R2</FormSelectOption>
-        <FormSelectOption value="restfs">RestFS</FormSelectOption>
-      </FormSelect>
+        <Controller
+          name="storage_provider"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Storage provider</FieldLabel>
+              <NativeSelect
+                id={field.name}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                aria-invalid={fieldState.invalid}
+                className="w-full"
+              >
+                {STORAGE_PROVIDERS.map(({ value, label }) => {
+                  const comingSoon =
+                    storageMode === "managed" && !MANAGED_AVAILABLE.has(value);
+                  return (
+                    <NativeSelectOption
+                      key={value}
+                      value={value}
+                      disabled={comingSoon}
+                    >
+                      {comingSoon ? `${label} (coming soon)` : label}
+                    </NativeSelectOption>
+                  );
+                })}
+              </NativeSelect>
+              {fieldState.invalid && (
+                <FieldError errors={[fieldState.error]} />
+              )}
+            </Field>
+          )}
+        />
+      </FieldGroup>
 
       <Button type="submit" className="w-full" disabled={isPending}>
         {isPending ? "Creating…" : "Create project"}

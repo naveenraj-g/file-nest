@@ -33,7 +33,7 @@ class StorageConfig(Base):
     Constraints:
     - UNIQUE(project_id, environment): only one config per project per environment.
     - config_encrypted is null for managed mode (platform credentials used instead).
-    - endpoint_url is required for minio, r2, and restfs; null for s3/azure/gcs.
+    - endpoint_url is required for minio, r2, and rustfs; null for s3/azure/gcs.
     """
 
     __tablename__ = "storage_configs"
@@ -62,7 +62,7 @@ class StorageConfig(Base):
     # Non-sensitive routing config — stored plaintext for display and provider init.
     region = Column(String(100), nullable=True)
     bucket_name = Column(String(255), nullable=True)
-    # Required for minio / r2 / restfs; null for managed s3/azure/gcs.
+    # Required for minio / r2 / rustfs; null for managed s3/azure/gcs.
     endpoint_url = Column(Text, nullable=True)
 
     # Server-side encryption setting passed through to the storage provider.

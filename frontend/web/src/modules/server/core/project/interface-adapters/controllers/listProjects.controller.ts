@@ -12,7 +12,8 @@
 "server-only";
 
 import { listProjectsUseCase } from "../../application/usecases/listProjects.usecase";
-import type { TProjectList } from "@/modules/entities/schemas/project";
+import { ListProjectsParamsSchema, type TProjectList } from "@/modules/entities/schemas/project";
+import { InputParseError } from "@/modules/server/shared/errors/schema-parse-error";
 
 function presenter(data: TProjectList): TProjectList {
   return data;
@@ -21,11 +22,14 @@ function presenter(data: TProjectList): TProjectList {
 export type TListProjectsControllerOutput = ReturnType<typeof presenter>;
 
 /**
- * Lists all active projects in the caller's organisation.
+ * Lists projects with optional server-side pagination, sort, and filters.
  *
- * @returns Paginated project list { items, total }.
+ * @param input - Raw params object from the action payload (validated here).
+ * @returns Paginated project list.
  */
-export async function listProjectsController(): Promise<TListProjectsControllerOutput> {
-  const data = await listProjectsUseCase();
+export async function listProjectsController(input?: unknown): Promise<TListProjectsControllerOutput> {
+  const parsed = await ListProjectsParamsSchema.safeParseAsync(input ?? {});
+  if (!parsed.success) throw new InputParseError(parsed.error);
+  const data = await listProjectsUseCase(parsed.data);
   return presenter(data);
 }

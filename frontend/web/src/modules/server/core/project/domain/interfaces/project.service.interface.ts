@@ -14,14 +14,16 @@ import type {
   TProjectList,
   TCreateProject,
   TUpdateProject,
+  TListProjectsParams,
 } from "@/modules/entities/schemas/project";
 
 export interface IProjectService {
   /**
-   * Returns all active projects for the caller's organisation.
+   * Returns a page of projects matching the given params.
+   * @param params - Pagination, sort, filter params forwarded to the backend.
    * @throws ApiError on backend failure.
    */
-  list(): Promise<TProjectList>;
+  list(params?: TListProjectsParams): Promise<TProjectList>;
 
   /**
    * Creates a new project and auto-provisions its storage config.

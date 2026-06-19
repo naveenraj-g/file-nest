@@ -24,7 +24,7 @@ export default async function AppLayout({
 }) {
   const session = await getServerSession();
   const locale = await getLocale();
-  console.log(session);
+
   if (!session) {
     redirect({ href: "/login", locale });
     return null;

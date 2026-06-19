@@ -9,10 +9,10 @@
  */
 import { z } from "zod";
 import { TransportOptionsSchema } from "../transport";
-import { CreateProjectSchema, UpdateProjectSchema } from "./input";
+import { CreateProjectSchema, ListProjectsParamsSchema, UpdateProjectSchema } from "./input";
 
 export const ListProjectsActionSchema = z.object({
-  payload: z.object({}).optional(),
+  payload: ListProjectsParamsSchema.optional(),
   transportOptions: TransportOptionsSchema.optional(),
 });
 

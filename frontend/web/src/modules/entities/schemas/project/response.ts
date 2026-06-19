@@ -29,6 +29,9 @@ export type TProject = z.infer<typeof ProjectSchema>;
 export const ProjectListSchema = z.object({
   items: z.array(ProjectSchema),
   total: z.number(),
+  page: z.number(),
+  page_size: z.number(),
+  total_pages: z.number(),
 });
 
 export type TProjectList = z.infer<typeof ProjectListSchema>;

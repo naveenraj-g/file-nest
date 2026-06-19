@@ -10,6 +10,7 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { Files, Settings, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DataTableColumnHeader,
   DataTableRowActions,
@@ -24,11 +25,35 @@ const PROVIDER_LABELS: Record<string, string> = {
   gcs: "GCS",
   minio: "MinIO",
   r2: "R2",
-  restfs: "RestFS",
+  rustfs: "RustFS",
 };
 
 export function projectsTableColumns(): ColumnDef<TProjectRow>[] {
   return [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      meta: { exportable: false },
+    },
     {
       accessorKey: "name",
       header: ({ column }) => (

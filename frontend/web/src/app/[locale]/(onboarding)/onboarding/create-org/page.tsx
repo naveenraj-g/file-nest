@@ -12,10 +12,12 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -23,6 +25,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Field,
+  FieldLabel,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+} from "@/components/ui/field";
+
+const createOrgSchema = z.object({
+  name: z.string().min(1, "Organisation name is required"),
+  slug: z
+    .string()
+    .min(1, "Slug is required")
+    .regex(/^[a-z0-9-]+$/, "Lowercase letters, numbers, and hyphens only"),
+});
+
+type TCreateOrgForm = z.infer<typeof createOrgSchema>;
 
 function toSlug(name: string) {
   return name
@@ -40,48 +59,36 @@ interface CreateOrgPageProps {
 
 export default function CreateOrgPage({ searchParams }: CreateOrgPageProps) {
   const router = useRouter();
-  const [name, setName] = React.useState("");
-  const [slug, setSlug] = React.useState("");
   const [slugEdited, setSlugEdited] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
+
+  const form = useForm<TCreateOrgForm>({
+    resolver: zodResolver(createOrgSchema),
+    defaultValues: { name: "", slug: "" },
+  });
+
+  const slug = form.watch("slug");
 
   // Pre-populate from ?name= query param (set by the app layout from session).
   React.useEffect(() => {
     searchParams.then(({ name: prefill }) => {
-      if (prefill && !name) {
-        setName(prefill);
-        setSlug(toSlug(prefill));
+      if (prefill && !form.getValues("name")) {
+        form.setValue("name", prefill);
+        form.setValue("slug", toSlug(prefill));
       }
     });
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleNameChange(value: string) {
-    setName(value);
-    if (!slugEdited) setSlug(toSlug(value));
-  }
-
-  function handleSlugChange(value: string) {
-    setSlugEdited(true);
-    setSlug(toSlug(value));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim() || !slug.trim()) return;
-
-    setLoading(true);
-
+  async function onSubmit(values: TCreateOrgForm) {
     const res = await fetch("/api/onboarding/org", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), slug: slug.trim() }),
+      body: JSON.stringify({ name: values.name.trim(), slug: values.slug.trim() }),
     });
 
     const data = await res.json();
 
     if (!res.ok) {
       toast.error(data.error ?? "Failed to create organisation");
-      setLoading(false);
       return;
     }
 
@@ -98,42 +105,72 @@ export default function CreateOrgPage({ searchParams }: CreateOrgPageProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Organisation name</Label>
-            <Input
-              id="name"
-              placeholder="Acme Inc."
-              value={name}
-              onChange={(e) => handleNameChange(e.target.value)}
-              autoFocus
-              required
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <FieldGroup>
+            <Controller
+              name="name"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Organisation name</FieldLabel>
+                  <Input
+                    {...field}
+                    id={field.name}
+                    placeholder="Acme Inc."
+                    autoFocus
+                    aria-invalid={fieldState.invalid}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      if (!slugEdited) {
+                        form.setValue("slug", toSlug(e.target.value));
+                      }
+                    }}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="slug">
-              URL slug
-              <span className="ml-2 text-xs text-muted-foreground font-normal">
-                console.filenest.io/
-                <span className="text-foreground">{slug || "your-org"}</span>
-              </span>
-            </Label>
-            <Input
-              id="slug"
-              placeholder="acme-inc"
-              value={slug}
-              onChange={(e) => handleSlugChange(e.target.value)}
-              pattern="[a-z0-9-]+"
-              title="Lowercase letters, numbers, and hyphens only"
-              required
+
+            <Controller
+              name="slug"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>URL slug</FieldLabel>
+                  <FieldDescription>
+                    console.filenest.io/
+                    <span className="font-medium text-foreground">
+                      {slug || "your-org"}
+                    </span>
+                  </FieldDescription>
+                  <Input
+                    {...field}
+                    id={field.name}
+                    placeholder="acme-inc"
+                    aria-invalid={fieldState.invalid}
+                    onChange={(e) => {
+                      setSlugEdited(true);
+                      form.setValue("slug", toSlug(e.target.value));
+                    }}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
             />
-          </div>
+          </FieldGroup>
+
           <Button
             type="submit"
             className="w-full"
-            disabled={loading || !name.trim() || !slug.trim()}
+            disabled={form.formState.isSubmitting}
           >
-            {loading ? "Creating…" : "Create organisation"}
+            {form.formState.isSubmitting
+              ? "Creating…"
+              : "Create organisation"}
           </Button>
         </form>
       </CardContent>

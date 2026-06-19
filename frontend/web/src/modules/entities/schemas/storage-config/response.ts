@@ -12,7 +12,7 @@ export const StorageConfigSchema = z.object({
   project_id: z.string(),
   environment: z.string(),
   storage_mode: z.enum(["managed", "byob"]),
-  provider: z.enum(["s3", "azure_blob", "gcs", "minio", "r2", "restfs"]),
+  provider: z.enum(["s3", "azure_blob", "gcs", "minio", "r2", "rustfs"]),
   region: z.string().nullable(),
   bucket_name: z.string().nullable(),
   endpoint_url: z.string().nullable(),

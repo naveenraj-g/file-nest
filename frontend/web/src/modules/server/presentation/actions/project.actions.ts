@@ -45,7 +45,7 @@ export const listProjectsAction = authenticatedProcedure
   .input(ListProjectsActionSchema, { skipInputParsing: true })
   .handler(async ({ input }: { input: TListProjectsAction }) => {
     return await runWithTransport<TListProjectsControllerOutput>(async () => {
-      const data = await listProjectsController();
+      const data = await listProjectsController(input.payload);
       return { result: data, transport: input.transportOptions };
     });
   });

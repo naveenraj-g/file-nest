@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
+from fastapi import Query
 
 
 def _slugify(name: str) -> str:
@@ -20,7 +21,7 @@ class CreateProjectRequest(BaseModel):
     slug: str | None = Field(default=None, description="Auto-derived from name if omitted.")
     description: str | None = None
     storage_mode: Literal["managed", "byob"] = "managed"
-    storage_provider: Literal["s3", "azure_blob", "gcs", "minio", "r2", "restfs"] = "s3"
+    storage_provider: Literal["s3", "azure_blob", "gcs", "minio", "r2", "rustfs"] = "s3"
 
     @field_validator("slug", mode="before")
     @classmethod
@@ -60,8 +61,45 @@ class ProjectResponse(BaseModel):
     updated_at: datetime
 
 
+class ProjectListParams:
+    """
+    Query parameters for GET /v1/projects.
+
+    Used as a FastAPI Depends() so all fields are read from the query string.
+    Sortable columns are whitelisted to prevent SQL injection via ORDER BY.
+    """
+
+    SORTABLE = {"name", "created_at", "storage_provider", "storage_mode"}
+
+    def __init__(
+        self,
+        page: int = Query(default=1, ge=1, description="Page number (1-based)"),
+        page_size: int = Query(default=20, ge=1, le=100, description="Rows per page"),
+        sort_by: str = Query(default="created_at", description="Column to sort by"),
+        sort_dir: Literal["asc", "desc"] = Query(default="desc", description="Sort direction"),
+        search: str | None = Query(default=None, description="Substring match on name or slug"),
+        storage_provider: str | None = Query(default=None, description="Filter by provider"),
+        storage_mode: Literal["managed", "byob"] | None = Query(default=None, description="Filter by mode"),
+    ) -> None:
+        self.page = page
+        self.page_size = page_size
+        # Fallback to created_at if caller sends an unknown column
+        self.sort_by = sort_by if sort_by in self.SORTABLE else "created_at"
+        self.sort_dir = sort_dir
+        self.search = search.strip() if search else None
+        self.storage_provider = storage_provider
+        self.storage_mode = storage_mode
+
+    @property
+    def offset(self) -> int:
+        return (self.page - 1) * self.page_size
+
+
 class ProjectListResponse(BaseModel):
-    """Paginated list of projects."""
+    """Paginated list of projects with server-side page metadata."""
 
     items: list[ProjectResponse]
     total: int
+    page: int
+    page_size: int
+    total_pages: int

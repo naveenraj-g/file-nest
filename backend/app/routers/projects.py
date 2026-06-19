@@ -16,6 +16,7 @@ from app.auth import require_scope
 from app.di.dependencies.project import get_project_service
 from app.schemas.project import (
     CreateProjectRequest,
+    ProjectListParams,
     ProjectListResponse,
     ProjectResponse,
     UpdateProjectRequest,
@@ -37,11 +38,17 @@ async def create_project(
 
 @router.get("/projects", response_model=ProjectListResponse)
 async def list_projects(
+    params: ProjectListParams = Depends(),
     svc: ProjectService = Depends(get_project_service),
 ) -> ProjectListResponse:
-    """List all active projects in the caller's organisation. Scope: projects:read."""
+    """
+    List projects in the caller's organisation with pagination, filtering, and sorting.
+
+    Query params: page, page_size, sort_by, sort_dir, search, storage_provider, storage_mode.
+    Scope: projects:read.
+    """
     require_scope(svc._ctx, "projects:read")
-    return await svc.list_projects()
+    return await svc.list_projects(params)
 
 
 @router.get("/projects/{project_id}", response_model=ProjectResponse)

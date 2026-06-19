@@ -8,12 +8,14 @@ Usage:
     from app.repositories.project import ProjectRepository
 """
 from datetime import UTC, datetime
+import math
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import NotFoundError
 from app.models.project import Project
+from app.schemas.project import ProjectListParams
 
 
 class ProjectRepository:
@@ -59,18 +61,52 @@ class ProjectRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list(self, organization_id: str) -> list[Project]:
-        """Return all active non-deleted projects for an organisation, newest first."""
-        result = await self._session.execute(
-            select(Project)
-            .where(
-                Project.organization_id == organization_id,
-                Project.is_active.is_(True),
-                Project.deleted_at.is_(None),
+    async def list(
+        self, organization_id: str, params: ProjectListParams
+    ) -> tuple[list[Project], int]:
+        """
+        Return a page of active projects with total count for server-side pagination.
+
+        Applies search (ILIKE on name/slug), exact filters for provider/mode,
+        configurable sort column + direction, and LIMIT/OFFSET paging.
+
+        Returns:
+            Tuple of (page rows, total matching rows).
+        """
+        base_where = [
+            Project.organization_id == organization_id,
+            Project.is_active.is_(True),
+            Project.deleted_at.is_(None),
+        ]
+
+        if params.search:
+            pattern = f"%{params.search}%"
+            base_where.append(
+                Project.name.ilike(pattern) | Project.slug.ilike(pattern)
             )
-            .order_by(Project.created_at.desc())
+        if params.storage_provider:
+            base_where.append(Project.storage_provider == params.storage_provider)
+        if params.storage_mode:
+            base_where.append(Project.storage_mode == params.storage_mode)
+
+        # COUNT over the filtered set
+        count_result = await self._session.execute(
+            select(func.count()).select_from(Project).where(*base_where)
         )
-        return list(result.scalars().all())
+        total = count_result.scalar_one()
+
+        # Resolve sort column — whitelisted in ProjectListParams so safe to use directly
+        sort_col = getattr(Project, params.sort_by)
+        order = sort_col.asc() if params.sort_dir == "asc" else sort_col.desc()
+
+        rows_result = await self._session.execute(
+            select(Project)
+            .where(*base_where)
+            .order_by(order)
+            .offset(params.offset)
+            .limit(params.page_size)
+        )
+        return list(rows_result.scalars().all()), total
 
     async def update(self, project_id: str, organization_id: str, **fields) -> Project:
         """

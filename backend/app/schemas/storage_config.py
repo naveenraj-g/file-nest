@@ -13,13 +13,13 @@ class StorageConfigUpdateRequest(BaseModel):
     encrypted before persistence. Plaintext routing fields (bucket_name,
     region, endpoint_url) are stored as-is for display and provider init.
 
-    endpoint_url is required for minio, r2, and restfs; leave null for s3,
+    endpoint_url is required for minio, r2, and rustfs; leave null for s3,
     azure_blob, and gcs which use standard SDK endpoints.
     """
 
     bucket_name: str = Field(..., min_length=1, max_length=255)
     region: str | None = Field(default=None, max_length=100)
-    endpoint_url: str | None = Field(default=None, description="Required for MinIO, R2, and RestFS.")
+    endpoint_url: str | None = Field(default=None, description="Required for MinIO, R2, and RustFS.")
     access_key_id: str = Field(..., min_length=1)
     secret_access_key: str = Field(..., min_length=1)
     server_side_encryption: Literal["AES256", "aws:kms"] = "AES256"
