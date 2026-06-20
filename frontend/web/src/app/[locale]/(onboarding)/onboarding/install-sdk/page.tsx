@@ -12,8 +12,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,12 +31,14 @@ const SDKS: {
   id: SDK;
   label: string;
   install: string;
+  docsHref: string;
   snippet: (key: string, projectId: string) => string;
 }[] = [
   {
     id: "node",
     label: "Node.js",
     install: "npm install @filenest/node",
+    docsHref: "/docs/sdks/node",
     snippet: (key, projectId) => `import { FileNest } from "@filenest/node";
 
 const fn = new FileNest({
@@ -55,6 +58,7 @@ console.log(file.id);`,
     id: "python",
     label: "Python",
     install: "pip install filenest",
+    docsHref: "/docs/sdks/python",
     snippet: (key, projectId) => `from filenest import AsyncFileNest
 
 async with AsyncFileNest(
@@ -156,10 +160,25 @@ export default function InstallSdkPage() {
               </pre>
             </div>
           </div>
+
+          <Link
+            href={sdk.docsHref}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Read the {sdk.label} SDK docs
+            <ArrowRight className="h-3 w-3" />
+          </Link>
         </div>
 
         <Button className="w-full" onClick={() => router.push("/dashboard")}>
           Go to dashboard
+        </Button>
+        <Button
+          variant="ghost"
+          className="w-full text-muted-foreground"
+          asChild
+        >
+          <Link href="/docs">Browse the docs</Link>
         </Button>
       </CardContent>
     </Card>

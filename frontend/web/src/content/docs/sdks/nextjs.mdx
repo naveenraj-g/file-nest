@@ -1,0 +1,76 @@
+---
+title: "Next.js SDK"
+description: "Server-side FileNest utilities for Next.js App Router."
+---
+
+# Next.js SDK
+
+<Callout type="warning" title="Coming soon">
+The `@filenest/nextjs` SDK is planned for Phase 5. The patterns described here reflect the planned API.
+</Callout>
+
+## Installation
+
+<PackageTabs pkg="@filenest/nextjs" />
+
+## Server-side client
+
+Use `filenestServer()` in server components and server actions to fetch files and metadata without exposing the API key to the browser.
+
+```typescript
+import { filenestServer } from "@filenest/nextjs/server";
+
+const client = filenestServer({
+  apiKey: process.env.FILENEST_API_KEY!,
+  projectId: process.env.FILENEST_PROJECT_ID!,
+});
+
+// In a server component:
+const { items } = await client.files.list({ status: "ready" });
+```
+
+## Upload token endpoint
+
+```typescript
+// app/api/filenest-token/route.ts
+import { createUploadToken } from "@filenest/nextjs/server";
+import { getServerSession } from "@/modules/server/auth/get-session";
+
+export async function POST() {
+  const session = await getServerSession();
+  if (!session) return new Response("Unauthorized", { status: 401 });
+
+  const token = await createUploadToken({
+    apiKey: process.env.FILENEST_API_KEY!,
+    projectId: process.env.FILENEST_PROJECT_ID!,
+    expiresIn: 3600,
+  });
+
+  return Response.json(token);
+}
+```
+
+## Webhook verification
+
+```typescript
+// app/api/webhooks/filenest/route.ts
+import { verifyWebhookSignature, parseWebhookEvent } from "@filenest/nextjs/server";
+
+export async function POST(req: Request) {
+  const body = await req.text();
+  const sig = req.headers.get("x-filenest-signature") ?? "";
+  const secret = process.env.FILENEST_WEBHOOK_SECRET!;
+
+  if (!verifyWebhookSignature(body, sig, secret)) {
+    return new Response("Invalid signature", { status: 401 });
+  }
+
+  const event = parseWebhookEvent(body);
+
+  if (event.type === "file.ready") {
+    console.log("File ready:", event.data.file_id);
+  }
+
+  return new Response("OK");
+}
+```

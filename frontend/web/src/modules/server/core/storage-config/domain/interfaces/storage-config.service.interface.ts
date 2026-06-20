@@ -28,4 +28,11 @@ export interface IStorageConfigService {
    * @throws ApiError on backend failure.
    */
   verify(projectId: string): Promise<TStorageVerifyResult>;
+
+  /**
+   * Toggle server-side encryption for a MinIO or RustFS project.
+   * Rejected with 422 for S3 / R2 / Azure / GCS (always-on encryption).
+   * @throws ApiError on backend failure.
+   */
+  updateSse(projectId: string, sse_enabled: boolean): Promise<TStorageConfig>;
 }

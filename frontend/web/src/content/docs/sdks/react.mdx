@@ -1,0 +1,95 @@
+---
+title: "React SDK"
+description: "Add file upload and browser UI to your React app with @filenest/react."
+---
+
+# React SDK
+
+<Callout type="warning" title="Coming soon">
+The `@filenest/react` SDK is planned for Phase 5. The components described here reflect the planned API.
+</Callout>
+
+## Installation
+
+<PackageTabs pkg="@filenest/react" />
+
+## Provider setup
+
+Wrap your app with `FileNestProvider`. The provider exchanges a short-lived upload token with your server — the API key never reaches the browser.
+
+```tsx
+import { FileNestProvider } from "@filenest/react";
+
+export default function RootLayout({ children }) {
+  return (
+    <FileNestProvider
+      tokenEndpoint="/api/filenest-token"
+      projectId={process.env.NEXT_PUBLIC_FILENEST_PROJECT_ID}
+    >
+      {children}
+    </FileNestProvider>
+  );
+}
+```
+
+## Token endpoint
+
+Your server must implement `/api/filenest-token` to issue short-lived upload tokens. In Next.js:
+
+```typescript
+// app/api/filenest-token/route.ts
+import { createUploadToken } from "@filenest/nextjs/server";
+import { getServerSession } from "@/modules/server/auth/get-session";
+
+export async function POST(req: Request) {
+  const session = await getServerSession();
+  if (!session) return new Response("Unauthorized", { status: 401 });
+
+  const token = await createUploadToken({
+    apiKey: process.env.FILENEST_API_KEY!,
+    projectId: process.env.FILENEST_PROJECT_ID!,
+    expiresIn: 3600,
+  });
+
+  return Response.json(token);
+}
+```
+
+## FileUpload component
+
+```tsx
+import { FileUpload } from "@filenest/react";
+
+export function UploadArea() {
+  return (
+    <FileUpload
+      accept={["application/pdf", "image/*"]}
+      maxSize={50 * 1024 * 1024}
+      variant="dropzone"
+      onComplete={(files) => console.log("Uploaded", files)}
+      onError={(error) => console.error(error.message)}
+    />
+  );
+}
+```
+
+## useUpload hook
+
+```tsx
+import { useUpload } from "@filenest/react";
+
+function UploadButton() {
+  const { upload, uploads, isUploading } = useUpload({
+    onComplete: (file) => console.log("Done:", file.id),
+  });
+
+  return (
+    <>
+      <input type="file" onChange={(e) => upload(Array.from(e.target.files ?? []))} />
+      {uploads.map((u) => (
+        <div key={u.id}>{u.filename}: {u.progress}%</div>
+      ))}
+    </>
+  );
+}
+```

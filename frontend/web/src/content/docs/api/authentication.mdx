@@ -1,0 +1,64 @@
+---
+title: "Authentication"
+description: "How to authenticate requests to the FileNest API."
+---
+
+# Authentication
+
+All FileNest API requests require a Bearer token in the `Authorization` header.
+
+## Bearer token
+
+```bash
+curl https://api.filenest.io/v1/projects \
+  -H "Authorization: Bearer fn_live_abc123..."
+```
+
+## Token types
+
+| Prefix | Type | Issued by |
+|--------|------|-----------|
+| `fn_live_...` | Production API key | FileNest Console / IAM |
+| `fn_test_...` | Test API key | FileNest Console / IAM |
+| `fn_sa_...` | Service account | FileNest Console |
+| `fn_upload_token_...` | Short-lived upload token | Your server via `/api/filenest-token` |
+
+## Getting an API key
+
+1. Sign in to the [FileNest Console](/dashboard)
+2. Open a project → **API Keys** tab
+3. Click **Create key** → select scopes → copy the full key
+
+The full key is shown exactly once. Store it in a secret manager (AWS Secrets Manager, Vault, etc.) or as an environment variable.
+
+## Scopes
+
+API keys carry a set of scopes. A request will be rejected with `403 Forbidden` if the key does not have the required scope.
+
+| Scope | Required for |
+|-------|-------------|
+| `files:upload` | `POST /files/upload` |
+| `files:download` | `GET /files/{id}/download` |
+| `files:read` | `GET /files`, `GET /files/{id}` |
+| `files:delete` | `DELETE /files/{id}` |
+| `files:update_metadata` | `PUT /files/{id}/metadata` |
+| `projects:read` | `GET /projects`, `GET /projects/{id}` |
+| `projects:update` | `PATCH /projects/{id}`, `PATCH /storage` |
+
+## Error responses
+
+| Status | Code | Meaning |
+|--------|------|---------|
+| `401` | `authentication_required` | No `Authorization` header |
+| `401` | `invalid_token` | Token not recognized or revoked |
+| `403` | `insufficient_scope` | Token lacks the required scope |
+
+```json
+{
+  "error": {
+    "code": "insufficient_scope",
+    "message": "Token does not have scope files:upload",
+    "required_scope": "files:upload"
+  }
+}
+```

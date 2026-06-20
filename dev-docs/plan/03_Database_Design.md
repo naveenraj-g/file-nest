@@ -190,7 +190,7 @@ CREATE TABLE projects (
     storage_mode        VARCHAR(20) NOT NULL DEFAULT 'managed'
                             CHECK (storage_mode IN ('managed', 'byob')),
     storage_provider    VARCHAR(50) NOT NULL DEFAULT 's3'
-                            CHECK (storage_provider IN ('s3', 'azure', 'gcs', 'minio', 'r2', 'restfs')),
+                            CHECK (storage_provider IN ('s3', 'azure_blob', 'gcs', 'minio', 'r2', 'rustfs')),
     data_residency      VARCHAR(50) DEFAULT 'us'
                             CHECK (data_residency IN ('us', 'eu', 'india', 'middle_east', 'any')),
     
@@ -544,7 +544,7 @@ CREATE TABLE storage_configs (
                             CHECK (storage_mode IN ('managed', 'byob')),
 
     provider            VARCHAR(50) NOT NULL
-                            CHECK (provider IN ('s3', 'azure_blob', 'gcs', 'minio', 'r2', 'restfs')),
+                            CHECK (provider IN ('s3', 'azure_blob', 'gcs', 'minio', 'r2', 'rustfs')),
 
     -- Provider-specific config (encrypted at application level, AES-256)
     -- For 'managed' mode: empty — platform defaults are used
@@ -554,13 +554,19 @@ CREATE TABLE storage_configs (
     -- Derived non-sensitive config (stored plaintext for display + routing)
     region              VARCHAR(100),
     bucket_name         VARCHAR(255),
-    -- endpoint_url is required for byob minio / restfs / r2; null for managed S3/GCS/Azure
+    -- endpoint_url is required for byob minio / rustfs / r2; null for managed S3/GCS/Azure
     endpoint_url        VARCHAR(500),
 
-    -- Encryption settings (managed mode: platform default; byob: customer choice)
-    server_side_encryption VARCHAR(50) DEFAULT 'AES256'
-                            CHECK (server_side_encryption IN ('AES256', 'aws:kms', 'none')),
+    -- S3-family (s3, minio, rustfs, r2) only — NULL for Azure Blob and GCS
+    -- (those providers enforce always-on encryption that is not configurable here).
+    server_side_encryption VARCHAR(50)
+                            CHECK (server_side_encryption IN ('AES256', 'aws:kms')),
     kms_key_id          VARCHAR(500),
+
+    -- When TRUE, FileNest sends ServerSideEncryption: AES256 on every PUT request.
+    -- Defaults TRUE for s3 / r2 / azure_blob / gcs (always-on); FALSE for minio / rustfs
+    -- (requires KMS key on the server — user-togglable via PATCH /storage/sse).
+    sse_enabled         BOOLEAN NOT NULL DEFAULT FALSE,
 
     -- Verification: FileNest writes a test object to confirm byob connectivity
     status              VARCHAR(50) NOT NULL DEFAULT 'active'

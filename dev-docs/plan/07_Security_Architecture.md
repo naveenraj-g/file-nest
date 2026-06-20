@@ -505,11 +505,23 @@ async def proxy_single_use_download(url_id: str) -> RedirectResponse:
 
 **Layer 1: Storage Provider Encryption**
 
-All object storage uses server-side encryption:
-- AWS S3: SSE-S3 (default) or SSE-KMS (customer-managed)
-- Azure Blob: Azure-managed keys or customer-managed via Azure Key Vault
-- GCS: Google-managed keys or customer-managed via Cloud KMS
-- MinIO: KES (Key Encryption Service) integration
+All object storage uses server-side encryption. FileNest controls this via the `sse_enabled`
+flag on each `storage_configs` row and the `ServerSideEncryption: AES256` S3 API header.
+
+| Provider | Phase 1 behaviour | `sse_enabled` default |
+|----------|-------------------|-----------------------|
+| AWS S3 | SSE-S3 (`AES256`) or SSE-KMS if `server_side_encryption = 'aws:kms'` | `true` (always on) |
+| Cloudflare R2 | Default encryption (R2 encrypts all objects automatically) | `true` (always on) |
+| Azure Blob | Azure-managed keys — always on, not configurable via FileNest | `true` (always on) |
+| GCS | Google-managed keys — always on, not configurable via FileNest | `true` (always on) |
+| MinIO | SSE-S3 (`ServerSideEncryption: AES256`) when enabled — requires `MINIO_KMS_SECRET_KEY` on the server | `false` (user-togglable) |
+| RustFS | Same as MinIO — requires `RUSTFS_KMS_SECRET_KEY` on the server | `false` (user-togglable) |
+
+MinIO and RustFS `sse_enabled` can be toggled per project via `PATCH /v1/projects/{id}/storage/sse`.
+The platform env vars `MINIO_KMS_SECRET_KEY` and `RUSTFS_KMS_SECRET_KEY` must be set on the
+respective server processes for the encryption header to have any effect.
+
+**Phase 6+:** Customer-managed KMS keys for S3 (CMK), Azure Key Vault, and Cloud KMS.
 
 **Layer 2: Database Encryption — Application-Level (AES-256-GCM)**
 

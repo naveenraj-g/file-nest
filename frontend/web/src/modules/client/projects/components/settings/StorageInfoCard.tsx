@@ -6,6 +6,11 @@
  * The verify button calls the parent's onVerify handler which runs the
  * POST /storage/verify probe and updates status + last_verified_at.
  *
+ * Encryption row behaviour:
+ *   Azure / GCS           — "Azure-managed" / "Google-managed" (always on)
+ *   S3 / R2               — "AES-256" or "AWS KMS" (always enabled)
+ *   MinIO / RustFS        — shown only when sse_enabled=true ("AES-256 (server-managed)")
+ *
  * @module
  */
 "use client";
@@ -13,6 +18,7 @@
 import { CheckCircle2, AlertCircle, Clock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getProviderFamily } from "@/modules/entities/schemas/storage-config";
 import type { TStorageConfig } from "@/modules/entities/schemas/storage-config";
 
 interface StorageInfoCardProps {
@@ -53,10 +59,20 @@ const MODE_LABELS: Record<TStorageConfig["storage_mode"], string> = {
   byob: "Bring your own bucket",
 };
 
-const SSE_LABELS: Record<string, string> = {
+const S3_SSE_LABELS: Record<string, string> = {
   AES256: "AES-256",
   "aws:kms": "AWS KMS",
 };
+
+function encryptionLabel(config: TStorageConfig): string | null {
+  const family = getProviderFamily(config.provider);
+  if (family === "azure_blob") return "Azure-managed (always on)";
+  if (family === "gcs") return "Google-managed (always on)";
+  // S3 family: hide row when SSE is disabled (MinIO/RustFS only scenario)
+  if (!config.sse_enabled) return null;
+  if (config.server_side_encryption === "aws:kms") return "AWS KMS";
+  return "AES-256";
+}
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -67,24 +83,16 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function StorageInfoCard({
-  config,
-  onVerify,
-  isVerifying,
-}: StorageInfoCardProps) {
+export function StorageInfoCard({ config, onVerify, isVerifying }: StorageInfoCardProps) {
   const meta = STATUS_META[config.status];
   const StatusIcon = meta.icon;
+  const encryption = encryptionLabel(config);
 
   return (
     <div className="rounded-lg border">
       {/* Status bar + verify button */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
-        <div
-          className={cn(
-            "flex items-center gap-2 text-sm font-medium",
-            meta.className,
-          )}
-        >
+        <div className={cn("flex items-center gap-2 text-sm font-medium", meta.className)}>
           <StatusIcon className="h-4 w-4 shrink-0" />
           <span>{meta.label}</span>
           {config.last_verified_at && (
@@ -93,15 +101,8 @@ export function StorageInfoCard({
             </span>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onVerify}
-          disabled={isVerifying}
-        >
-          <RefreshCw
-            className={cn("h-3.5 w-3.5 mr-1.5", isVerifying && "animate-spin")}
-          />
+        <Button variant="outline" size="sm" onClick={onVerify} disabled={isVerifying}>
+          <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", isVerifying && "animate-spin")} />
           {isVerifying ? "Testing…" : "Test connection"}
         </Button>
       </div>
@@ -118,18 +119,8 @@ export function StorageInfoCard({
           />
         )}
         {config.region && <Row label="Region" value={config.region} />}
-        {config.endpoint_url && (
-          <Row label="Endpoint" value={config.endpoint_url} />
-        )}
-        {config.storage_mode === "byob" && (
-          <Row
-            label="Encryption"
-            value={
-              SSE_LABELS[config.server_side_encryption] ??
-              config.server_side_encryption
-            }
-          />
-        )}
+        {config.endpoint_url && <Row label="Endpoint" value={config.endpoint_url} />}
+        {encryption && <Row label="Encryption" value={encryption} />}
         <Row
           label="Last verified"
           value={

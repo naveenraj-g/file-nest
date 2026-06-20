@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { TransportOptionsSchema } from "../transport";
-import { UpdateStorageConfigSchema, VerifyStorageSchema } from "./input";
+import { UpdateStorageConfigSchema, UpdateSseSchema, VerifyStorageSchema } from "./input";
 
 export const GetStorageConfigActionSchema = z.object({
   payload: z.object({ projectId: z.string().min(1) }),
@@ -24,3 +24,9 @@ export const VerifyStorageActionSchema = z.object({
   transportOptions: TransportOptionsSchema.optional(),
 });
 export type TVerifyStorageAction = z.infer<typeof VerifyStorageActionSchema>;
+
+export const UpdateSseActionSchema = z.object({
+  payload: UpdateSseSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TUpdateSseAction = z.infer<typeof UpdateSseActionSchema>;

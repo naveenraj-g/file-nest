@@ -292,11 +292,11 @@ POST /v1/projects
         "secretKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
       }
     },
-    "_storageRestFSExample_": {
-      "_comment": "BYOB with RestFS Docker instance",
+    "_storageRustFSExample_": {
+      "_comment": "BYOB with RustFS Docker instance",
       "mode": "byob",
-      "provider": "restfs",
-      "endpointUrl": "http://restfs.acme.internal:9000",
+      "provider": "rustfs",
+      "endpointUrl": "http://rustfs.acme.internal:9000",
       "bucketName": "files",
       "credentials": {
         "accessKey": "mykey",
@@ -433,6 +433,102 @@ complianceProfile  string  healthcare|finance|legal|generic
   "pagination": { "..." }
 }
 ```
+
+---
+
+### 4.5 Storage Configuration
+
+Storage config endpoints manage where a project's file bytes are stored.
+All endpoints require scope `projects:read` (GET) or `projects:update` (PATCH / POST).
+
+#### GET /v1/projects/{projectId}/storage
+
+Returns the non-sensitive storage configuration. Encrypted credentials are never returned.
+
+**Response:** `200 OK`
+```json
+{
+  "project_id": "proj_abc",
+  "environment": "production",
+  "storage_mode": "managed",
+  "provider": "rustfs",
+  "region": "us-east-1",
+  "bucket_name": "fn-proj_abc",
+  "endpoint_url": null,
+  "server_side_encryption": null,
+  "sse_enabled": false,
+  "status": "active",
+  "last_verified_at": "2026-06-20T10:00:00Z"
+}
+```
+
+`server_side_encryption` is `null` for Azure Blob and GCS (always-on, not configurable).
+`sse_enabled` is `true` for S3 / R2 / Azure / GCS by default; `false` for MinIO / RustFS by default.
+
+---
+
+#### PATCH /v1/projects/{projectId}/storage
+
+Save BYOB credentials for a project. After saving, `status` is set to `pending_verification`.
+Call the verify endpoint to activate the config.
+
+**Request:**
+```json
+{
+  "bucket_name": "acme-files",
+  "region": "us-east-1",
+  "endpoint_url": "https://storage.acme.com:9000",
+
+  "_s3_minio_rustfs_r2": "S3-compatible providers require these fields:",
+  "access_key_id": "AKIAIOSFODNN7EXAMPLE",
+  "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+  "server_side_encryption": "AES256",
+  "kms_key_id": null,
+
+  "_azure_blob": "Azure Blob Storage requires these fields instead:",
+  "account_name": "acmestorage",
+  "account_key": "base64encodedkey==",
+
+  "_gcs": "Google Cloud Storage requires this field instead:",
+  "credentials_json": "{\"type\":\"service_account\", ...}"
+}
+```
+
+**Response:** `200 OK` — Updated `StorageConfigResponse` (same shape as GET above)
+
+---
+
+#### POST /v1/projects/{projectId}/storage/verify
+
+Probe the project's storage provider by writing and deleting a test object.
+Updates `status` to `active` on success, `verification_failed` on error.
+
+**Response:** `200 OK`
+```json
+{
+  "ok": true,
+  "latency_ms": 42.3,
+  "error": null
+}
+```
+
+---
+
+#### PATCH /v1/projects/{projectId}/storage/sse
+
+Toggle server-side encryption for MinIO and RustFS projects.
+When enabled, FileNest sends `ServerSideEncryption: AES256` on every PUT.
+The MinIO/RustFS server must have a KMS key configured for encryption to take effect.
+
+Returns `422` for S3, R2, Azure Blob, and GCS — those providers use always-on encryption
+that is not togglable via FileNest.
+
+**Request:**
+```json
+{ "sse_enabled": true }
+```
+
+**Response:** `200 OK` — Updated `StorageConfigResponse`
 
 ---
 

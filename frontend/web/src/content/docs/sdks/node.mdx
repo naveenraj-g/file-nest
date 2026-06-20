@@ -1,0 +1,78 @@
+---
+title: "Node.js SDK"
+description: "Install and use the @filenest/node SDK for server-side file operations."
+---
+
+# Node.js SDK
+
+<Callout type="warning" title="Coming soon">
+The `@filenest/node` SDK is planned for Phase 5. Use the REST API directly in the meantime.
+</Callout>
+
+## Installation
+
+<PackageTabs pkg="@filenest/node" />
+
+## Setup
+
+```typescript
+import { FileNest } from "@filenest/node";
+
+const client = new FileNest({
+  apiKey: process.env.FILENEST_API_KEY!,
+  projectId: process.env.FILENEST_PROJECT_ID!,
+});
+```
+
+## Upload a file
+
+```typescript
+import { createReadStream } from "fs";
+
+const file = await client.files.upload(createReadStream("./report.pdf"), {
+  filename: "report.pdf",
+  contentType: "application/pdf",
+  metadata: { category: "report", year: "2026" },
+});
+
+console.log(file.id);     // file_01j...
+console.log(file.status); // "ready"
+```
+
+Files under 5 MB are uploaded directly. Files over 5 MB are automatically split into multipart upload parts.
+
+## Download a file
+
+```typescript
+// Get a presigned URL (15 min default TTL)
+const url = await client.files.getDownloadUrl(file.id);
+
+// Or stream directly
+const stream = await client.files.download(file.id);
+stream.pipe(fs.createWriteStream("./output.pdf"));
+```
+
+## List files
+
+```typescript
+const { items, total } = await client.files.list({
+  status: "ready",
+  mimeType: "application/pdf",
+  page: 1,
+  pageSize: 50,
+});
+```
+
+## Delete a file
+
+```typescript
+await client.files.delete(file.id);
+```
+
+## Verify webhook signatures
+
+```typescript
+import { verifyWebhookSignature } from "@filenest/node";
+
+const isValid = verifyWebhookSignature(rawBody, signatureHeader, secret);
+```

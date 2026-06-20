@@ -1,0 +1,93 @@
+---
+title: "Python SDK"
+description: "Install and use the filenest Python SDK for async file operations."
+---
+
+# Python SDK
+
+<Callout type="warning" title="Coming soon">
+The `filenest` Python SDK is planned for Phase 5. Use the REST API directly in the meantime.
+</Callout>
+
+## Installation
+
+<PackageTabs pkg="filenest" python />
+
+## Setup
+
+```python
+from filenest import AsyncFileNestClient
+
+client = AsyncFileNestClient(
+    api_key="fn_live_...",
+    project_id="proj_01j...",
+)
+```
+
+## Upload a file
+
+```python
+async with open("report.pdf", "rb") as f:
+    file = await client.files.upload(
+        f,
+        filename="report.pdf",
+        content_type="application/pdf",
+        metadata={"category": "report"},
+    )
+
+print(file.id)      # file_01j...
+print(file.status)  # "ready"
+```
+
+## Download a file
+
+```python
+# Get a presigned URL
+url = await client.files.get_download_url(file.id, ttl=3600)
+
+# Or stream bytes
+content = await client.files.download(file.id)
+with open("output.pdf", "wb") as f:
+    f.write(content)
+```
+
+## List files
+
+```python
+result = await client.files.list(
+    status="ready",
+    mime_type="application/pdf",
+    page=1,
+    page_size=50,
+)
+
+for file in result.items:
+    print(file.filename, file.size)
+```
+
+## FastAPI integration
+
+```python
+from fastapi import FastAPI, UploadFile
+from filenest import AsyncFileNestClient
+
+app = FastAPI()
+client = AsyncFileNestClient(api_key="fn_live_...", project_id="proj_01j...")
+
+@app.post("/upload")
+async def upload(file: UploadFile):
+    result = await client.files.upload(
+        await file.read(),
+        filename=file.filename,
+        content_type=file.content_type,
+    )
+    return {"file_id": result.id, "status": result.status}
+```
+
+## Verify webhook signatures
+
+```python
+from filenest import verify_webhook_signature
+
+is_valid = verify_webhook_signature(raw_body, signature_header, secret)
+```

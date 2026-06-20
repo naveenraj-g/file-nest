@@ -1,0 +1,68 @@
+---
+title: "Project Settings"
+description: "Configure storage, uploads, processing, and security for a FileNest project."
+---
+
+# Project Settings
+
+Project settings are under **Projects → [project] → Settings**. Each tab controls a different aspect of the project.
+
+## Storage tab
+
+Configure where files are stored.
+
+### Managed storage
+
+If `storage_mode` is `managed`, the tab shows a read-only info card with the current provider, bucket, and connection status. A **Test connection** button runs a probe upload to verify connectivity.
+
+### BYOB (Bring Your Own Bucket)
+
+If `storage_mode` is `byob`, you can save and update credentials. The form fields change based on the selected provider:
+
+| Provider | Required fields |
+|----------|----------------|
+| S3 | Access key ID, secret key, bucket, region |
+| MinIO / RustFS | Access key ID, secret key, endpoint URL, bucket |
+| R2 | Access key ID, secret key, endpoint URL, bucket |
+| Azure Blob | Account name, account key, container |
+| GCS | Service account JSON, bucket |
+
+After saving, click **Test connection** to verify. The config status changes to `verified` on success.
+
+### Encryption at rest
+
+- **S3, R2, Azure, GCS** — encryption is always on. A read-only "Enforced" badge is shown.
+- **MinIO, RustFS** — a toggle allows enabling SSE-S3 (AES-256). Your MinIO/RustFS server must have a KMS key configured.
+
+See [Encryption (SSE)](/docs/storage/encryption) for setup details.
+
+## Uploads tab
+
+Control what can be uploaded:
+
+- **Allowed MIME types** — restrict uploads to specific content types
+- **Max file size** — reject uploads above a threshold (in MB)
+- **Filename patterns** — allowlist or blocklist filename patterns
+
+## Processing tab
+
+Control the processing pipeline stages:
+
+- **Virus scan** — always on, cannot be disabled
+- **OCR** — extract text from PDFs and images (Phase 3)
+- **Preview generation** — generate thumbnails and previews (Phase 7)
+
+## Security tab
+
+- **IP allowlist** — restrict API access to specific CIDR ranges
+- **CORS origins** — allowed origins for browser-side uploads
+
+## Compliance tab
+
+<Callout type="note">
+Compliance features (WORM, legal hold, retention) are planned for v2.0.
+</Callout>
+
+- **Retention period** — automatically delete or archive files after N days
+- **WORM mode** — make files immutable after upload
+- **Legal hold** — prevent deletion of flagged files

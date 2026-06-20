@@ -57,7 +57,7 @@ class StorageConfigRepository:
         region: str | None,
         endpoint_url: str | None,
         config_encrypted: bytes,
-        server_side_encryption: str,
+        server_side_encryption: str | None,
         kms_key_id: str | None,
     ) -> StorageConfig:
         """
@@ -65,6 +65,9 @@ class StorageConfigRepository:
 
         Sets status to pending_verification so the caller must run
         the verify probe before files can be uploaded.
+
+        server_side_encryption is None for Azure Blob and GCS (SSE is always-on
+        and not configurable). Only set for S3-family providers.
 
         Raises:
             NotFoundError: If no config exists for this project.
@@ -87,4 +90,20 @@ class StorageConfigRepository:
         record.status = status
         if last_verified_at is not None:
             record.last_verified_at = last_verified_at
+        return record
+
+    async def update_sse(
+        self, project_id: str, organization_id: str, sse_enabled: bool
+    ) -> StorageConfig:
+        """
+        Enable or disable server-side encryption for a project's storage config.
+
+        Only meaningful for MinIO and RustFS — the caller (service layer) is
+        responsible for validating provider eligibility before calling this.
+
+        Raises:
+            NotFoundError: If no config exists for this project.
+        """
+        record = await self.get_for_project(project_id, organization_id)
+        record.sse_enabled = sse_enabled
         return record

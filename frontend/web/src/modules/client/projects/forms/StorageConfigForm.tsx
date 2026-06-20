@@ -3,10 +3,15 @@
  *
  * Renders two modes:
  *   managed — StorageInfoCard only (details + test button; no credentials to enter)
- *   byob    — StorageInfoCard (current status + details) + credential form below
+ *   byob    — StorageInfoCard (current status + details) + provider-specific credential form
+ *
+ * Credential fields vary by provider family:
+ *   S3 / MinIO / RustFS / R2  →  access_key_id + secret_access_key (+ SSE options)
+ *   Azure Blob                →  account_name + account_key
+ *   GCS                       →  credentials_json textarea (full service account JSON)
  *
  * Credentials are never returned by the API after save (stored encrypted), so
- * access_key_id / secret_access_key fields are always empty on load.
+ * all credential fields are always empty on load.
  *
  * @module
  */
@@ -20,6 +25,7 @@ import { toast } from "sonner";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   NativeSelect,
   NativeSelectOption,
@@ -38,6 +44,7 @@ import {
 import {
   StorageConfigFormSchema,
   PROVIDERS_REQUIRING_ENDPOINT,
+  getProviderFamily,
   type TStorageConfigForm,
   type TStorageConfig,
 } from "@/modules/entities/schemas/storage-config";
@@ -49,15 +56,10 @@ interface StorageConfigFormProps {
   config: TStorageConfig;
 }
 
-export function StorageConfigForm({
-  projectId,
-  config,
-}: StorageConfigFormProps) {
+export function StorageConfigForm({ projectId, config }: StorageConfigFormProps) {
   const provider = config.provider;
-  const needsEndpoint = (
-    PROVIDERS_REQUIRING_ENDPOINT as readonly string[]
-  ).includes(provider);
-  const isS3 = provider === "s3";
+  const family = getProviderFamily(provider);
+  const needsEndpoint = (PROVIDERS_REQUIRING_ENDPOINT as readonly string[]).includes(provider);
 
   const form = useForm<TStorageConfigForm>({
     resolver: zodResolver(StorageConfigFormSchema),
@@ -66,11 +68,17 @@ export function StorageConfigForm({
       bucket_name: config.bucket_name ?? "",
       region: config.region ?? "",
       endpoint_url: config.endpoint_url ?? "",
+      // S3-family
       access_key_id: "",
       secret_access_key: "",
       server_side_encryption:
         (config.server_side_encryption as "AES256" | "aws:kms") ?? "AES256",
       kms_key_id: "",
+      // Azure
+      account_name: "",
+      account_key: "",
+      // GCS
+      credentials_json: "",
     },
   });
 
@@ -82,11 +90,7 @@ export function StorageConfigForm({
       onSuccess: () =>
         toast.success("Credentials saved — click Test connection to activate"),
       onError: ({ err }) =>
-        handleZSAError({
-          err,
-          form,
-          fallbackMessage: "Failed to save storage config",
-        }),
+        handleZSAError({ err, form, fallbackMessage: "Failed to save storage config" }),
     },
   );
 
@@ -95,9 +99,7 @@ export function StorageConfigForm({
     {
       onSuccess: ({ data }) => {
         if (data?.ok) {
-          toast.success(
-            `Connection verified — latency ${data.latency_ms?.toFixed(0) ?? "?"}ms`,
-          );
+          toast.success(`Connection verified — latency ${data.latency_ms?.toFixed(0) ?? "?"}ms`);
         } else {
           toast.error(`Verification failed: ${data?.error ?? "Unknown error"}`);
         }
@@ -128,25 +130,15 @@ export function StorageConfigForm({
     });
   }
 
-  // Managed mode — show details card only; no credentials to configure
   if (config.storage_mode === "managed") {
     return (
-      <StorageInfoCard
-        config={config}
-        onVerify={onVerify}
-        isVerifying={isVerifying}
-      />
+      <StorageInfoCard config={config} onVerify={onVerify} isVerifying={isVerifying} />
     );
   }
 
-  // BYOB mode — details card + credential form
   return (
     <div className="space-y-6">
-      <StorageInfoCard
-        config={config}
-        onVerify={onVerify}
-        isVerifying={isVerifying}
-      />
+      <StorageInfoCard config={config} onVerify={onVerify} isVerifying={isVerifying} />
 
       <div>
         <h3 className="text-sm font-medium mb-1">Credentials</h3>
@@ -156,41 +148,35 @@ export function StorageConfigForm({
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
           <FieldGroup>
+            {/* ── Universal: bucket / container name ────────────────────── */}
             <Controller
               name="bucket_name"
               control={form.control}
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor={field.name}>
-                    {provider === "azure_blob"
-                      ? "Container name"
-                      : "Bucket name"}
+                    {provider === "azure_blob" ? "Container name" : "Bucket name"}
                   </FieldLabel>
                   <Input
                     {...field}
                     id={field.name}
-                    placeholder={
-                      provider === "azure_blob" ? "my-container" : "my-bucket"
-                    }
+                    placeholder={provider === "azure_blob" ? "my-container" : "my-bucket"}
                     aria-invalid={fieldState.invalid}
                   />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
               )}
             />
 
-            {needsEndpoint && (
+            {/* ── S3 family: endpoint URL (MinIO / RustFS / R2) ─────────── */}
+            {family === "s3_family" && needsEndpoint && (
               <Controller
                 name="endpoint_url"
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor={field.name}>Endpoint URL</FieldLabel>
-                    <FieldDescription>
-                      Required for this provider
-                    </FieldDescription>
+                    <FieldDescription>Required for this provider</FieldDescription>
                     <Input
                       {...field}
                       id={field.name}
@@ -201,23 +187,22 @@ export function StorageConfigForm({
                       }
                       aria-invalid={fieldState.invalid}
                     />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
+                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                   </Field>
                 )}
               />
             )}
 
-            {!needsEndpoint && (
+            {/* ── S3 / GCS: region ──────────────────────────────────────── */}
+            {(family === "s3_family" && !needsEndpoint) || family === "gcs" ? (
               <Controller
                 name="region"
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor={field.name}>Region</FieldLabel>
-                    {provider !== "s3" && (
-                      <FieldDescription>Optional</FieldDescription>
+                    {family === "gcs" && (
+                      <FieldDescription>Optional — determined by bucket location</FieldDescription>
                     )}
                     <Input
                       {...field}
@@ -225,116 +210,167 @@ export function StorageConfigForm({
                       placeholder="us-east-1"
                       aria-invalid={fieldState.invalid}
                     />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
+                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                   </Field>
                 )}
               />
-            )}
+            ) : null}
 
-            <Controller
-              name="access_key_id"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor={field.name}>
-                    {provider === "azure_blob"
-                      ? "Storage account name"
-                      : "Access key ID"}
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id={field.name}
-                    placeholder={
-                      provider === "azure_blob"
-                        ? "mystorageaccount"
-                        : "AKIAIOSFODNN7EXAMPLE"
-                    }
-                    autoComplete="off"
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
+            {/* ── S3 family credentials ─────────────────────────────────── */}
+            {family === "s3_family" && (
+              <>
+                <Controller
+                  name="access_key_id"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={field.name}>Access key ID</FieldLabel>
+                      <Input
+                        {...field}
+                        id={field.name}
+                        placeholder="AKIAIOSFODNN7EXAMPLE"
+                        autoComplete="off"
+                        aria-invalid={fieldState.invalid}
+                      />
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
                   )}
-                </Field>
-              )}
-            />
+                />
 
-            <Controller
-              name="secret_access_key"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor={field.name}>
-                    {provider === "azure_blob"
-                      ? "Storage access key"
-                      : "Secret access key"}
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id={field.name}
-                    type="password"
-                    placeholder="••••••••••••••••••••••••••••••••"
-                    autoComplete="new-password"
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
+                <Controller
+                  name="secret_access_key"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={field.name}>Secret access key</FieldLabel>
+                      <Input
+                        {...field}
+                        id={field.name}
+                        type="password"
+                        placeholder="••••••••••••••••••••••••••••••••"
+                        autoComplete="new-password"
+                        aria-invalid={fieldState.invalid}
+                      />
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
                   )}
-                </Field>
-              )}
-            />
+                />
 
-            {isS3 && (
-              <Controller
-                name="server_side_encryption"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={field.name}>
-                      Server-side encryption
-                    </FieldLabel>
-                    <NativeSelect
-                      id={field.name}
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      ref={field.ref}
-                      aria-invalid={fieldState.invalid}
-                      className="w-full"
-                    >
-                      <NativeSelectOption value="AES256">
-                        AES-256 (default)
-                      </NativeSelectOption>
-                      <NativeSelectOption value="aws:kms">
-                        AWS KMS
-                      </NativeSelectOption>
-                    </NativeSelect>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
+                {/* SSE only for AWS S3 (not MinIO / RustFS / R2) */}
+                {provider === "s3" && (
+                  <Controller
+                    name="server_side_encryption"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={field.name}>Server-side encryption</FieldLabel>
+                        <NativeSelect
+                          id={field.name}
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          ref={field.ref}
+                          aria-invalid={fieldState.invalid}
+                          className="w-full"
+                        >
+                          <NativeSelectOption value="AES256">AES-256 (default)</NativeSelectOption>
+                          <NativeSelectOption value="aws:kms">AWS KMS</NativeSelectOption>
+                        </NativeSelect>
+                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                      </Field>
                     )}
-                  </Field>
+                  />
                 )}
-              />
+
+                {provider === "s3" && sse === "aws:kms" && (
+                  <Controller
+                    name="kms_key_id"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={field.name}>KMS key ARN</FieldLabel>
+                        <Input
+                          {...field}
+                          id={field.name}
+                          placeholder="arn:aws:kms:us-east-1:123456789:key/…"
+                          aria-invalid={fieldState.invalid}
+                        />
+                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                      </Field>
+                    )}
+                  />
+                )}
+              </>
             )}
 
-            {isS3 && sse === "aws:kms" && (
+            {/* ── Azure Blob credentials ────────────────────────────────── */}
+            {family === "azure_blob" && (
+              <>
+                <Controller
+                  name="account_name"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={field.name}>Storage account name</FieldLabel>
+                      <FieldDescription>
+                        Found in Azure Portal → Storage account → Settings → Access keys
+                      </FieldDescription>
+                      <Input
+                        {...field}
+                        id={field.name}
+                        placeholder="mystorageaccount"
+                        autoComplete="off"
+                        aria-invalid={fieldState.invalid}
+                      />
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
+                  )}
+                />
+
+                <Controller
+                  name="account_key"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={field.name}>Storage access key</FieldLabel>
+                      <Input
+                        {...field}
+                        id={field.name}
+                        type="password"
+                        placeholder="••••••••••••••••••••••••••••••••"
+                        autoComplete="new-password"
+                        aria-invalid={fieldState.invalid}
+                      />
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
+                  )}
+                />
+              </>
+            )}
+
+            {/* ── GCS credentials ───────────────────────────────────────── */}
+            {family === "gcs" && (
               <Controller
-                name="kms_key_id"
+                name="credentials_json"
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={field.name}>KMS key ARN</FieldLabel>
-                    <Input
+                    <FieldLabel htmlFor={field.name}>Service account JSON</FieldLabel>
+                    <FieldDescription>
+                      Paste the full contents of your GCP service account key JSON file.
+                      Generate one in GCP Console → IAM → Service accounts → Keys.
+                    </FieldDescription>
+                    <Textarea
                       {...field}
                       id={field.name}
-                      placeholder="arn:aws:kms:us-east-1:123456789:key/…"
+                      rows={8}
+                      placeholder={'{\n  "type": "service_account",\n  "project_id": "my-project",\n  ...\n}'}
+                      className="font-mono text-xs resize-none"
+                      autoComplete="off"
+                      spellCheck={false}
                       aria-invalid={fieldState.invalid}
                     />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
+                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                   </Field>
                 )}
               />

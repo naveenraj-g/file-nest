@@ -29,6 +29,10 @@ export const mainNavGroups: NavGroup[] = [
     title: "Account",
     items: [{ title: "Settings", url: "/settings", icon: "settings" }],
   },
+  {
+    title: "Resources",
+    items: [{ title: "Docs", url: "/docs", icon: "book-open" }],
+  },
 ];
 
 export const adminNavGroups: NavGroup[] = [

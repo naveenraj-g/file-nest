@@ -15,7 +15,7 @@
 5. [Google Cloud Storage Provider](#5-google-cloud-storage-provider)
 6. [MinIO Provider](#6-minio-provider)
 7. [Cloudflare R2 Provider](#7-cloudflare-r2-provider)
-8. [RestFS Provider](#8-restfs-provider)
+8. [RustFS Provider](#8-rustfs-provider)
 9. [BYOB Architecture](#9-byob-architecture)
 10. [Credential Schemas & Encryption](#10-credential-schemas--encryption)
 11. [Storage Key Strategy](#11-storage-key-strategy)
@@ -38,7 +38,7 @@ File Service → StorageResolver → StorageProvider
                                   ├── GCSProvider        (Google Cloud Storage)
                                   ├── MinIOProvider      (self-hosted, S3-compatible)
                                   ├── CloudflareR2Provider
-                                  └── RestFSProvider     (REST-based FS, Docker-hosted)
+                                  └── RustFSProvider     (Rust-native S3-compatible, Docker-hosted)
 ```
 
 ### 1.2 Storage Modes
@@ -70,7 +70,7 @@ In both modes:
                         │      BYOB    ▼
                         │  ┌──────────────────────────┐
                         │  │  Customer-owned storage  │
-                        │  │  (their MinIO, RestFS,   │
+                        │  │  (their MinIO, RustFS,   │
                         │  │   S3, Azure, GCS, R2)    │
                         │  └──────────────────────────┘
 ```
@@ -207,8 +207,9 @@ class S3Config:
     access_key_id: str
     secret_access_key: str
     endpoint_url: str | None = None         # For MinIO, LocalStack
-    server_side_encryption: str = "AES256"  # 'AES256' | 'aws:kms' | 'none'
+    server_side_encryption: str | None = None  # 'AES256' | 'aws:kms'; None for Azure/GCS
     kms_key_id: str | None = None
+    sse_enabled: bool = False   # when True, adds ServerSideEncryption header on PUT
 
 class S3Provider:
     def __init__(self, config: S3Config):
@@ -240,11 +241,9 @@ class S3Provider:
             if metadata:
                 put_kwargs["Metadata"] = {k: str(v) for k, v in metadata.items()}
 
-            if self.config.server_side_encryption == "AES256":
-                put_kwargs["ServerSideEncryption"] = "AES256"
-            elif self.config.server_side_encryption == "aws:kms":
-                put_kwargs["ServerSideEncryption"] = "aws:kms"
-                if self.config.kms_key_id:
+            if self.config.sse_enabled and self.config.server_side_encryption:
+                put_kwargs["ServerSideEncryption"] = self.config.server_side_encryption
+                if self.config.server_side_encryption == "aws:kms" and self.config.kms_key_id:
                     put_kwargs["SSEKMSKeyId"] = self.config.kms_key_id
 
             if kwargs.get("object_lock_mode"):
@@ -303,7 +302,7 @@ class S3Provider:
                 "Key": key,
                 "ContentType": content_type,
             }
-            if self.config.server_side_encryption != "none":
+            if self.config.sse_enabled and self.config.server_side_encryption:
                 create_kwargs["ServerSideEncryption"] = self.config.server_side_encryption
                 if self.config.kms_key_id:
                     create_kwargs["SSEKMSKeyId"] = self.config.kms_key_id
@@ -495,10 +494,10 @@ def create_minio_provider(config: MinIOConfig) -> S3Provider:
     return S3Provider(S3Config(
         bucket_name=config.bucket_name,
         region=config.region,
-        access_key_id=config.access_key,
-        secret_access_key=config.secret_key,
+        access_key_id=config.access_key_id,
+        secret_access_key=config.secret_access_key,
         endpoint_url=config.endpoint_url,
-        server_side_encryption="none",   # MinIO SSE handled separately
+        sse_enabled=config.sse_enabled,   # togglable via PATCH /storage/sse; requires MINIO_KMS_SECRET_KEY on server
     ))
 ```
 
@@ -563,25 +562,25 @@ def create_r2_provider(config: CloudflareR2Config) -> S3Provider:
         access_key_id=config.access_key_id,
         secret_access_key=config.secret_access_key,
         endpoint_url=f"https://{config.account_id}.r2.cloudflarestorage.com",
-        server_side_encryption="none",   # R2 encrypts by default
+        sse_enabled=True,   # R2 encrypts all objects by default; sse_enabled locked to True at project creation
     ))
 ```
 
 ---
 
-## 8. RestFS Provider
+## 8. RustFS Provider
 
-RestFS is a REST-based filesystem that exposes an S3-compatible API over HTTP. Customers run it as a Docker container on their own infrastructure and point FileNest at the endpoint URL.
+RustFS is a Rust-native S3-compatible object storage server. Customers run it on their own infrastructure and point FileNest at the endpoint URL. It is the recommended self-hosted provider for managed FileNest deployments.
 
-### 8.1 RestFS Docker Setup (customer side)
+### 8.1 RustFS Docker Setup (customer side)
 
 ```bash
-# Typical RestFS Docker deployment (customer runs this)
+# Typical RustFS Docker deployment (customer runs this)
 docker run -d \
   -p 9000:9000 \    # S3-compatible API endpoint
   -p 9001:9001 \    # Web console (optional)
   -v /data:/data \
-  restfs/server:latest \
+  rustfs/server:latest \
   --access-key YOUR_ACCESS_KEY \
   --secret-key YOUR_SECRET_KEY
 
@@ -592,33 +591,29 @@ docker run -d \
 #   Secret key:  YOUR_SECRET_KEY
 ```
 
-### 8.2 RestFS Provider Implementation
+### 8.2 RustFS Provider Implementation
 
-RestFS is S3-compatible, so it reuses the S3Provider with a custom endpoint — identical pattern to MinIO:
+RustFS is S3-compatible, so it reuses `S3StorageProvider` with a custom endpoint and `force_path_style=True` — identical pattern to MinIO:
 
 ```python
-@dataclass
-class RestFSConfig:
-    endpoint_url: str    # e.g. http://restfs.acme.com:9000
-    access_key: str
-    secret_key: str
-    bucket_name: str
-    region: str = "us-east-1"   # RestFS ignores region but SDK requires it
-
-def create_restfs_provider(config: RestFSConfig) -> S3Provider:
-    return S3Provider(S3Config(
-        bucket_name=config.bucket_name,
-        region=config.region,
-        access_key_id=config.access_key,
-        secret_access_key=config.secret_key,
-        endpoint_url=config.endpoint_url,
-        server_side_encryption="none",
-    ))
+# backend/app/storage/resolver.py — managed RustFS branch
+S3StorageProvider(
+    endpoint_url=settings.rustfs_endpoint_url,
+    access_key_id=settings.rustfs_access_key_id,
+    secret_access_key=settings.rustfs_secret_access_key,
+    bucket_name=bucket_name,
+    region=settings.rustfs_region,
+    force_path_style=True,   # required for RustFS path-style addressing
+    sse_enabled=sse_enabled,
+)
 ```
+
+Env vars: `RUSTFS_ENDPOINT_URL`, `RUSTFS_ACCESS_KEY_ID`, `RUSTFS_SECRET_ACCESS_KEY`,
+`RUSTFS_BUCKET_NAME`, `RUSTFS_REGION`, `RUSTFS_KMS_SECRET_KEY` (set on the RustFS server process).
 
 ### 8.3 Connection Verification
 
-Before saving a RestFS (or any BYOB) config, FileNest verifies the endpoint is reachable and credentials are valid:
+Before saving a RustFS (or any BYOB) config, FileNest verifies the endpoint is reachable and credentials are valid:
 
 ```python
 async def verify_byob_connection(config: StorageConfig) -> VerificationResult:
@@ -644,26 +639,29 @@ When creating a project, the customer chooses a storage mode:
 Project creation → storage.mode
 ├── "managed"  → zero config, FileNest manages the bucket (default)
 └── "byob"     → customer provides their own storage endpoint
-    ├── provider: "s3"     → AWS S3 (IAM role assumption)
-    ├── provider: "minio"  → self-hosted MinIO (endpoint URL + access key/secret)
-    ├── provider: "restfs" → RestFS Docker instance (endpoint URL + access key/secret)
-    ├── provider: "r2"     → Cloudflare R2 (account ID + access key/secret)
-    ├── provider: "azure"  → Azure Blob (connection string + container)
-    └── provider: "gcs"    → Google Cloud Storage (service account JSON)
+    ├── provider: "s3"         → AWS S3 (direct keys or IAM role assumption)
+    ├── provider: "minio"      → self-hosted MinIO (endpoint URL + access key/secret)
+    ├── provider: "rustfs"     → RustFS Docker instance (endpoint URL + access key/secret)
+    ├── provider: "r2"         → Cloudflare R2 (access key/secret)
+    ├── provider: "azure_blob" → Azure Blob (account name + account key)
+    └── provider: "gcs"        → Google Cloud Storage (service account JSON)
 ```
 
-For all S3-compatible BYOB providers (MinIO, RestFS, R2), the customer supplies:
-- `endpoint_url` — the API URL (e.g. `http://your-host:9000`)
-- `bucket_name` — the bucket/container to use
-- `access_key` + `secret_key` — credentials
+Credential fields vary by provider family:
+
+| Provider family | Required credential fields |
+|----------------|---------------------------|
+| `s3`, `minio`, `rustfs`, `r2` | `access_key_id`, `secret_access_key` (+ `endpoint_url` for minio/rustfs/r2) |
+| `azure_blob` | `account_name`, `account_key` |
+| `gcs` | `credentials_json` (full service account JSON string) |
 
 FileNest verifies the connection before saving the config. File bytes go to the customer's endpoint. All metadata, audit logs, and processing results stay in FileNest's PostgreSQL.
 
-### 9.1 BYOB Flow (S3-compatible — MinIO, RestFS)
+### 9.1 BYOB Flow (S3-compatible — MinIO, RustFS)
 
 ```
 Setup (one-time):
-1. Customer stands up their storage (MinIO or RestFS via Docker)
+1. Customer stands up their storage (MinIO or RustFS via Docker)
 2. Customer creates a bucket and generates an access key + secret
 3. Customer enters endpoint URL, bucket, and credentials in the FileNest Console
    (under Project Settings → Storage)
@@ -672,11 +670,12 @@ Setup (one-time):
 6. Project is now active — all uploads go to the customer's endpoint
 
 Runtime:
-1. StorageResolver loads project config (storage_mode = "byob", provider = "minio")
-2. Decrypts credentials from storage_configs
-3. Builds S3Provider with customer's endpoint_url + credentials
+1. StorageResolver.build_provider(storage_config) reads storage_mode = "byob", provider = "minio"
+2. Decrypts credentials from storage_configs.config_encrypted (AES-256-GCM)
+3. Builds S3StorageProvider with customer's endpoint_url, access_key_id, secret_access_key
+   — also passes sse_enabled from storage_configs.sse_enabled
 4. Performs storage operation (presigned URL, upload, download, delete)
-5. Decrypted config cached in Redis for 5 minutes
+   — if sse_enabled=True, adds ServerSideEncryption: AES256 to PUT requests
 ```
 
 ### 9.2 BYOB Flow (AWS S3 — IAM role assumption)
@@ -785,18 +784,26 @@ Each provider requires a different set of sensitive credentials. This section de
 
 ### 10.1 Plaintext vs Encrypted Fields
 
+Plaintext columns are stored as-is and safe to return in API responses. `config_encrypted` is
+AES-256-GCM encrypted and **never** returned to clients. `sse_enabled` is a plaintext boolean
+stored in `storage_configs` alongside routing fields.
+
 | Provider | Plaintext columns | Encrypted JSON (`config_encrypted`) |
 |----------|-------------------|-------------------------------------|
-| **AWS S3 — IAM role (BYOB)** | `bucket_name`, `region` | `role_arn`, `external_id` |
-| **AWS S3 — direct keys (BYOB)** | `bucket_name`, `region` | `access_key_id`, `secret_access_key` |
-| **Azure Blob** | `endpoint_url`¹, `bucket_name` (container) | `account_name`, `account_key` |
-| **GCS** | `bucket_name` | `service_account_json` (full JSON key file) |
-| **MinIO** | `endpoint_url`, `bucket_name`, `region` | `access_key`, `secret_key` |
-| **Cloudflare R2** | `bucket_name` | `account_id`, `access_key_id`, `secret_access_key` |
-| **RestFS** | `endpoint_url`, `bucket_name` | `access_key`, `secret_key` |
-| **Managed (any)** | `bucket_name`, `region` | *(empty — platform credentials used)* |
+| **AWS S3 — direct keys (BYOB)** | `bucket_name`, `region`, `server_side_encryption`, `kms_key_id`, `sse_enabled` | `access_key_id`, `secret_access_key` |
+| **AWS S3 — IAM role (BYOB)** | `bucket_name`, `region`, `sse_enabled` | `role_arn`, `external_id` |
+| **Azure Blob** | `bucket_name` (container), `sse_enabled` | `account_name`, `account_key` |
+| **GCS** | `bucket_name`, `sse_enabled` | `credentials_json` (full JSON string) |
+| **MinIO** | `endpoint_url`, `bucket_name`, `region`, `sse_enabled` | `access_key_id`, `secret_access_key` |
+| **Cloudflare R2** | `bucket_name`, `sse_enabled` | `access_key_id`, `secret_access_key` |
+| **RustFS** | `endpoint_url`, `bucket_name`, `region`, `sse_enabled` | `access_key_id`, `secret_access_key` |
+| **Managed (any)** | `bucket_name`, `region`, `sse_enabled` | *(empty — platform credentials from env)* |
 
-¹ Azure endpoint is derived from `account_name` but stored in `endpoint_url` for consistency.
+`server_side_encryption` column: present only for S3-family; `NULL` for Azure Blob and GCS
+(their encryption is always on and not configurable via FileNest).
+
+`sse_enabled` defaults: `true` for s3 / r2 / azure_blob / gcs (set at project creation);
+`false` for minio / rustfs (user can toggle via `PATCH /v1/projects/{id}/storage/sse`).
 
 ### 10.2 Encrypted JSON Schemas Per Provider
 
@@ -822,28 +829,19 @@ Each provider requires a different set of sensitive credentials. This section de
 }
 
 # Google Cloud Storage
+# credentials_json is the full service account key file content, stored as a JSON string.
 {
-    "service_account_json": {
-        "type": "service_account",
-        "project_id": "acme-prod",
-        "private_key_id": "abc123",
-        "private_key": "-----BEGIN RSA PRIVATE KEY-----\n...",
-        "client_email": "filenest@acme-prod.iam.gserviceaccount.com",
-        "client_id": "...",
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token"
-    }
+    "credentials_json": "{\"type\":\"service_account\",\"project_id\":\"acme-prod\",\"private_key_id\":\"abc123\",\"private_key\":\"-----BEGIN RSA PRIVATE KEY-----\\n...\",\"client_email\":\"filenest@acme-prod.iam.gserviceaccount.com\",\"client_id\":\"...\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\"}"
 }
 
-# MinIO / RestFS (same schema, different endpoint_url)
+# MinIO / RustFS (same schema, different endpoint_url)
 {
-    "access_key": "minioadmin",
-    "secret_key": "minioadmin123"
+    "access_key_id": "minioadmin",
+    "secret_access_key": "minioadmin123"
 }
 
 # Cloudflare R2
 {
-    "account_id": "abc123def456",
     "access_key_id": "abc123",
     "secret_access_key": "xyz789secret"
 }

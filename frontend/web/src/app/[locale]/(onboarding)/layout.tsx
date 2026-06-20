@@ -10,6 +10,8 @@
 
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
+import Link from "next/link";
+import { HardDrive } from "lucide-react";
 import { getServerSession } from "@/modules/server/auth/get-session";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
 
@@ -37,7 +39,12 @@ export default async function OnboardingLayout({
   return (
     <div className="flex min-h-svh flex-col bg-background">
       <header className="flex h-14 shrink-0 items-center border-b px-6">
-        <span className="text-lg font-semibold tracking-tight">FileNest</span>
+        <Link href="/" className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <HardDrive className="h-4 w-4" />
+          </div>
+          <span className="font-bold text-lg">FileNest</span>
+        </Link>
       </header>
       <main className="flex flex-1 flex-col items-center px-4 py-12">
         <div className="w-full max-w-lg space-y-10">

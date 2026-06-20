@@ -22,12 +22,15 @@ class S3StorageProvider:
     S3-compatible storage provider backed by aioboto3.
 
     Args:
-        endpoint_url:      Override the S3 endpoint. None → AWS S3 default.
-        access_key_id:     AWS/provider access key ID.
-        secret_access_key: AWS/provider secret access key.
-        bucket_name:       Target bucket for all operations.
-        region:            AWS region.
-        force_path_style:  True for RustFS, MinIO, and Cloudflare R2.
+        endpoint_url:           Override the S3 endpoint. None → AWS S3 default.
+        access_key_id:          AWS/provider access key ID.
+        secret_access_key:      AWS/provider secret access key.
+        bucket_name:            Target bucket for all operations.
+        region:                 AWS region.
+        force_path_style:       True for RustFS, MinIO, and Cloudflare R2.
+        sse_enabled:            Send server-side encryption headers on put/upload.
+        server_side_encryption: "AES256" (default) or "aws:kms".
+        kms_key_id:             KMS key ARN — used only when server_side_encryption="aws:kms".
     """
 
     def __init__(
@@ -39,6 +42,9 @@ class S3StorageProvider:
         bucket_name: str,
         region: str,
         force_path_style: bool,
+        sse_enabled: bool = False,
+        server_side_encryption: str | None = None,
+        kms_key_id: str | None = None,
     ) -> None:
         self._endpoint_url = endpoint_url
         self._access_key_id = access_key_id
@@ -46,7 +52,21 @@ class S3StorageProvider:
         self._bucket_name = bucket_name
         self._region = region
         self._force_path_style = force_path_style
+        self._sse_enabled = sse_enabled
+        self._server_side_encryption = server_side_encryption or "AES256"
+        self._kms_key_id = kms_key_id
         self._session = aioboto3.Session()
+
+    def _sse_params(self) -> dict:
+        """Return SSE parameters to add to put_object or presigned URL Params."""
+        if not self._sse_enabled:
+            return {}
+        if self._server_side_encryption == "aws:kms":
+            params: dict = {"ServerSideEncryption": "aws:kms"}
+            if self._kms_key_id:
+                params["SSEKMSKeyId"] = self._kms_key_id
+            return params
+        return {"ServerSideEncryption": "AES256"}
 
     def _client_kwargs(self) -> dict:
         kwargs: dict = {"region_name": self._region}
@@ -68,10 +88,12 @@ class S3StorageProvider:
     ) -> str:
         """Generate a presigned PUT URL for direct client-to-storage uploads."""
         try:
+            params: dict = {"Bucket": self._bucket_name, "Key": key, "ContentType": content_type}
+            params.update(self._sse_params())
             async with self._session.client("s3", **self._client_kwargs()) as s3:
                 url: str = await s3.generate_presigned_url(
                     "put_object",
-                    Params={"Bucket": self._bucket_name, "Key": key, "ContentType": content_type},
+                    Params=params,
                     ExpiresIn=expires_in,
                 )
             return url
@@ -116,13 +138,15 @@ class S3StorageProvider:
     async def upload(self, key: str, data: bytes, content_type: str) -> None:
         """Upload bytes directly to the bucket (used for connectivity probes)."""
         try:
+            kwargs: dict = {
+                "Bucket": self._bucket_name,
+                "Key": key,
+                "Body": data,
+                "ContentType": content_type,
+            }
+            kwargs.update(self._sse_params())
             async with self._session.client("s3", **self._client_kwargs()) as s3:
-                await s3.put_object(
-                    Bucket=self._bucket_name,
-                    Key=key,
-                    Body=data,
-                    ContentType=content_type,
-                )
+                await s3.put_object(**kwargs)
         except (BotoCoreError, ClientError) as exc:
             raise StorageError(f"Failed to upload '{key}'", detail={"error": str(exc)}) from exc
 

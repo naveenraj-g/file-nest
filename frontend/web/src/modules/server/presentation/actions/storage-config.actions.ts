@@ -14,17 +14,21 @@ import { runWithTransport } from "@/modules/server/utils/run-with-transport";
 import {
   getStorageConfigController,
   updateStorageConfigController,
+  updateSseStorageConfigController,
   verifyStorageConfigController,
   type TGetStorageConfigControllerOutput,
   type TUpdateStorageConfigControllerOutput,
+  type TUpdateSseStorageConfigControllerOutput,
   type TVerifyStorageConfigControllerOutput,
 } from "@/modules/server/core/storage-config/interface-adapters/controllers";
 import {
   GetStorageConfigActionSchema,
   UpdateStorageConfigActionSchema,
+  UpdateSseActionSchema,
   VerifyStorageActionSchema,
   type TGetStorageConfigAction,
   type TUpdateStorageConfigAction,
+  type TUpdateSseAction,
   type TVerifyStorageAction,
 } from "@/modules/entities/schemas/storage-config";
 
@@ -54,6 +58,16 @@ export const verifyStorageAction = authenticatedProcedure
   .handler(async ({ input }: { input: TVerifyStorageAction }) => {
     return await runWithTransport<TVerifyStorageConfigControllerOutput>(async () => {
       const data = await verifyStorageConfigController(input.payload);
+      return { result: data, transport: input.transportOptions };
+    });
+  });
+
+export const updateSseAction = authenticatedProcedure
+  .createServerAction()
+  .input(UpdateSseActionSchema, { skipInputParsing: true })
+  .handler(async ({ input }: { input: TUpdateSseAction }) => {
+    return await runWithTransport<TUpdateSseStorageConfigControllerOutput>(async () => {
+      const data = await updateSseStorageConfigController(input.payload);
       return { result: data, transport: input.transportOptions };
     });
   });

@@ -21,7 +21,7 @@ to the new target before the new config is promoted to 'active'.
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, DateTime, LargeBinary, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, LargeBinary, String, Text, UniqueConstraint
 
 from app.core.database import Base
 
@@ -65,10 +65,16 @@ class StorageConfig(Base):
     # Required for minio / r2 / rustfs; null for managed s3/azure/gcs.
     endpoint_url = Column(Text, nullable=True)
 
-    # Server-side encryption setting passed through to the storage provider.
-    server_side_encryption = Column(String(50), nullable=False, default="AES256")
+    # Server-side encryption — S3-family only. NULL for Azure Blob and GCS
+    # (both enforce always-on SSE that is not configurable via credentials).
+    server_side_encryption = Column(String(50), nullable=True)
     # KMS key ARN — only relevant when server_side_encryption = 'aws:kms'.
     kms_key_id = Column(Text, nullable=True)
+
+    # Whether SSE is active for this config. For S3 / R2 / Azure / GCS this is
+    # always True (set at creation); for MinIO and RustFS the user can toggle it
+    # via the console (requires KMS configured on the server).
+    sse_enabled = Column(Boolean, nullable=False, default=False)
 
     # Lifecycle state.
     # managed configs start 'active'. BYOB configs start 'pending_verification'

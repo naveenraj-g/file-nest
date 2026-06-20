@@ -15,3 +15,7 @@ export {
   verifyStorageConfigController,
   type TVerifyStorageConfigControllerOutput,
 } from "./verifyStorageConfig.controller";
+export {
+  updateSseStorageConfigController,
+  type TUpdateSseStorageConfigControllerOutput,
+} from "./updateSseStorageConfig.controller";

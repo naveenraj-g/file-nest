@@ -3,6 +3,7 @@
  *
  * config_encrypted is never returned by the API — only non-sensitive routing
  * fields are included. StorageVerifyResultSchema covers the probe response.
+ * server_side_encryption is null for Azure Blob and GCS (always-on SSE).
  *
  * @module
  */
@@ -16,7 +17,8 @@ export const StorageConfigSchema = z.object({
   region: z.string().nullable(),
   bucket_name: z.string().nullable(),
   endpoint_url: z.string().nullable(),
-  server_side_encryption: z.string(),
+  server_side_encryption: z.string().nullable(),
+  sse_enabled: z.boolean(),
   status: z.enum(["active", "pending_verification", "verification_failed"]),
   last_verified_at: z.coerce.date().nullable(),
 });

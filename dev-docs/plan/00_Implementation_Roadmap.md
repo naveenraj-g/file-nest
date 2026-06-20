@@ -47,13 +47,17 @@ Phases 6 and 7 overlap — start Phase 7 when Phase 6 is 60% done.
 ### What we already have
 
 - `backend/app/` directory structure (core, auth, errors, models, schemas, repositories, services, storage, routers)
-- `Project` and `File` SQLAlchemy models
+- `Project`, `File`, `StorageConfig`, and `StorageMigration` SQLAlchemy models
 - `TenantContext`, `authenticate_request`, `require_scope` wired up
-- S3 storage provider and resolver
+- S3 storage provider and resolver with SSE support (`_sse_params()`, `sse_enabled` per config row)
+- Storage config service, repository, and router (`GET /storage`, `PATCH /storage`, `POST /storage/verify`, `PATCH /storage/sse`)
 - Health router
+- Initial Alembic migration applied (tables: `projects`, `files`, `storage_configs`, `storage_migrations`)
 - Docker Compose: PostgreSQL, Redis, MinIO, NATS, ClamAV
 - IAM: auth, API key plugin, OAuth client
-- Frontend: login → callback → onboarding skeleton
+- Frontend: login → callback → onboarding wizard scaffold (multi-step: create org → get API key → install SDK)
+- Console clean architecture: DI container, AppSidebar, projects table (list + grid view, row selection, create/delete modals)
+- Project Settings → Storage tab: provider selector, dynamic BYOB credential form, SSE toggle (MinIO/RustFS)
 
 ### Deliverables
 
@@ -63,16 +67,18 @@ Phases 6 and 7 overlap — start Phase 7 when Phase 6 is 60% done.
 - `organizations`, `users`, `api_keys` — **not here**, they live in IAM's Prisma DB
 
 **Project API**
-- `POST /v1/projects` — create project. Body includes `storage_mode` (managed | byob) and `storage_provider` (s3 | azure_blob | gcs | minio | r2 | restfs). For Phase 1 `byob` accepts the fields but BYOB full configuration is enforced from Phase 7 onward.
+- `POST /v1/projects` — create project. Body includes `storage_mode` (managed | byob) and `storage_provider` (s3 | azure_blob | gcs | minio | r2 | rustfs). For Phase 1 `byob` accepts the fields but BYOB full configuration is enforced from Phase 7 onward.
 - `GET /v1/projects` — list projects in org
 - `GET /v1/projects/{id}` — get project
 - `PATCH /v1/projects/{id}` — update name/description
 - `DELETE /v1/projects/{id}` — soft delete
 
 **Storage Config API (foundation — full BYOB wiring in Phase 7)**
-- `GET /v1/projects/{id}/storage` — return current storage config (non-sensitive fields: mode, provider, region, bucket, endpoint_url)
+- `GET /v1/projects/{id}/storage` — return current storage config (non-sensitive fields: mode, provider, region, bucket, endpoint_url, sse_enabled)
+- `PATCH /v1/projects/{id}/storage` — save BYOB credentials (encrypted); sets status to `pending_verification`
 - `POST /v1/projects/{id}/storage/verify` — connectivity test: write + delete a probe object → `{ ok, latency_ms, error }`
-- A `StorageConfig` row is created automatically when a project is created (managed S3 defaults from platform settings)
+- `PATCH /v1/projects/{id}/storage/sse` — toggle SSE (MinIO/RustFS only; S3/R2/Azure/GCS default to always-on)
+- A `StorageConfig` row is created automatically when a project is created (managed S3 defaults; `sse_enabled` defaults true for S3/R2/Azure/GCS, false for MinIO/RustFS)
 
 **File Upload & Download**
 - `POST /v1/projects/{id}/files/upload` — single file, multipart/form-data, writes to S3, creates file record (`status=ready`)
@@ -444,21 +450,22 @@ Phases 6 and 7 overlap — start Phase 7 when Phase 6 is 60% done.
 ### Deliverables
 
 **Storage Abstraction — All Providers**
-- `StorageProvider` Protocol fully implemented for: AWS S3, Azure Blob, GCS, MinIO, Cloudflare R2, RestFS (self-hosted S3-compatible)
-- `StorageResolver` reads `projects.storage_config` to select provider per project
-- All providers expose: `upload`, `download_stream`, `delete`, `copy`, `generate_signed_url`, `generate_multipart_upload_id`, `generate_part_upload_url`, `complete_multipart`, `abort_multipart`, `head`
+- `StorageProvider` Protocol fully implemented for: AWS S3, Azure Blob, GCS, MinIO, Cloudflare R2, RustFS (Rust-native S3-compatible)
+- `StorageResolver.build_provider(storage_config)` reads mode + provider from the `storage_configs` row to dispatch to the correct implementation
+- All providers expose: `upload`, `download_stream`, `delete`, `copy`, `generate_presigned_upload_url`, `generate_presigned_download_url`, `delete_object`, `object_exists`, `create_bucket`
 
 **BYOB (Bring Your Own Storage)**
-- `storage_mode`: `managed` (default — FileNest S3 bucket) or `byob` (customer-supplied endpoint)
-- BYOB provider options: S3 (IAM role or static keys), MinIO, RestFS, R2, Azure, GCS
-- `POST /v1/projects/{id}/storage` — save storage config; triggers verification first
-- `POST /v1/projects/{id}/storage/verify` — write + delete a test object; returns `{ ok, latencyMs, error }`
-- `GET /v1/projects/{id}/storage` — plaintext fields only (`mode`, `provider`, `endpoint_url`, `bucket_name`, `region`); credentials never returned
+- `storage_mode`: `managed` (default — FileNest-managed bucket) or `byob` (customer-supplied endpoint)
+- BYOB provider options: S3 (static keys), MinIO, RustFS, R2, Azure Blob, GCS
+- `PATCH /v1/projects/{id}/storage` — save BYOB credentials (encrypted); sets status to `pending_verification` _(foundation endpoint built in Phase 1)_
+- `POST /v1/projects/{id}/storage/verify` — write + delete a test object; returns `{ ok, latency_ms, error }` _(foundation built in Phase 1)_
+- `PATCH /v1/projects/{id}/storage/sse` — toggle SSE (MinIO / RustFS only; S3/R2/Azure/GCS are always-on) _(built in Phase 1)_
+- `GET /v1/projects/{id}/storage` — plaintext fields only (`mode`, `provider`, `endpoint_url`, `bucket_name`, `region`); credentials never returned _(built in Phase 1)_
 - Credential encryption: AES-256-GCM with per-record key derivation (HKDF) in `backend/app/core/crypto.py`
 - `STORAGE_CREDENTIAL_KEY` env var — loaded at startup, never logged
 
 **BYOB Console UI**
-- Project Settings → Storage tab: provider selector + dynamic form per provider
+- Project Settings → Storage tab: provider selector + dynamic form per provider _(foundation form built in Phase 1; Phase 7 completes verification flow and migration button)_
 - "Test connection" button → calls verify endpoint → shows ✓ / ✗ + latency
 - Save only enabled after successful verification
 - Storage migration button: switch provider → background migration job
@@ -520,7 +527,7 @@ Phases 6 and 7 overlap — start Phase 7 when Phase 6 is 60% done.
 
 ### Exit Criteria
 
-- Configure a project with a self-hosted MinIO or RestFS endpoint → connection verified → upload a file → it lands in the customer's bucket, not FileNest's
+- Configure a project with a self-hosted MinIO or RustFS endpoint → connection verified → upload a file → it lands in the customer's bucket, not FileNest's
 - Upload a DOCX → preview available as PDF in the console UI
 - Share a file publicly with a password → recipient downloads it without an account
 - Bulk delete 500 files in one API call → job completes, status shows per-file results

@@ -49,4 +49,14 @@ export class StorageConfigRestService implements IStorageConfigService {
     if (!parsed.success) throw new OutputParseError(parsed.error);
     return parsed.data;
   }
+
+  async updateSse(projectId: string, sse_enabled: boolean): Promise<TStorageConfig> {
+    const raw = await filenestApi<unknown>(`/v1/projects/${projectId}/storage/sse`, {
+      method: "PATCH",
+      body: JSON.stringify({ sse_enabled }),
+    });
+    const parsed = StorageConfigSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
 }

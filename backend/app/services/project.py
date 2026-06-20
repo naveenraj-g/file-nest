@@ -32,6 +32,9 @@ from app.schemas.project import (
 
 logger = get_logger(__name__)
 
+# Providers where SSE is always on by platform default (not toggleable by users).
+_SSE_DEFAULT_ENABLED = {"s3", "r2", "azure_blob", "gcs"}
+
 
 class ProjectService:
     """
@@ -88,10 +91,14 @@ class ProjectService:
         last_verified_at = None
 
         if req.storage_mode == "managed":
-            managed_bucket_name = await storage_resolver.provision_managed_bucket(record.id)
+            managed_bucket_name = await storage_resolver.provision_managed_bucket(
+                record.id, req.storage_provider
+            )
             probe_key = f"{self._ctx.organization_id}/{record.id}/.filenest-probe"
             try:
-                probe = storage_resolver.get_provider_for_bucket(managed_bucket_name)
+                probe = storage_resolver.build_managed_provider(
+                    req.storage_provider, managed_bucket_name
+                )
                 await probe.upload(probe_key, b"filenest-probe", "text/plain")
                 await probe.delete_object(probe_key)
                 storage_status = "active"
@@ -114,6 +121,9 @@ class ProjectService:
 
         # Auto-create the default storage config in the same transaction.
         # BYOB configs start as pending_verification — credentials set later.
+        # SSE is enabled by default for S3/R2/Azure/GCS (always-on); MinIO/RustFS
+        # default to False and the user can toggle via the Security settings.
+        sse_enabled = req.storage_provider.lower() in _SSE_DEFAULT_ENABLED
         await self._storage_repo.create(
             organization_id=self._ctx.organization_id,
             project_id=record.id,
@@ -123,6 +133,7 @@ class ProjectService:
             bucket_name=managed_bucket_name,
             status=storage_status,
             last_verified_at=last_verified_at,
+            sse_enabled=sse_enabled,
         )
 
         # Auto-create the project config row with all defaults.

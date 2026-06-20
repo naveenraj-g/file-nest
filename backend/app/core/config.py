@@ -42,13 +42,49 @@ class Settings(BaseSettings):
 
     # ── Storage ───────────────────────────────────────────────────────────────
     default_storage_provider: str = "s3"
-    s3_endpoint_url: str | None = None
+    storage_encryption_key: str | None = None
+
+    # AWS S3 — standard SDK endpoint (no custom URL needed)
     s3_access_key_id: str | None = None
     s3_secret_access_key: str | None = None
     s3_bucket_name: str = "filenest"
     s3_region: str = "us-east-1"
-    s3_force_path_style: bool = True
-    storage_encryption_key: str | None = None
+
+    # MinIO — self-hosted S3-compatible object storage
+    minio_endpoint_url: str = "http://localhost:9000"
+    minio_access_key_id: str | None = None
+    minio_secret_access_key: str | None = None
+    minio_bucket_name: str = "filenest"
+    minio_region: str = "us-east-1"
+    # KMS key configured on the MinIO server process (MINIO_KMS_SECRET_KEY env on the server).
+    # FileNest sends ServerSideEncryption: AES256; the MinIO server uses this key to encrypt.
+    minio_kms_secret_key: str | None = None
+
+    # RustFS — Rust-native S3-compatible object storage
+    rustfs_endpoint_url: str = "http://localhost:9000"
+    rustfs_access_key_id: str | None = None
+    rustfs_secret_access_key: str | None = None
+    rustfs_bucket_name: str = "filenest"
+    rustfs_region: str = "us-east-1"
+    # KMS key configured on the RustFS server process.
+    rustfs_kms_secret_key: str | None = None
+
+    # Cloudflare R2 — S3-compatible, endpoint format: https://<account>.r2.cloudflarestorage.com
+    r2_endpoint_url: str | None = None
+    r2_access_key_id: str | None = None
+    r2_secret_access_key: str | None = None
+    r2_bucket_name: str = "filenest"
+    r2_region: str = "auto"
+
+    # Azure Blob Storage (managed mode — platform credentials)
+    azure_account_name: str | None = None
+    azure_account_key: str | None = None
+
+    # Google Cloud Storage (managed mode — platform credentials)
+    # Provide exactly one of: credentials JSON string, path to a service account file, or use ADC.
+    gcs_project_id: str | None = None
+    gcs_credentials_json: str | None = None
+    gcs_credentials_file: str | None = None
 
     # ── Security ──────────────────────────────────────────────────────────────
     # Used only for HS256 local JWT testing. Production uses JWKS from IAM.
