@@ -10,15 +10,19 @@ Run locally:
 
 API docs: http://localhost:8000/docs
 """
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-
-from app.core.config import settings
-from app.core.logging import configure_logging, get_logger
 from sqlalchemy.exc import IntegrityError
 
+from app.core import nats as nats_core
+from app.core.config import settings
+from app.core.database import AsyncSessionLocal
+from app.core.logging import configure_logging, get_logger
+from app.core.messaging import OutboxWorker
+from app.di.container import Container
 from app.errors.base import FileNestError
 from app.errors.handlers import (
     filenest_error_handler,
@@ -27,7 +31,6 @@ from app.errors.handlers import (
     unhandled_exception_handler,
     validation_exception_handler,
 )
-from app.di.container import Container
 from app.routers import api_router
 from app.routers.health import router as health_router
 
@@ -44,7 +47,25 @@ container = Container()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("filenest.startup", env=settings.env, service=settings.service_name)
+
+    # Connect NATS and ensure the FILENEST_EVENTS stream exists
+    await nats_core.connect()
+
+    # Start the outbox worker — polls outbox_messages and publishes to NATS JetStream
+    outbox_worker = OutboxWorker(AsyncSessionLocal)
+    worker_task = outbox_worker.start()
+
     yield
+
+    # Graceful shutdown: cancel worker before closing NATS so no in-flight
+    # publishes attempt to use a closed connection
+    worker_task.cancel()
+    try:
+        await worker_task
+    except asyncio.CancelledError:
+        pass
+    await nats_core.disconnect()
+
     logger.info("filenest.shutdown")
 
 

@@ -468,12 +468,12 @@ Auto-generated API references (OpenAPI schema, type definitions) are **not** dup
 
 ---
 
-## Implementation Phases (current: pre-Phase 1)
+## Implementation Phases (current: Phase 2)
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| 1 — Foundation | Auth, single-file upload to S3, basic file CRUD | Not started |
-| 2 — Processing & Events | Virus scan, MIME validation, NATS, webhooks, multipart upload | Not started |
+| 1 — Foundation | Auth, single-file upload to S3, basic file CRUD | ✅ Complete |
+| 2 — Processing & Events | Virus scan, MIME validation, NATS, webhooks, multipart upload | 🔄 In Progress |
 | 3 — Metadata & Search | Custom schemas, folders, tags, OCR, OpenSearch | Not started |
 | 4 — Console App | Next.js OAuth client, file explorer, API key management | Not started |
 | 5 — SDKs | `@filenest/node`, `@filenest/react`, `@filenest/nextjs`, `filenest` PyPI | Not started |
@@ -482,6 +482,28 @@ Auto-generated API references (OpenAPI schema, type definitions) are **not** dup
 | 8 — Compliance | HIPAA, GDPR, WORM, legal hold, PHI detection, FHIR | Not started |
 
 **MVP = Phases 1–5.** Do not build Phase 6+ features ahead of their phase.
+
+---
+
+## Plan Version Control
+
+Detailed step-by-step tracking lives in `plans/`. The workflow:
+
+```
+plans/
+├── current-plan.md              ← active phase plan (always this name)
+├── completed-plan-phase-1.md    ← archived when phase finishes
+├── completed-plan-phase-2.md    ← archived when phase finishes
+└── ...
+```
+
+### Rules
+
+- **`plans/current-plan.md`** tracks the active phase. It is derived from `dev-docs/plan/00_Implementation_Roadmap.md` but adds concrete file paths and implementation notes.
+- **Completed steps** — add `✅ COMPLETED` tag on the step heading. Never delete steps; the file is a history of what was built.
+- **If `00_Implementation_Roadmap.md` changes** — update `current-plan.md` only if the change affects the currently tracked phase.
+- **When all steps are completed** — rename `current-plan.md` to `completed-plan-phase-N.md`. Create a new `current-plan.md` for the next phase.
+- **Never create planning documents mid-task** — the plan file is updated only when a step is fully done or when starting a new phase.
 
 ---
 

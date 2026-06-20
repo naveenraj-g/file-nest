@@ -1,8 +1,8 @@
 # FileNest — Implementation Roadmap
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 **Target:** v1.0 Production Release
-**Last Updated:** 2026-06-18
+**Last Updated:** 2026-06-20
 
 ---
 
@@ -12,7 +12,9 @@ This roadmap takes the current scaffold to a full **v1.0 production release** ac
 
 **Scope of v1.0:** Everything — file infrastructure, processing, search, webhooks, console app, SDKs, observability, storage providers, sharing, previews, bulk operations.
 
-**Explicitly out of v1.0 — Compliance Pack (v2.0):** HIPAA, GDPR, WORM, legal hold, PHI/PII detection, retention enforcement, FHIR. These require their own phase after v1.0 ships. The compliance modules are already scaffolded in the codebase following clean architecture so they can be dropped in without touching existing code.
+**Included in v1.0 — Compliance foundations:** HIPAA technical safeguards, GDPR data subject rights (erasure, portability, DSARs), PHI/PII detection in the processing pipeline, legal hold framework, retention enforcement, audit log immutability.
+
+**Explicitly out of v1.0 → v2.0 — Domain Compliance Packs:** WORM enforcement (S3 Object Lock / immutable storage), domain-specific presets for finance, insurance, and government, FHIR/XDS clinical integration, customer-managed KMS envelope encryption (BYOK), advanced PHI redaction workflows. These require their own phase after v1.0 ships. The compliance modules are already scaffolded in the codebase following clean architecture so they can be dropped in without touching existing code.
 
 **Architecture:** Modular monolith — all domain logic in `backend/` as isolated modules (files, projects, processing, search, webhooks, etc.). Each module owns its own service, repository, schemas, and router. No cross-module DB joins. Cross-module work goes through the NATS transactional outbox. When a module needs to become its own service, the refactor is mechanical — no business logic changes needed.
 

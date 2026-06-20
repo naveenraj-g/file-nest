@@ -81,7 +81,7 @@ _primary_engine = create_async_engine(
     settings.database_primary_url,
     pool_size=settings.database_pool_size,
     max_overflow=settings.database_max_overflow,
-    echo=settings.is_dev,
+    echo=False,  # structlog handles all meaningful logging; SQLAlchemy echo is too noisy
 )
 
 _replica_url = settings.database_replica_url or settings.database_primary_url
