@@ -7,3 +7,4 @@ export { registerStorageConfigModule } from "./storage-config/storage-config.mod
 export { registerProjectConfigModule } from "./project-config/project-config.module";
 export { registerApiKeyModule } from "./api-key/api-key.module";
 export { registerFileModule } from "./file/file.module";
+export { registerWebhookModule } from "./webhook/webhook.module";
