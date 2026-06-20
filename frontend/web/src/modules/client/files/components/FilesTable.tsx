@@ -1,17 +1,18 @@
 /**
  * FilesTable — file list table with status filtering and row actions.
  *
- * Accepts SSR-fetched initial data and uses useServerActionQuery to refetch
- * when the file store trigger increments (after a delete). Client-side
- * sorting and column filtering. Server-side refetch is triggered by
- * store.trigger (mutations) only — no server-side pagination yet.
+ * Initial data is SSR-fetched by the RSC page and passed as a prop, avoiding
+ * any client-side fetch on first render. After a delete mutation the store
+ * trigger increments, which fires a useServerAction execute() to refresh rows.
+ * No React Query / useServerActionQuery — keeps hydration simple and avoids
+ * the "state update before mount" error that async query initialisation causes.
  *
  * @module
  */
 "use client";
 
 import * as React from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useServerAction } from "zsa-react";
 import { Trash2, Upload, FileX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,10 +29,8 @@ import {
   DataTableSelectionBar,
   useDataTable,
 } from "@/modules/client/shared/components/tables";
-import { useServerActionQuery } from "@/lib/hooks/server-action-hooks";
 import { listFilesAction } from "@/modules/server/presentation/actions/file.actions";
 import { useFileStore } from "@/modules/client/files/stores/file.store";
-import { fileKeys } from "@/modules/client/files/queries/file.queries";
 import { filesTableColumns } from "./FilesTableColumn";
 import type { TFile, TFileList } from "@/modules/entities/schemas/file";
 
@@ -43,9 +42,9 @@ interface FilesTableProps {
 
 export function FilesTable({ projectId, initialData }: FilesTableProps) {
   const { onOpen, trigger } = useFileStore();
-  const queryClient = useQueryClient();
 
   const [rows, setRows] = React.useState<TFile[]>(initialData.items ?? []);
+  const [isFetching, setIsFetching] = React.useState(false);
 
   const columns = React.useMemo(() => filesTableColumns(), []);
 
@@ -56,36 +55,18 @@ export function FilesTable({ projectId, initialData }: FilesTableProps) {
     initialPageSize: 50,
   });
 
-  const queryParams = React.useMemo(
-    () => ({ projectId, limit: 200 }),
-    [projectId],
-  );
+  const { execute } = useServerAction(listFilesAction);
 
-  const { data, isPending: isFetching } = useServerActionQuery(
-    listFilesAction,
-    {
-      input: { payload: queryParams },
-      queryKey: fileKeys.list(queryParams),
-      initialData: initialData,
-      staleTime: 30_000,
-      placeholderData: (prev: TFileList | undefined) => prev,
-    },
-  );
-
+  // Re-fetch rows after any mutation (trigger increments in file store)
   React.useEffect(() => {
-    if (data) {
-      setRows(data.items ?? []);
-    }
-  }, [data]);
-
-  // Refetch after delete
-  React.useEffect(() => {
-    if (trigger > 0) {
-      void queryClient.invalidateQueries({
-        queryKey: fileKeys.lists(projectId),
-      });
-    }
-  }, [trigger, projectId, queryClient]);
+    if (trigger === 0) return;
+    setIsFetching(true);
+    execute({ payload: { projectId, limit: 200 } })
+      .then(([data]) => {
+        if (data) setRows(data.items ?? []);
+      })
+      .finally(() => setIsFetching(false));
+  }, [trigger, projectId]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedRows = table.getFilteredSelectedRowModel().rows;
 
