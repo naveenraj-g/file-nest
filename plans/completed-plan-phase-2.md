@@ -158,3 +158,43 @@ nats-py        # NATS JetStream async client
 python-clamd   # ClamAV TCP socket client (VirusScanStage)
 python-magic   # MIME byte-sniffing (MimeValidationStage)
 ```
+
+---
+
+### Step 10 — Docs audit — Console app docs route ✅ COMPLETED
+
+Reviewed all Phase 2 features against `frontend/web/src/content/docs/`. The following were added or updated:
+
+**New MDX files:**
+- `api/webhooks.mdx` — list, create, update, delete endpoints; event types; HMAC signature verification code; retry policy
+- `api/health.mdx` — `/health/live`, `/health/ready`; response shapes; Kubernetes probe config example
+- `console/files.mdx` — file table columns, status lifecycle, upload flow, row actions
+- `console/api-keys.mdx` — key types, scopes table, create flow, revoke, best practices
+- `console/webhooks.mdx` — add/edit/delete, signing secret warning, event types, disable vs delete
+
+**Updated existing files:**
+- `nav.ts` — added Webhooks + Health to API Reference; added Files + API Keys + Webhooks to Console Guide
+- `console/projects.mdx` — removed "Phase 4" labels from tabs; replaced with working links to the new console guide pages
+- `api/authentication.mdx` — added missing scopes: `api_keys:create`, `api_keys:revoke`, `audit:read`, `compliance:manage`
+
+**Component:**
+- `modules/client/docs/components/DocActions.tsx` — Copy MD + Open in (Claude / ChatGPT / Perplexity / Gemini) action bar wired into `[[...slug]]/page.tsx`
+
+---
+
+## Summary
+
+| Step | Description | Status |
+|------|-------------|--------|
+| 1 | NATS client + OutboxWorker | ✅ Complete |
+| 2 | Processing pipeline skeleton | ✅ Complete |
+| 3 | VirusScanStage + MimeValidationStage | ✅ Complete |
+| 4 | ClassificationStage | ✅ Complete |
+| 5 | Webhook delivery | ✅ Complete |
+| 6 | Multipart upload | ✅ Complete |
+| 7 | Audit log | ✅ Complete |
+| 8 | Console: File Explorer | ✅ Complete |
+| 9 | Console: Webhooks page | ✅ Complete |
+| 10 | Docs audit — Console app docs route | ✅ Complete |
+
+**All steps complete. Phase 2 is done.**

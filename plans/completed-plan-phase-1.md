@@ -131,6 +131,22 @@
 
 ---
 
+## Step 8 — Docs audit — Console app docs route ✅ COMPLETED
+
+Reviewed all Phase 1 features against `frontend/web/src/content/docs/`. The docs route already covered projects, files, storage, authentication, and SDKs from initial scaffolding. The following were confirmed present and accurate:
+
+- `api/authentication.mdx` — Bearer token types, scopes, error responses
+- `api/projects.mdx` — full project CRUD
+- `api/files.mdx` — upload, list, get, download, delete
+- `api/storage.mdx` — storage config
+- `console/overview.mdx` — onboarding wizard, layout
+- `console/projects.mdx` — project list, create, delete, tabs
+- `console/settings.mdx` — storage, uploads, processing, security tabs
+
+`DocActions.tsx` (Copy MD + Open in AI toolbar) added to `[[...slug]]/page.tsx` so every docs page has the action bar.
+
+---
+
 ## Summary
 
 | Step | Description | Status |
@@ -142,5 +158,6 @@
 | 5 | File Upload & Download | ✅ Complete |
 | 6 | Health endpoints | ✅ Complete |
 | 7 | Console App — Auth connected | ✅ Complete |
+| 8 | Docs audit — Console app docs route | ✅ Complete |
 
 **All steps complete. Phase 1 is done.**

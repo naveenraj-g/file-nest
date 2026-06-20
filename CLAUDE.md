@@ -505,6 +505,20 @@ plans/
 - **When all steps are completed** — rename `current-plan.md` to `completed-plan-phase-N.md`. Create a new `current-plan.md` for the next phase.
 - **Never create planning documents mid-task** — the plan file is updated only when a step is fully done or when starting a new phase.
 
+### Mandatory last step in every phase plan
+
+Every `current-plan.md` **must** include a final step titled **"Docs audit — Console app docs route"** as the last numbered step of the phase. This step is never skipped.
+
+**What it covers:**
+
+1. Review every feature built in the phase and check whether the console app docs route (`frontend/web/src/content/docs/`) already documents it.
+2. Add missing MDX files for any new API endpoints, console UI pages, or concepts introduced in the phase.
+3. Update existing MDX files if the implementation changed the behaviour described (e.g. a tab labelled "Phase N" is now live).
+4. Update `frontend/web/src/modules/client/docs/config/nav.ts` to add any new pages to the sidebar.
+5. Update `frontend/web/src/content/docs/api/authentication.mdx` if new scopes were added.
+
+**Reference implementation:** Phase 2 completed this as a standalone task — the pattern is `DocActions.tsx` (Copy MD + Open in AI toolbar) + new MDX files per feature + nav update.
+
 ---
 
 ## Dev Environment

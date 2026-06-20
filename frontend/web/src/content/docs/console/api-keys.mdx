@@ -1,0 +1,53 @@
+---
+title: "API Keys"
+description: "Create and manage project-scoped API keys in the FileNest Console."
+---
+
+# API Keys
+
+The **API Keys** page (`/projects/{projectId}/api-keys`) manages project-scoped API keys. Every key is bound to a single project and carries an explicit set of scopes.
+
+## Key types
+
+| Prefix | Environment | Use case |
+|--------|-------------|----------|
+| `fn_live_...` | Production | Live traffic |
+| `fn_test_...` | Test / staging | Development and CI |
+
+## Creating a key
+
+1. Click **Create key**
+2. Enter a display name (e.g. `backend-prod`, `ci-runner`)
+3. Select the key type (`live` or `test`)
+4. Select the scopes the key needs
+
+<Callout type="warning" title="Save your key">
+The full API key is shown exactly once on creation. Copy it immediately to a secret manager or environment variable — it cannot be retrieved again.
+</Callout>
+
+## Available scopes
+
+| Scope | Grants access to |
+|-------|-----------------|
+| `files:upload` | Upload files |
+| `files:download` | Generate download URLs |
+| `files:read` | List and inspect files |
+| `files:delete` | Delete files |
+| `files:update_metadata` | Update file metadata and tags |
+| `projects:read` | Read project and webhook details |
+| `projects:update` | Update project settings and webhooks |
+| `api_keys:create` | Create new API keys programmatically |
+| `api_keys:revoke` | Revoke API keys |
+| `audit:read` | Read audit log entries |
+| `compliance:manage` | Configure WORM, legal hold, and retention |
+
+## Revoking a key
+
+Click **Revoke** in the row actions menu. Revocation is immediate — the key stops working within seconds. Revoked keys are shown with a `revoked` badge and cannot be re-activated; create a new key if needed.
+
+## Best practices
+
+- Follow the principle of least privilege — only grant the scopes the consumer actually needs
+- Use `fn_test_...` keys in development and CI to avoid hitting production data
+- Rotate keys regularly — revoke the old key and create a new one
+- Never commit API keys to source control; use environment variables or a secret manager

@@ -1,0 +1,59 @@
+---
+title: "Files"
+description: "Browse, upload, download, and manage files in a FileNest project."
+---
+
+# Files
+
+The **Files** page (`/projects/{projectId}/files`) is the file explorer for a project. It lists all non-deleted files with sorting, filtering, and row actions.
+
+## File table
+
+| Column | Description |
+|--------|-------------|
+| **Filename** | Original upload name with MIME-type icon |
+| **Size** | Human-readable file size |
+| **Type** | MIME type |
+| **Status** | Current lifecycle status |
+| **Uploaded** | Upload timestamp |
+
+The table supports:
+
+- **Column sorting** — click any column header to sort ascending / descending
+- **Filter** — filter by status or MIME type
+- **Export** — download the visible rows as CSV
+- **Row selection** — select multiple files for bulk actions (delete)
+
+## File status lifecycle
+
+```
+uploading → processing → ready
+                      ↘ failed
+                      ↘ quarantined
+```
+
+| Status | Meaning |
+|--------|---------|
+| `uploading` | File is being received by the API |
+| `processing` | Virus scan and pipeline stages running |
+| `ready` | Processing complete — file is downloadable |
+| `failed` | Processing pipeline failed |
+| `quarantined` | Virus scan detected a threat — download blocked |
+| `deleted` | Soft-deleted (not shown in table) |
+
+## Uploading a file
+
+Click **Upload** (top right of the table) to open the file picker. Drag-and-drop is also supported. Files upload directly to the configured storage provider after the API issues a presigned URL.
+
+## Row actions
+
+Right-click a row or click the `⋮` menu to access:
+
+| Action | Description |
+|--------|-------------|
+| **Download** | Opens a 15-minute presigned download URL in a new tab |
+| **Delete** | Soft-deletes the file after confirmation |
+
+## Empty state
+
+A project with no files shows an empty state with an **Upload** button.

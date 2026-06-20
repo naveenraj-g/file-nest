@@ -18,6 +18,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DocsSidebar } from "@/modules/client/docs/components/DocsSidebar";
 import { TableOfContents } from "@/modules/client/docs/components/TableOfContents";
+import { DocActions } from "@/modules/client/docs/components/DocActions";
 import { getMDXComponents } from "@/modules/client/docs/mdx-components";
 import {
   getDoc,
@@ -58,6 +59,11 @@ export default async function DocsPage({ params }: PageProps) {
       <DocsSidebar />
 
       <main className="min-w-0 flex-1">
+        {/* Per-page action bar: Copy MD + Open in AI */}
+        <div className="mb-6 flex justify-end">
+          <DocActions rawMarkdown={doc.content} title={doc.frontmatter.title} />
+        </div>
+
         <article className="prose prose-slate dark:prose-invert max-w-none
           prose-headings:scroll-mt-20
           prose-code:before:content-none prose-code:after:content-none

@@ -312,7 +312,7 @@ Phases 6 and 7 overlap — start Phase 7 when Phase 6 is 60% done.
 ## PHASE 5 — SDKs & Developer Experience
 
 **Duration:** Weeks 13–18 (overlaps with Phase 4)
-**Goal:** External developers can integrate FileNest in under 30 minutes. Docs live. SDKs published.
+**Goal:** External developers can integrate FileNest in under 30 minutes. Docs live. SDKs published. Example applications demonstrate every SDK feature in isolation.
 
 **Docs:** `06_SDK_Specification`
 
@@ -364,6 +364,83 @@ Phases 6 and 7 overlap — start Phase 7 when Phase 6 is 60% done.
 - SDK quickstart pages with copy-paste snippets
 - Webhook guide with signature verification examples
 
+**Example Applications** (built in parallel with the SDKs, lives in `examples/`)
+
+One standalone app per SDK. Each app dedicates a separate page or route to a single SDK feature so the implementation is immediately readable in isolation. Every page shows the running UI alongside the relevant source code snippet (like a mini playground).
+
+```
+examples/
+├── node-sdk/          # Plain Node.js + Express — demonstrates @filenest/node
+├── react-sdk/         # Vite + React — demonstrates @filenest/react components and hooks
+├── nextjs-sdk/        # Next.js App Router — demonstrates @filenest/nextjs server utilities
+└── python-sdk/        # FastAPI app — demonstrates filenest Python SDK
+```
+
+_`examples/node-sdk/`_ — `@filenest/node` (Express, no frontend framework)
+
+| Route | Feature demonstrated |
+|-------|---------------------|
+| `GET /` | Index — links to all examples |
+| `POST /upload/single` | Single file upload (`files.upload` < 5 MB) |
+| `POST /upload/multipart` | Large file upload (`files.upload` auto-multipart > 5 MB) |
+| `GET /files` | List files with status + MIME filter (`files.list`) |
+| `GET /files/:id` | Get file metadata (`files.get`) |
+| `GET /files/:id/download` | Presigned download URL (`files.getDownloadUrl`) |
+| `DELETE /files/:id` | Delete file (`files.delete`) |
+| `PUT /files/:id/metadata` | Update metadata (`files.updateMetadata`) |
+| `PUT /files/:id/tags` | Replace tag set |
+| `POST /files/:id/tags` | Add tags |
+| `POST /search` | Full-text + faceted search (`search.query`) |
+| `POST /webhooks/receive` | Receive + verify a webhook delivery (`webhooks.verify`) |
+
+_`examples/react-sdk/`_ — `@filenest/react` (Vite + React, one route per component/hook)
+
+| Route | Feature demonstrated |
+|-------|---------------------|
+| `/` | Index — links to all examples |
+| `/upload/dropzone` | `<FileUpload variant="dropzone">` drag-and-drop with progress |
+| `/upload/button` | `<FileUpload variant="button">` click-to-upload |
+| `/upload/programmatic` | `useUpload()` — manual trigger, per-file progress state, retry |
+| `/explorer` | `<FileExplorer>` — full folder browse, search, upload, download |
+| `/preview/:fileId` | `<FilePreview>` — inline image/PDF preview |
+| `/viewer/:fileId` | `<FileViewer>` — full-page document viewer |
+| `/files` | `useFiles(filters)` — paginated list with status + MIME filter controls |
+| `/search` | `useSearch()` — debounced input, facet sidebar, highlighted results |
+| `/file/:fileId` | `useFile(fileId)` — single file detail card with live status polling |
+| `/folder/:folderId` | `useFolder()` — breadcrumb navigation, subfolder list |
+
+Each page is split into two panes: left = running demo, right = the full source file with syntax highlighting.
+
+_`examples/nextjs-sdk/`_ — `@filenest/nextjs` (Next.js 16 App Router)
+
+| Route | Feature demonstrated |
+|-------|---------------------|
+| `/` | Index |
+| `/server-component` | RSC fetching a file list with `filenestServer().files.list()` |
+| `/server-action` | Server action uploading a file with `filenestServer().files.upload()` |
+| `/upload-token` | Token endpoint (`/api/filenest-token`) + `<FileUpload>` consuming it |
+| `/webhooks` | `/api/webhooks/filenest` — `verifyWebhookSignature` + `parseWebhookEvent` |
+| `/search` | Server component calling `filenestServer().search.query()` |
+
+_`examples/python-sdk/`_ — `filenest` PyPI (FastAPI app, one router per feature group)
+
+| Route | Feature demonstrated |
+|-------|---------------------|
+| `GET /` | Index — links to all examples |
+| `POST /upload` | Single file upload (`AsyncFileNestClient.files.upload`) |
+| `GET /files` | List files with filters |
+| `GET /files/{id}/download-url` | Presigned URL (`files.getDownloadUrl`) |
+| `DELETE /files/{id}` | Delete file |
+| `PUT /files/{id}/metadata` | Update metadata |
+| `POST /search` | Full-text search (`search.query`) |
+| `POST /webhooks/receive` | Webhook receipt + `webhooks.verify` |
+| `GET /django-example` | Inline Django view snippet (rendered as a code block) |
+
+Each example app ships with:
+- A `README.md` — one-command setup (`cp .env.example .env` → `pnpm dev` / `uvicorn main:app`)
+- `.env.example` — `FILENEST_API_KEY`, `FILENEST_PROJECT_ID`, `FILENEST_API_URL`
+- No authentication, no database — purely FileNest SDK calls so there is nothing else to set up
+
 ### Exit Criteria
 
 - Node SDK: `new FileNest({ apiKey, projectId }).files.upload(buffer, { filename: "test.pdf" })` works
@@ -371,6 +448,7 @@ Phases 6 and 7 overlap — start Phase 7 when Phase 6 is 60% done.
 - Python SDK: `AsyncFileNestClient().files.upload(...)` works inside a FastAPI endpoint
 - Webhook: `verifyWebhookSignature` returns `true` on a real delivery, `false` on tampered payload
 - Docs site live with working "Try it" examples
+- All four example apps start with a single command and each individual feature page works end-to-end against a real FileNest project
 
 ---
 
@@ -593,6 +671,7 @@ The compliance modules are already scaffolded in the codebase with clean interfa
 | @filenest/react | Phase 5 | Phase 7 (previews, sharing) |
 | @filenest/nextjs | Phase 5 | — |
 | filenest Python SDK | Phase 5 | — |
+| Example applications (`examples/`) | Phase 5 | Phase 7 (preview + sharing + bulk examples added) |
 | Observability (OTel + Grafana) | Phase 6 | Phase 7 (audit archival dashboard) |
 | Rate limiting | Phase 6 | — |
 | Usage metering | Phase 6 | — |
