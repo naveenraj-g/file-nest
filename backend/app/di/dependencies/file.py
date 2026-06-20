@@ -11,6 +11,7 @@ from app.auth import TenantContext, authenticate_request
 from app.core.database import get_db
 from app.core.messaging import TransactionalOutboxPublisher
 from app.repositories.file import FileRepository
+from app.repositories.project_config import ProjectConfigRepository
 from app.services.file import FileService
 
 
@@ -31,6 +32,7 @@ def get_file_service(
     return FileService(
         session=session,
         repo=FileRepository(session),
+        config_repo=ProjectConfigRepository(session),
         outbox=TransactionalOutboxPublisher(session),
         ctx=ctx,
         project_id=project_id,

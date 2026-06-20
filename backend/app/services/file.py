@@ -2,14 +2,21 @@
 app.services.file — Business logic for file management.
 
 All file business rules live here. Coordinates with FileRepository (DB),
-TransactionalOutboxPublisher (events), and StorageResolver (storage backend).
+ProjectConfigRepository (per-project feature flags), TransactionalOutboxPublisher
+(events), and StorageResolver (storage backend).
+
+confirm_upload flow (Phase 2):
+  - virus_scan_enabled = true  → status=processing, emit file.uploaded
+    (ProcessingWorker picks this up and runs stages)
+  - virus_scan_enabled = false → status=ready, emit file.ready directly
 
 project_id always comes from the URL path parameter, not the token. The router
 validates that a project-scoped token's project_id matches the URL before
 constructing this service.
 
 Usage:
-    svc = FileService(session=session, ctx=ctx, project_id=project_id)
+    svc = FileService(session=session, repo=repo, config_repo=config_repo,
+                      outbox=outbox, ctx=ctx, project_id=project_id)
     result = await svc.init_upload(request_body)
 """
 import json
@@ -20,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import TenantContext
 from app.core.messaging import TransactionalOutboxPublisher
 from app.repositories.file import FileRepository
+from app.repositories.project_config import ProjectConfigRepository
 
 from app.schemas.file import (
     ConfirmUploadResponse,
@@ -46,15 +54,19 @@ class FileService:
     org-level tokens can operate on any project within the org.
 
     Args:
-        session:    Active DB session (owns commit/rollback).
-        ctx:        Resolved caller identity.
-        project_id: Project UUID from the URL path parameter.
+        session:     Active DB session (owns commit/rollback).
+        repo:        FileRepository for file CRUD.
+        config_repo: ProjectConfigRepository for feature flag lookups.
+        outbox:      TransactionalOutboxPublisher for event enqueuing.
+        ctx:         Resolved caller identity.
+        project_id:  Project UUID from the URL path parameter.
     """
 
     def __init__(
         self,
         session: AsyncSession,
         repo: FileRepository,
+        config_repo: ProjectConfigRepository,
         outbox: TransactionalOutboxPublisher,
         ctx: TenantContext,
         project_id: str,
@@ -63,6 +75,7 @@ class FileService:
         self._ctx = ctx
         self._project_id = project_id
         self._repo = repo
+        self._config_repo = config_repo
         self._outbox = outbox
 
     async def init_upload(self, req: UploadInitRequest) -> UploadInitResponse:
@@ -105,9 +118,50 @@ class FileService:
         )
 
     async def confirm_upload(self, file_id: str) -> ConfirmUploadResponse:
-        """Mark a file as ready after the client has PUT the bytes to storage."""
+        """
+        Transition a file out of the pending state after the client PUT completes.
+
+        Reads project_configs.virus_scan_enabled to decide the next status:
+          - True  → status=processing, emits file.uploaded so ProcessingWorker
+                    picks it up for virus scan / MIME validation / classification.
+          - False → status=ready, emits file.ready directly (no pipeline needed).
+
+        Both paths write the status update and the outbox event in the same
+        transaction so they are atomic.
+        """
         await self._repo.get(file_id, self._ctx.organization_id, self._project_id)
-        record = await self._repo.update_status(file_id, "ready")
+
+        config = await self._config_repo.get_for_project(
+            self._project_id, self._ctx.organization_id
+        )
+
+        if config.virus_scan_enabled:
+            record = await self._repo.update_status(file_id, "processing")
+            await self._outbox.publish(
+                f"filenest.{self._ctx.organization_id}.{self._project_id}.file.uploaded",
+                {
+                    "file_id": record.id,
+                    "filename": record.filename,
+                    "storage_key": record.storage_key,
+                    "content_type": record.content_type,
+                    "size_bytes": record.size_bytes,
+                },
+                organization_id=self._ctx.organization_id,
+                project_id=self._project_id,
+            )
+        else:
+            record = await self._repo.update_status(file_id, "ready")
+            await self._outbox.publish(
+                f"filenest.{self._ctx.organization_id}.{self._project_id}.file.ready",
+                {
+                    "file_id": record.id,
+                    "filename": record.filename,
+                    "storage_key": record.storage_key,
+                },
+                organization_id=self._ctx.organization_id,
+                project_id=self._project_id,
+            )
+
         await self._session.commit()
         return ConfirmUploadResponse(id=record.id, status=record.status)
 

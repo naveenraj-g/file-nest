@@ -43,7 +43,7 @@ Deferred — a dedicated observability application will handle audit logs, trace
 
 ---
 
-### Step 3 — Fix `confirm_upload` flow
+### Step 3 — Fix `confirm_upload` flow ✅ COMPLETED
 
 **Files:**
 - `backend/app/services/file.py` — inject `ProjectConfigRepository`, change `confirm_upload`:
