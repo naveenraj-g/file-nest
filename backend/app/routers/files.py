@@ -1,17 +1,20 @@
 """
-app.routers.files — HTTP handlers for file management.
+app.routers.files — HTTP handlers for file management and file versioning.
 
 Routes are project-scoped: project_id comes from the URL path so that both
 org-level and project-level tokens work. A project-scoped token's project_id
 must match the URL; an org-level token may operate on any project in the org.
 
 Routes registered at /v1 prefix:
-    POST   /v1/projects/{project_id}/files/upload              initiate upload (presigned PUT URL)
-    POST   /v1/projects/{project_id}/files/{file_id}/confirm   confirm upload completed
-    GET    /v1/projects/{project_id}/files/{file_id}           fetch file metadata
-    GET    /v1/projects/{project_id}/files/{file_id}/download  get presigned download URL
-    GET    /v1/projects/{project_id}/files                     list files (cursor-paginated)
-    DELETE /v1/projects/{project_id}/files/{file_id}           soft-delete a file
+    POST   /v1/projects/{project_id}/files/upload                                  initiate upload
+    POST   /v1/projects/{project_id}/files/{file_id}/confirm                       confirm upload
+    GET    /v1/projects/{project_id}/files/{file_id}                               file metadata
+    GET    /v1/projects/{project_id}/files/{file_id}/download                      presigned download URL
+    GET    /v1/projects/{project_id}/files                                         list files
+    DELETE /v1/projects/{project_id}/files/{file_id}                               soft-delete
+    GET    /v1/projects/{project_id}/files/{file_id}/versions                      list versions
+    GET    /v1/projects/{project_id}/files/{file_id}/versions/{version_id}/download version download URL
+    POST   /v1/projects/{project_id}/files/{file_id}/versions/{version_id}/restore restore version
 """
 from fastapi import APIRouter, Depends, Query
 
@@ -23,6 +26,8 @@ from app.schemas.file import (
     DownloadUrlResponse,
     FileListResponse,
     FileResponse,
+    FileVersionListResponse,
+    RestoreVersionResponse,
     UploadInitRequest,
     UploadInitResponse,
 )
@@ -98,3 +103,48 @@ async def delete_file(
     """Soft-delete a file. Scope: files:delete."""
     require_scope(svc._ctx, "files:delete")
     return await svc.delete_file(file_id)
+
+
+@router.get(
+    "/projects/{project_id}/files/{file_id}/versions",
+    response_model=FileVersionListResponse,
+)
+async def list_versions(
+    project_id: str,
+    file_id: str,
+    svc: FileService = Depends(get_file_service),
+) -> FileVersionListResponse:
+    """List all version snapshots for a file, newest first. Scope: files:read."""
+    require_scope(svc._ctx, "files:read")
+    return await svc.list_versions(file_id)
+
+
+@router.get(
+    "/projects/{project_id}/files/{file_id}/versions/{version_id}/download",
+    response_model=DownloadUrlResponse,
+)
+async def get_version_download_url(
+    project_id: str,
+    file_id: str,
+    version_id: str,
+    ttl: int = Query(3600, ge=60, le=86400, description="URL TTL in seconds"),
+    svc: FileService = Depends(get_file_service),
+) -> DownloadUrlResponse:
+    """Generate a presigned download URL for a specific version's bytes. Scope: files:download."""
+    require_scope(svc._ctx, "files:download")
+    return await svc.get_version_download_url(file_id, version_id, ttl=ttl)
+
+
+@router.post(
+    "/projects/{project_id}/files/{file_id}/versions/{version_id}/restore",
+    response_model=RestoreVersionResponse,
+)
+async def restore_version(
+    project_id: str,
+    file_id: str,
+    version_id: str,
+    svc: FileService = Depends(get_file_service),
+) -> RestoreVersionResponse:
+    """Restore a past version as the current file state. Scope: files:update_metadata."""
+    require_scope(svc._ctx, "files:update_metadata")
+    return await svc.restore_version(file_id, version_id)

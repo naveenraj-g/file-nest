@@ -28,6 +28,8 @@ class File(Base):
     folder_id = Column(String, nullable=True)
     # Classification result set by ClassificationStage: document, image, video, audio, archive, other
     category = Column(String, nullable=True)
+    # Incremented on each confirmed upload when versioning_enabled = true
+    version_count = Column(Integer, nullable=False, default=0)
     metadata_json = Column(Text, nullable=False, default="{}")
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

@@ -1,4 +1,4 @@
-"""app.schemas.file — Pydantic request/response models for files."""
+"""app.schemas.file — Pydantic request/response models for files and file versions."""
 from datetime import datetime
 from enum import StrEnum
 
@@ -70,3 +70,26 @@ class DeleteResponse(BaseModel):
     """Returned after a successful soft delete."""
     id: str
     deleted: bool = True
+
+
+class FileVersionResponse(BaseModel):
+    """Metadata for a single file version snapshot."""
+    id: str
+    file_id: str
+    version_number: int
+    storage_key: str
+    size_bytes: int
+    content_type: str
+    created_at: datetime
+
+
+class FileVersionListResponse(BaseModel):
+    """All version snapshots for a file, newest first."""
+    items: list[FileVersionResponse]
+    total: int
+
+
+class RestoreVersionResponse(BaseModel):
+    """Returned after a version is restored as the current file state."""
+    file_id: str
+    version_number: int  # the new current version number after restore

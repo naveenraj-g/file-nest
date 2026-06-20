@@ -72,7 +72,7 @@ Deferred — a dedicated observability application will handle audit logs, trace
 
 ---
 
-### Step 5 — File versioning
+### Step 5 — File versioning ✅ COMPLETED
 
 **Files:**
 - `backend/app/models/file_version.py` — `FileVersion` ORM model: `id`, `file_id`, `organization_id`, `project_id`, `version_number`, `storage_key`, `size_bytes`, `content_type`, `created_at`
