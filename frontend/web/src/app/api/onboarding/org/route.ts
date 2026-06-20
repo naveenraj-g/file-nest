@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   }
 
   const iamUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:5000";
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const origin = process.env.APP_URL ?? "http://localhost:3000";
 
   const hdrs = await headers();
   const cookieHeader = hdrs.get("cookie") ?? "";

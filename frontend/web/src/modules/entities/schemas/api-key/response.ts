@@ -34,6 +34,9 @@ export type TApiKey = z.infer<typeof ApiKeySchema>;
 
 export const ApiKeyListSchema = z.object({
   apiKeys: z.array(ApiKeySchema),
+  total: z.number(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
 });
 
 export type TApiKeyList = z.infer<typeof ApiKeyListSchema>;

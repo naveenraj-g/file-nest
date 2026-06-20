@@ -1,8 +1,8 @@
 /**
  * ApiKeysTable — TanStack Table for API keys on a project.
  *
- * Receives initialData from the RSC page and refetches when the store
- * trigger increments (after create / revoke).
+ * Receives initialData (including total count) from the RSC page.
+ * Refetches when the store trigger increments (after create / revoke).
  *
  * @module
  */
@@ -44,7 +44,14 @@ export function ApiKeysTable({ initialData, organizationId, projectId }: ApiKeys
 
   React.useEffect(() => {
     if (trigger === 0) return;
-    execute({ payload: { organizationId, projectId } }).then(([result]) => {
+    execute({
+      payload: {
+        organizationId,
+        projectId,
+        sortBy: "createdAt",
+        sortDirection: "desc",
+      },
+    }).then(([result]) => {
       if (result) setData(result);
     });
   }, [trigger, organizationId, projectId, execute]);

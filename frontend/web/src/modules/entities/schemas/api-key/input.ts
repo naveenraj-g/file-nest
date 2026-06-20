@@ -30,6 +30,10 @@ export type TCreateApiKey = z.infer<typeof CreateApiKeySchema>;
 export const ListApiKeysSchema = z.object({
   organizationId: z.string().min(1),
   projectId: z.string().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  offset: z.number().int().min(0).optional(),
+  sortBy: z.enum(["createdAt", "name", "expiresAt"]).optional(),
+  sortDirection: z.enum(["asc", "desc"]).optional(),
 });
 
 export type TListApiKeys = z.infer<typeof ListApiKeysSchema>;

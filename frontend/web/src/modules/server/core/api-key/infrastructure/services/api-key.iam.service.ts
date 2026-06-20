@@ -28,23 +28,27 @@ import type { IApiKeyService } from "../../domain/interfaces/api-key.service.int
 
 export class ApiKeyIamService implements IApiKeyService {
   async list(params: TListApiKeys): Promise<TApiKeyList> {
-    const qs = new URLSearchParams({ organizationId: params.organizationId });
+    const { organizationId, projectId, limit, offset, sortBy, sortDirection } = params;
+
+    const qp: Record<string, string> = { organizationId };
+    if (limit !== undefined) qp.limit = String(limit);
+    if (offset !== undefined) qp.offset = String(offset);
+    if (sortBy) qp.sortBy = sortBy;
+    if (sortDirection) qp.sortDirection = sortDirection;
+
+    const qs = new URLSearchParams(qp);
     const raw = await iamApi<unknown>(`/api/auth/api-key/list?${qs}`);
     const parsed = ApiKeyListSchema.safeParse(raw);
     if (!parsed.success) throw new OutputParseError(parsed.error);
-    const { organizationId, projectId } = params;
-    // Filter to keys that belong to this org and project (stored in metadata)
-    const filtered = parsed.data.apiKeys.filter((k) => {
-      if (k.organizationId && k.organizationId !== organizationId) return false;
-      if (
-        projectId &&
-        k.metadata?.projectId &&
-        k.metadata.projectId !== projectId
-      )
-        return false;
-      return true;
-    });
-    return { apiKeys: filtered };
+
+    // BetterAuth filters by organizationId server-side.
+    // projectId lives in metadata so we filter client-side.
+    if (!projectId) return parsed.data;
+
+    const filtered = parsed.data.apiKeys.filter(
+      (k) => !k.metadata?.projectId || k.metadata.projectId === projectId,
+    );
+    return { ...parsed.data, apiKeys: filtered, total: filtered.length };
   }
 
   async create(dto: TCreateApiKey): Promise<TCreatedApiKey> {

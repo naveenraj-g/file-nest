@@ -17,7 +17,7 @@ const IAM_URL =
   process.env.NEXT_PUBLIC_BETTER_AUTH_URL ??
   "http://localhost:5000";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
 /**
  * Calls the IAM REST API with the current session credentials.
