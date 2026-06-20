@@ -1,8 +1,8 @@
 """initial_schema
 
-Revision ID: bc2b0381ef68
+Revision ID: 2a0f1ed95f60
 Revises: 
-Create Date: 2026-06-19 18:20:24.320880
+Create Date: 2026-06-20 10:10:45.601913
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'bc2b0381ef68'
+revision: str = '2a0f1ed95f60'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -48,6 +48,31 @@ def upgrade() -> None:
     sa.Column('project_id', sa.String(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('project_configs',
+    sa.Column('id', sa.String(), nullable=False),
+    sa.Column('organization_id', sa.String(), nullable=False),
+    sa.Column('project_id', sa.String(), nullable=False),
+    sa.Column('max_file_size_bytes', sa.BigInteger(), nullable=True),
+    sa.Column('allowed_mime_types', sa.Text(), nullable=True),
+    sa.Column('allowed_extensions', sa.Text(), nullable=True),
+    sa.Column('max_files_per_request', sa.Integer(), nullable=True),
+    sa.Column('allowed_ips', sa.Text(), nullable=True),
+    sa.Column('allowed_origins', sa.Text(), nullable=True),
+    sa.Column('require_signed_urls', sa.Boolean(), nullable=False),
+    sa.Column('signed_url_ttl_seconds', sa.Integer(), nullable=False),
+    sa.Column('versioning_enabled', sa.Boolean(), nullable=False),
+    sa.Column('ocr_enabled', sa.Boolean(), nullable=False),
+    sa.Column('virus_scan_enabled', sa.Boolean(), nullable=False),
+    sa.Column('retention_days', sa.Integer(), nullable=True),
+    sa.Column('worm_enabled', sa.Boolean(), nullable=False),
+    sa.Column('legal_hold_enabled', sa.Boolean(), nullable=False),
+    sa.Column('data_residency', sa.String(length=50), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_project_configs_organization_id'), 'project_configs', ['organization_id'], unique=False)
+    op.create_index(op.f('ix_project_configs_project_id'), 'project_configs', ['project_id'], unique=True)
     op.create_table('projects',
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('organization_id', sa.String(), nullable=False),
@@ -62,10 +87,10 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('organization_id', 'slug', name='uq_projects_org_slug')
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_projects_organization_id'), 'projects', ['organization_id'], unique=False)
+    op.create_index('uq_projects_org_slug_active', 'projects', ['organization_id', 'slug'], unique=True, postgresql_where=sa.text('deleted_at IS NULL'))
     op.create_table('storage_configs',
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('organization_id', sa.String(), nullable=False),
@@ -128,8 +153,12 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_storage_configs_project_id'), table_name='storage_configs')
     op.drop_index(op.f('ix_storage_configs_organization_id'), table_name='storage_configs')
     op.drop_table('storage_configs')
+    op.drop_index('uq_projects_org_slug_active', table_name='projects', postgresql_where=sa.text('deleted_at IS NULL'))
     op.drop_index(op.f('ix_projects_organization_id'), table_name='projects')
     op.drop_table('projects')
+    op.drop_index(op.f('ix_project_configs_project_id'), table_name='project_configs')
+    op.drop_index(op.f('ix_project_configs_organization_id'), table_name='project_configs')
+    op.drop_table('project_configs')
     op.drop_table('outbox_messages')
     op.drop_index(op.f('ix_files_project_id'), table_name='files')
     op.drop_index(op.f('ix_files_organization_id'), table_name='files')

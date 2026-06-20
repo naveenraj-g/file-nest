@@ -12,6 +12,7 @@ Usage:
 from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 
 from app.errors.base import FileNestError
 
@@ -56,6 +57,20 @@ async def validation_exception_handler(
             "message": "Request body validation failed",
             "detail": {"errors": errors},
         },
+    )
+
+
+async def integrity_error_handler(request: Request, exc: IntegrityError) -> JSONResponse:
+    """
+    Last-resort handler for IntegrityErrors not caught by the repository layer.
+
+    Service pre-checks and repository-level catches handle all known conflicts.
+    This handler covers only unexpected race conditions or schema violations that
+    slip through — so a generic, non-leaking message is correct here.
+    """
+    return JSONResponse(
+        status_code=409,
+        content={"error": "CONFLICT", "message": "A conflict occurred. Please try again.", "detail": {}},
     )
 
 

@@ -9,13 +9,17 @@ Usage:
     svc = ProjectService(session=session, ctx=ctx)
     result = await svc.create_project(request_body)
 """
+from datetime import UTC, datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import TenantContext
 from app.core.logging import get_logger
 from app.errors import ConflictError
 from app.repositories.project import ProjectRepository
+from app.repositories.project_config import ProjectConfigRepository
 from app.repositories.storage_config import StorageConfigRepository
+from app.storage.resolver import storage_resolver
 
 
 from app.schemas.project import (
@@ -43,12 +47,14 @@ class ProjectService:
         session: AsyncSession,
         repo: ProjectRepository,
         storage_repo: StorageConfigRepository,
+        config_repo: ProjectConfigRepository,
         ctx: TenantContext,
     ) -> None:
         self._session = session
         self._ctx = ctx
         self._repo = repo
         self._storage_repo = storage_repo
+        self._config_repo = config_repo
 
     async def create_project(self, req: CreateProjectRequest) -> ProjectResponse:
         """
@@ -63,10 +69,7 @@ class ProjectService:
         """
         existing = await self._repo.get_by_slug(req.slug, self._ctx.organization_id)
         if existing is not None:
-            raise ConflictError(
-                f"A project with slug '{req.slug}' already exists",
-                detail={"slug": req.slug},
-            )
+            raise ConflictError("A project with this slug already exists in your organisation.")
 
         record = await self._repo.create(
             organization_id=self._ctx.organization_id,
@@ -77,16 +80,56 @@ class ProjectService:
             storage_provider=req.storage_provider,
         )
 
+        # For managed projects: provision the bucket, then immediately probe it.
+        # Status is set from the probe result so the storage card reflects reality
+        # from the first page load. Bucket creation is idempotent on retry.
+        managed_bucket_name: str | None = None
+        storage_status = "pending_verification"
+        last_verified_at = None
+
+        if req.storage_mode == "managed":
+            managed_bucket_name = await storage_resolver.provision_managed_bucket(record.id)
+            probe_key = f"{self._ctx.organization_id}/{record.id}/.filenest-probe"
+            try:
+                probe = storage_resolver.get_provider_for_bucket(managed_bucket_name)
+                await probe.upload(probe_key, b"filenest-probe", "text/plain")
+                await probe.delete_object(probe_key)
+                storage_status = "active"
+                last_verified_at = datetime.now(UTC)
+                logger.info(
+                    "storage.probe_ok",
+                    project_id=record.id,
+                    bucket=managed_bucket_name,
+                    organization_id=self._ctx.organization_id,
+                )
+            except Exception as exc:
+                storage_status = "verification_failed"
+                logger.warning(
+                    "storage.probe_failed",
+                    project_id=record.id,
+                    bucket=managed_bucket_name,
+                    error=str(exc),
+                    organization_id=self._ctx.organization_id,
+                )
+
         # Auto-create the default storage config in the same transaction.
-        # Managed configs are immediately active. BYOB configs start as
-        # pending_verification — the full BYOB credential flow is Phase 7.
+        # BYOB configs start as pending_verification — credentials set later.
         await self._storage_repo.create(
             organization_id=self._ctx.organization_id,
             project_id=record.id,
             environment="production",
             storage_mode=req.storage_mode,
             provider=req.storage_provider,
-            status="active" if req.storage_mode == "managed" else "pending_verification",
+            bucket_name=managed_bucket_name,
+            status=storage_status,
+            last_verified_at=last_verified_at,
+        )
+
+        # Auto-create the project config row with all defaults.
+        # All restrictions are null (no limits) and all feature flags are off.
+        await self._config_repo.create(
+            organization_id=self._ctx.organization_id,
+            project_id=record.id,
         )
 
         await self._session.commit()
@@ -97,6 +140,8 @@ class ProjectService:
             slug=record.slug,
             storage_mode=req.storage_mode,
             storage_provider=req.storage_provider,
+            bucket_name=managed_bucket_name,
+            storage_status=storage_status,
             organization_id=self._ctx.organization_id,
         )
 

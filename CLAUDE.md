@@ -372,6 +372,26 @@ FileQuarantinedError      → 409
 
 All in `shared/exceptions/`. The global handler converts them to the standard JSON error envelope.
 
+### Migrations — always autogenerate, never handwrite
+
+**Never create or edit migration files by hand.** The SQLAlchemy model is the single source of truth for the schema. When you change a model, generate the migration with:
+
+```bash
+just migration "describe_the_change"   # autogenerate from model diff
+just migrate                           # apply to DB
+```
+
+If a full reset is needed (dev only):
+```bash
+just migrate-down   # repeat until base, or:
+just reset          # wipe docker volumes entirely (drops the DB)
+# delete files in backend/migrations/versions/
+just migration "initial_schema"
+just migrate
+```
+
+Other useful commands: `just migrate-current`, `just migrate-history`, `just migrate-check`.
+
 ---
 
 ## Documentation Standards

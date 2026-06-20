@@ -110,9 +110,12 @@ class StorageConfigService:
             org=self._ctx.organization_id, project=project_id
         )
 
+        record = await self._repo.get_for_project(project_id, self._ctx.organization_id)
+        bucket_name = record.bucket_name or f"fn-{project_id}"
+        provider = storage_resolver.get_provider_for_bucket(bucket_name)
+
         start = time.monotonic()
         try:
-            provider = await storage_resolver.get_provider(project_id)
             await provider.upload(probe_key, b"filenest-probe", "text/plain")
             await provider.delete_object(probe_key)
             latency_ms = (time.monotonic() - start) * 1000

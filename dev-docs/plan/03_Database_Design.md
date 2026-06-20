@@ -218,7 +218,96 @@ CREATE INDEX idx_projects_storage_provider ON projects(storage_provider) WHERE d
 
 ---
 
-### 4.3 environments
+### 4.3 project_configs
+
+One row per project (1:1). Auto-created in the same transaction as the parent project.
+Stores all per-project configuration as discrete typed columns — no JSONB blobs.
+Grouped into three logical categories: upload restrictions, network security, and compliance.
+
+```sql
+CREATE TABLE project_configs (
+    id                      VARCHAR PRIMARY KEY,
+    organization_id         VARCHAR NOT NULL,
+    project_id              VARCHAR NOT NULL UNIQUE,   -- 1:1 with projects
+
+    -- ── Upload restrictions ──────────────────────────────────────────────────
+    -- null = unlimited / all allowed
+
+    -- Maximum file size accepted for this project.
+    max_file_size_bytes     BIGINT,
+
+    -- Comma-separated MIME types that are accepted, e.g. "image/jpeg,image/png".
+    -- null = all MIME types accepted.
+    allowed_mime_types      TEXT,
+
+    -- Comma-separated file extensions, e.g. ".pdf,.docx".
+    -- null = all extensions accepted.
+    allowed_extensions      TEXT,
+
+    -- Maximum number of files accepted in a single multipart upload request.
+    -- null = unlimited.
+    max_files_per_request   INTEGER,
+
+    -- ── Network security ────────────────────────────────────────────────────
+    -- null = no restriction
+
+    -- Comma-separated CIDR blocks allowed to call the API for this project,
+    -- e.g. "10.0.0.0/8,203.0.113.42/32". null = all IPs allowed.
+    allowed_ips             TEXT,
+
+    -- Comma-separated origins permitted for browser (CORS) requests,
+    -- e.g. "https://app.example.com,https://www.example.com". null = all origins.
+    allowed_origins         TEXT,
+
+    -- When true, all file downloads must go through a signed URL.
+    require_signed_urls     BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Lifetime of generated signed URLs in seconds. Default 1 hour.
+    signed_url_ttl_seconds  INTEGER NOT NULL DEFAULT 3600,
+
+    -- ── Processing / feature flags ───────────────────────────────────────────
+    -- These mirror versioning_enabled and ocr_enabled on the projects table.
+    -- The canonical values will be migrated here in a future phase; until then
+    -- both tables carry the flag and must be kept in sync on update.
+
+    -- Enable per-file version history.
+    versioning_enabled      BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Run OCR (optical character recognition) on supported file types after upload.
+    ocr_enabled             BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Run ClamAV virus scan on every upload before marking the file ready.
+    virus_scan_enabled      BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- ── Compliance (stored now; enforced in Phase 8) ─────────────────────────
+
+    -- Number of days files must be retained before they can be deleted.
+    -- null = no minimum retention.
+    retention_days          INTEGER,
+
+    -- Write-once-read-many: prevents all modifications and deletions to files
+    -- once committed. Enforced at Phase 8.
+    worm_enabled            BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Enables legal hold on individual files — overrides retention and WORM.
+    -- Enforced at Phase 8.
+    legal_hold_enabled      BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Geographic region where file bytes must be stored.
+    -- null = no restriction. Enforced at Phase 8.
+    data_residency          VARCHAR(50)
+                                CHECK (data_residency IN ('us', 'eu', 'india', 'middle_east', 'any')),
+
+    created_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_project_configs_organization_id ON project_configs(organization_id);
+```
+
+---
+
+### 4.4 environments
 
 ```sql
 CREATE TABLE environments (

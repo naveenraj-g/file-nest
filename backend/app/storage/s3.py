@@ -126,6 +126,31 @@ class S3StorageProvider:
         except (BotoCoreError, ClientError) as exc:
             raise StorageError(f"Failed to upload '{key}'", detail={"error": str(exc)}) from exc
 
+    async def create_bucket(self, bucket_name: str) -> None:
+        """
+        Create a new bucket in the same S3-compatible service.
+
+        Idempotent — silently succeeds if the bucket already exists and is
+        owned by the same account. Raises StorageError for all other errors.
+
+        Note: AWS S3 us-east-1 must not include a LocationConstraint in the
+        create request; all other regions and S3-compatible services (RustFS,
+        MinIO, R2) accept it unconditionally.
+        """
+        try:
+            async with self._session.client("s3", **self._client_kwargs()) as s3:
+                kwargs: dict = {"Bucket": bucket_name}
+                if self._region and self._region != "us-east-1":
+                    kwargs["CreateBucketConfiguration"] = {"LocationConstraint": self._region}
+                await s3.create_bucket(**kwargs)
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code", "")
+            if code in ("BucketAlreadyOwnedByYou", "BucketAlreadyExists"):
+                return  # idempotent
+            raise StorageError(f"Failed to create bucket '{bucket_name}'") from exc
+        except BotoCoreError as exc:
+            raise StorageError(f"Failed to create bucket '{bucket_name}'") from exc
+
     async def copy_object(self, source_key: str, dest_key: str) -> None:
         """Copy an object within the bucket (versioning, Phase 3)."""
         try:

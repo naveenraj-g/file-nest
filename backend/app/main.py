@@ -17,10 +17,13 @@ from fastapi.exceptions import RequestValidationError
 
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
+from sqlalchemy.exc import IntegrityError
+
 from app.errors.base import FileNestError
 from app.errors.handlers import (
     filenest_error_handler,
     http_exception_handler,
+    integrity_error_handler,
     unhandled_exception_handler,
     validation_exception_handler,
 )
@@ -58,8 +61,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Exception handlers
+# Exception handlers — order matters: most specific first
 app.add_exception_handler(FileNestError, filenest_error_handler)
+app.add_exception_handler(IntegrityError, integrity_error_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 

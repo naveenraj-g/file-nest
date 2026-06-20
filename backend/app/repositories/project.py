@@ -11,9 +11,10 @@ from datetime import UTC, datetime
 import math
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.errors import NotFoundError
+from app.errors import ConflictError, NotFoundError
 from app.models.project import Project
 from app.schemas.project import ProjectListParams
 
@@ -25,10 +26,20 @@ class ProjectRepository:
         self._session = session
 
     async def create(self, **kwargs) -> Project:
-        """Insert a new Project row and flush to get the DB-assigned id."""
+        """
+        Insert a new Project row and flush to get the DB-assigned id.
+
+        Raises:
+            ConflictError: If a concurrent request created a project with the
+                same slug between the service-level check and this flush.
+        """
         record = Project(**kwargs)
         self._session.add(record)
-        await self._session.flush()
+        try:
+            await self._session.flush()
+        except IntegrityError:
+            await self._session.rollback()
+            raise ConflictError("A project with this slug already exists in your organisation.")
         return record
 
     async def get(self, project_id: str, organization_id: str) -> Project:
@@ -51,7 +62,12 @@ class ProjectRepository:
         return record
 
     async def get_by_slug(self, slug: str, organization_id: str) -> Project | None:
-        """Fetch a project by slug within the caller's organisation. Returns None if not found."""
+        """
+        Fetch an active (non-deleted) project by slug within the caller's organisation.
+
+        Only active rows hold a slug reservation — soft-deleted projects release
+        their slug so it can be reused. Returns None if no active row matches.
+        """
         result = await self._session.execute(
             select(Project).where(
                 Project.slug == slug,

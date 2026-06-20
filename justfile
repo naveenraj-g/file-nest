@@ -63,6 +63,11 @@ migrate-history:
 migrate-check:
     cd backend && uv run alembic -c migrations/alembic.ini check
 
+# Drop all tables and re-apply migrations from scratch (dev only)
+db-reset:
+    cd backend && uv run alembic -c migrations/alembic.ini downgrade base
+    cd backend && uv run alembic -c migrations/alembic.ini upgrade head
+
 # Seed the dev database with a test project (run once after migrate)
 seed-dev:
     cd backend && uv run python scripts/seed_dev.py

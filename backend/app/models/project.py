@@ -2,7 +2,8 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Index, String, Text
+from sqlalchemy.sql import expression
 
 from app.core.database import Base
 
@@ -17,10 +18,21 @@ class Project(Base):
     storage_mode + storage_provider are denormalised from storage_configs for fast
     routing decisions without an extra join on every request. They must stay in sync
     with the active StorageConfig row for this project.
+
+    The slug uniqueness constraint is a partial index scoped to non-deleted rows so
+    that soft-deleted projects release their slug for reuse.
     """
 
     __tablename__ = "projects"
-    __table_args__ = (UniqueConstraint("organization_id", "slug", name="uq_projects_org_slug"),)
+    __table_args__ = (
+        Index(
+            "uq_projects_org_slug_active",
+            "organization_id",
+            "slug",
+            unique=True,
+            postgresql_where=expression.text("deleted_at IS NULL"),
+        ),
+    )
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     organization_id = Column(String, nullable=False, index=True)

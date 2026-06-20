@@ -37,8 +37,8 @@ export async function filenestApi<T>(
     let message = res.statusText;
     try {
       const body = await res.json();
-      message =
-        body?.detail?.message ?? body?.detail ?? body?.message ?? message;
+      // Prefer body.message (standard envelope); body.detail is an object, not a string
+      message = body?.message ?? body?.detail?.message ?? message;
     } catch {
       // leave message as statusText
     }
