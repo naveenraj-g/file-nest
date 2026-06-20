@@ -18,8 +18,10 @@ Usage:
     )
     url = await provider.generate_presigned_upload_url(key, content_type, size_bytes)
 """
+import base64
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import quote
 
 from app.errors import StorageError
 
@@ -157,6 +159,80 @@ class AzureBlobStorageProvider:
                 await dest_blob.start_copy_from_url(source_url)
         except AzureError as exc:
             raise StorageError(f"Failed to copy '{source_key}' → '{dest_key}'") from exc
+
+    def _block_id(self, part_number: int) -> str:
+        """Return base64-encoded block ID for a part number. All IDs must be same length."""
+        return base64.b64encode(str(part_number).zfill(8).encode()).decode()
+
+    async def create_multipart_upload(self, key: str, content_type: str) -> str:
+        """
+        Generate a 24h SAS token for the target blob and return it as the upload_id.
+
+        The SAS token is embedded in each part URL so the client can PUT blocks
+        directly to Azure without routing bytes through our server.
+        """
+        try:
+            expiry = datetime.now(UTC) + timedelta(hours=24)
+            sas_token = generate_blob_sas(
+                account_name=self._account_name,
+                container_name=self._container_name,
+                blob_name=key,
+                account_key=self._account_key,
+                permission=BlobSasPermissions(write=True, create=True),
+                expiry=expiry,
+                content_type=content_type,
+            )
+            return sas_token
+        except AzureError as exc:
+            raise StorageError(f"Failed to create multipart upload for '{key}'") from exc
+
+    async def generate_presigned_part_url(
+        self, key: str, upload_id: str, part_number: int, *, expires_in: int = 3600,
+    ) -> str:
+        """
+        Return an Azure Put Block URL with the SAS token for a specific part.
+
+        upload_id is the SAS token generated in create_multipart_upload.
+        The block_id encodes the part_number so we can reconstruct the commit list.
+        """
+        block_id = quote(self._block_id(part_number))
+        return (
+            f"{self._account_url}/{self._container_name}/{key}"
+            f"?comp=block&blockid={block_id}&{upload_id}"
+        )
+
+    async def complete_multipart_upload(
+        self, key: str, upload_id: str, parts: list[dict],
+    ) -> None:
+        """
+        Commit all uploaded blocks as the final blob via commit_block_list.
+
+        ETags from the client are ignored — Azure doesn't issue per-block ETags.
+        Block IDs are reconstructed from PartNumber in the parts list.
+        """
+        try:
+            sorted_parts = sorted(parts, key=lambda x: x["PartNumber"])
+            block_ids = [self._block_id(p["PartNumber"]) for p in sorted_parts]
+            async with self._client() as client:
+                blob_client = client.get_blob_client(
+                    container=self._container_name, blob=key
+                )
+                await blob_client.commit_block_list(block_ids)
+        except AzureError as exc:
+            raise StorageError(f"Failed to complete multipart upload for '{key}'") from exc
+
+    async def abort_multipart_upload(self, key: str, upload_id: str) -> None:
+        """Delete the uncommitted blob, discarding any uploaded blocks."""
+        try:
+            async with self._client() as client:
+                blob_client = client.get_blob_client(
+                    container=self._container_name, blob=key
+                )
+                await blob_client.delete_blob()
+        except ResourceNotFoundError:
+            pass  # nothing to clean up
+        except AzureError as exc:
+            raise StorageError(f"Failed to abort multipart upload for '{key}'") from exc
 
     async def download_bytes(
         self,

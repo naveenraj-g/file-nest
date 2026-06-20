@@ -93,3 +93,53 @@ class RestoreVersionResponse(BaseModel):
     """Returned after a version is restored as the current file state."""
     file_id: str
     version_number: int  # the new current version number after restore
+
+
+# ── Multipart upload ────────────────────────────────────────────────────────
+
+class MultipartStartRequest(BaseModel):
+    """Body for initiating a multipart upload."""
+    filename: str
+    content_type: str
+    total_size_bytes: int
+    folder_id: str | None = None
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
+class MultipartStartResponse(BaseModel):
+    """Returned after multipart upload is initiated."""
+    upload_id: str
+    file_id: str
+
+
+class MultipartPartUrlResponse(BaseModel):
+    """Presigned URL for a single part upload."""
+    upload_id: str
+    part_number: int
+    url: str
+    expires_at: datetime
+
+
+class MultipartPart(BaseModel):
+    """A completed part descriptor sent by the client on complete."""
+    part_number: int = Field(alias="PartNumber")
+    etag: str = Field(alias="ETag")
+
+    model_config = {"populate_by_name": True}
+
+
+class MultipartCompleteRequest(BaseModel):
+    """Body for completing a multipart upload."""
+    parts: list[MultipartPart]
+
+
+class MultipartCompleteResponse(BaseModel):
+    """Returned after multipart upload is assembled."""
+    file_id: str
+    status: FileStatus
+
+
+class MultipartAbortResponse(BaseModel):
+    """Returned after a multipart upload is aborted."""
+    upload_id: str
+    aborted: bool = True

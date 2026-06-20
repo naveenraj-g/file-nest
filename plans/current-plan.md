@@ -87,7 +87,7 @@ Deferred — a dedicated observability application will handle audit logs, trace
 
 ---
 
-### Step 6 — Multipart upload
+### Step 6 — Multipart upload ✅ COMPLETED
 
 **Files:**
 - `backend/app/models/upload_session.py` — `UploadSession` ORM model: `id`, `organization_id`, `project_id`, `file_id`, `s3_upload_id`, `filename`, `content_type`, `total_size_bytes`, `part_count`, `status`, `created_at`, `expires_at`

@@ -2,6 +2,7 @@
 from .base import (
     ConflictError,
     FileNestError,
+    FileTooLargeError,
     NotFoundError,
     OutboxError,
     PermissionDeniedError,
@@ -18,6 +19,7 @@ __all__ = [
     "PermissionDeniedError",
     "ValidationError",
     "ConflictError",
+    "FileTooLargeError",
     "StorageError",
     "QuotaExceededError",
     "VirusScanError",

@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.auth import require_scope
 from app.di.dependencies.file import get_file_service
+from app.di.dependencies.multipart import get_multipart_service
 from app.schemas.file import (
     ConfirmUploadResponse,
     DeleteResponse,
@@ -27,11 +28,18 @@ from app.schemas.file import (
     FileListResponse,
     FileResponse,
     FileVersionListResponse,
+    MultipartAbortResponse,
+    MultipartCompleteRequest,
+    MultipartCompleteResponse,
+    MultipartPartUrlResponse,
+    MultipartStartRequest,
+    MultipartStartResponse,
     RestoreVersionResponse,
     UploadInitRequest,
     UploadInitResponse,
 )
 from app.services.file import FileService
+from app.services.multipart import MultipartUploadService
 
 router = APIRouter(tags=["Files"])
 
@@ -148,3 +156,65 @@ async def restore_version(
     """Restore a past version as the current file state. Scope: files:update_metadata."""
     require_scope(svc._ctx, "files:update_metadata")
     return await svc.restore_version(file_id, version_id)
+
+
+# ── Multipart upload ────────────────────────────────────────────────────────
+
+@router.post(
+    "/projects/{project_id}/files/upload/multipart/start",
+    response_model=MultipartStartResponse,
+    status_code=201,
+)
+async def multipart_start(
+    project_id: str,
+    body: MultipartStartRequest,
+    svc: MultipartUploadService = Depends(get_multipart_service),
+) -> MultipartStartResponse:
+    """Initiate a multipart upload. Validates file size against project limit. Scope: files:upload."""
+    require_scope(svc._ctx, "files:upload")
+    return await svc.start(body)
+
+
+@router.get(
+    "/projects/{project_id}/files/upload/multipart/{upload_id}/part-url",
+    response_model=MultipartPartUrlResponse,
+)
+async def multipart_part_url(
+    project_id: str,
+    upload_id: str,
+    part: int = Query(..., ge=1, le=10000, description="1-based part number"),
+    ttl: int = Query(3600, ge=60, le=86400, description="Presigned URL TTL in seconds"),
+    svc: MultipartUploadService = Depends(get_multipart_service),
+) -> MultipartPartUrlResponse:
+    """Generate a presigned URL for uploading a single part. Scope: files:upload."""
+    require_scope(svc._ctx, "files:upload")
+    return await svc.part_url(upload_id, part, expires_in=ttl)
+
+
+@router.post(
+    "/projects/{project_id}/files/upload/multipart/{upload_id}/complete",
+    response_model=MultipartCompleteResponse,
+)
+async def multipart_complete(
+    project_id: str,
+    upload_id: str,
+    body: MultipartCompleteRequest,
+    svc: MultipartUploadService = Depends(get_multipart_service),
+) -> MultipartCompleteResponse:
+    """Assemble all uploaded parts into the final object. Scope: files:upload."""
+    require_scope(svc._ctx, "files:upload")
+    return await svc.complete(upload_id, body)
+
+
+@router.delete(
+    "/projects/{project_id}/files/upload/multipart/{upload_id}",
+    response_model=MultipartAbortResponse,
+)
+async def multipart_abort(
+    project_id: str,
+    upload_id: str,
+    svc: MultipartUploadService = Depends(get_multipart_service),
+) -> MultipartAbortResponse:
+    """Abort an in-progress multipart upload and discard all parts. Scope: files:upload."""
+    require_scope(svc._ctx, "files:upload")
+    return await svc.abort(upload_id)

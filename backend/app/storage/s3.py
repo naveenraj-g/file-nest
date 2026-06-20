@@ -135,6 +135,75 @@ class S3StorageProvider:
         except BotoCoreError as exc:
             raise StorageError(f"Failed to check existence of '{key}'", detail={"error": str(exc)}) from exc
 
+    async def create_multipart_upload(self, key: str, content_type: str) -> str:
+        """Initiate an S3 multipart upload and return the provider upload_id."""
+        try:
+            kwargs: dict = {
+                "Bucket": self._bucket_name,
+                "Key": key,
+                "ContentType": content_type,
+            }
+            kwargs.update(self._sse_params())
+            async with self._session.client("s3", **self._client_kwargs()) as s3:
+                response = await s3.create_multipart_upload(**kwargs)
+                return response["UploadId"]
+        except (BotoCoreError, ClientError) as exc:
+            raise StorageError(f"Failed to create multipart upload for '{key}'", detail={"error": str(exc)}) from exc
+
+    async def generate_presigned_part_url(
+        self, key: str, upload_id: str, part_number: int, *, expires_in: int = 3600,
+    ) -> str:
+        """Generate a presigned PUT URL for a single multipart upload part."""
+        try:
+            async with self._session.client("s3", **self._client_kwargs()) as s3:
+                url: str = await s3.generate_presigned_url(
+                    "upload_part",
+                    Params={
+                        "Bucket": self._bucket_name,
+                        "Key": key,
+                        "UploadId": upload_id,
+                        "PartNumber": part_number,
+                    },
+                    ExpiresIn=expires_in,
+                )
+            return url
+        except (BotoCoreError, ClientError) as exc:
+            raise StorageError(f"Failed to generate part URL for '{key}' part {part_number}", detail={"error": str(exc)}) from exc
+
+    async def complete_multipart_upload(
+        self, key: str, upload_id: str, parts: list[dict],
+    ) -> None:
+        """
+        Assemble all uploaded parts into the final object.
+
+        Args:
+            parts: List of {"PartNumber": int, "ETag": str} dicts from the client.
+        """
+        try:
+            multipart_parts = [
+                {"PartNumber": p["PartNumber"], "ETag": p["ETag"]}
+                for p in sorted(parts, key=lambda x: x["PartNumber"])
+            ]
+            async with self._session.client("s3", **self._client_kwargs()) as s3:
+                await s3.complete_multipart_upload(
+                    Bucket=self._bucket_name,
+                    Key=key,
+                    UploadId=upload_id,
+                    MultipartUpload={"Parts": multipart_parts},
+                )
+        except (BotoCoreError, ClientError) as exc:
+            raise StorageError(f"Failed to complete multipart upload for '{key}'", detail={"error": str(exc)}) from exc
+
+    async def abort_multipart_upload(self, key: str, upload_id: str) -> None:
+        """Abort an in-progress multipart upload and discard all uploaded parts."""
+        try:
+            async with self._session.client("s3", **self._client_kwargs()) as s3:
+                await s3.abort_multipart_upload(
+                    Bucket=self._bucket_name, Key=key, UploadId=upload_id,
+                )
+        except (BotoCoreError, ClientError) as exc:
+            raise StorageError(f"Failed to abort multipart upload for '{key}'", detail={"error": str(exc)}) from exc
+
     async def download_bytes(
         self, key: str, *, range_start: int | None = None, range_end: int | None = None,
     ) -> bytes:

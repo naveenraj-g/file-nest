@@ -21,6 +21,7 @@ Usage:
 """
 import asyncio
 import json
+import uuid
 from datetime import timedelta
 
 from app.errors import StorageError
@@ -165,6 +166,103 @@ class GCSStorageProvider:
             await asyncio.to_thread(_copy)
         except Exception as exc:
             raise StorageError(f"Failed to copy '{source_key}' → '{dest_key}'") from exc
+
+    def _part_key(self, key: str, upload_id: str, part_number: int) -> str:
+        """Storage key for a temporary part object used during multipart compose."""
+        return f"{key}/_mpparts/{upload_id}/{part_number:06d}"
+
+    async def create_multipart_upload(self, key: str, content_type: str) -> str:
+        """
+        Return a fresh UUID as the upload_id.
+
+        Each part is stored as a separate GCS object at _part_key(). On complete,
+        they are assembled via GCS Object Compose and the temp objects are deleted.
+        """
+        return str(uuid.uuid4())
+
+    async def generate_presigned_part_url(
+        self, key: str, upload_id: str, part_number: int, *, expires_in: int = 3600,
+    ) -> str:
+        """Generate a V4 signed PUT URL for a single part object."""
+        part_key = self._part_key(key, upload_id, part_number)
+
+        def _sign() -> str:
+            blob = self._bucket().blob(part_key)
+            return blob.generate_signed_url(
+                version="v4",
+                expiration=timedelta(seconds=expires_in),
+                method="PUT",
+            )
+
+        try:
+            return await asyncio.to_thread(_sign)
+        except Exception as exc:
+            raise StorageError(f"Failed to generate part URL for '{key}' part {part_number}") from exc
+
+    async def complete_multipart_upload(
+        self, key: str, upload_id: str, parts: list[dict],
+    ) -> None:
+        """
+        Compose all part objects into the final object, then delete the temp parts.
+
+        GCS compose is limited to 32 source objects per call. For more than 32 parts
+        the compose is done iteratively: compose the first 31 into a temp object,
+        then prepend it to the remaining parts and repeat until one final compose.
+        """
+        sorted_parts = sorted(parts, key=lambda x: x["PartNumber"])
+        part_keys = [self._part_key(key, upload_id, p["PartNumber"]) for p in sorted_parts]
+        temp_keys: list[str] = []
+
+        def _compose(sources: list[str], dest: str) -> None:
+            bucket = self._bucket()
+            source_blobs = [bucket.blob(k) for k in sources]
+            dest_blob = bucket.blob(dest)
+            dest_blob.compose(source_blobs)
+
+        def _delete_keys(keys: list[str]) -> None:
+            bucket = self._bucket()
+            for k in keys:
+                try:
+                    bucket.blob(k).delete()
+                except GCSNotFound:
+                    pass
+
+        try:
+            # Iterative compose: collapse batches of ≤31 parts into temp objects
+            # until we have ≤32 sources left, then do the final compose.
+            while len(part_keys) > 32:
+                batch = part_keys[:31]
+                temp_key = f"{key}/_mptemp/{upload_id}/{len(temp_keys):04d}"
+                await asyncio.to_thread(_compose, batch, temp_key)
+                temp_keys.append(temp_key)
+                part_keys = [temp_key] + part_keys[31:]
+
+            # Final compose into the real destination key
+            await asyncio.to_thread(_compose, part_keys, key)
+
+            # Cleanup all temp objects and original part objects
+            all_parts = [self._part_key(key, upload_id, p["PartNumber"]) for p in sorted_parts]
+            await asyncio.to_thread(_delete_keys, all_parts + temp_keys)
+        except Exception as exc:
+            raise StorageError(f"Failed to complete multipart upload for '{key}'") from exc
+
+    async def abort_multipart_upload(self, key: str, upload_id: str) -> None:
+        """Delete all uploaded part objects for this upload session."""
+        prefix = f"{key}/_mpparts/{upload_id}/"
+
+        def _delete_parts() -> None:
+            bucket = self._bucket()
+            blobs = list(self._client.list_blobs(bucket, prefix=prefix))
+            for blob in blobs:
+                try:
+                    blob.delete()
+                except GCSNotFound:
+                    pass
+
+        try:
+            await asyncio.to_thread(_delete_parts)
+        except Exception as exc:
+            raise StorageError(f"Failed to abort multipart upload for '{key}'") from exc
 
     async def download_bytes(
         self,

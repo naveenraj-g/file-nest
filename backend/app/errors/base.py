@@ -56,6 +56,12 @@ class StorageError(FileNestError):
     code = "STORAGE_ERROR"
 
 
+class FileTooLargeError(FileNestError):
+    """Uploaded file exceeds the project's max_file_size_bytes limit."""
+    status_code = HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+    code = "FILE_TOO_LARGE"
+
+
 class QuotaExceededError(FileNestError):
     """Project's storage or API-call quota would be exceeded."""
     status_code = HTTPStatus.TOO_MANY_REQUESTS
