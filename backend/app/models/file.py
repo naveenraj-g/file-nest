@@ -26,6 +26,8 @@ class File(Base):
     status = Column(String, nullable=False, default="pending")
     storage_key = Column(String, nullable=True)     # set after upload confirmed
     folder_id = Column(String, nullable=True)
+    # Classification result set by ClassificationStage: document, image, video, audio, archive, other
+    category = Column(String, nullable=True)
     metadata_json = Column(Text, nullable=False, default="{}")
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

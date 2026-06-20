@@ -56,7 +56,7 @@ Deferred — a dedicated observability application will handle audit logs, trace
 
 ---
 
-### Step 4 — Processing pipeline
+### Step 4 — Processing pipeline ✅ COMPLETED
 
 **Files:**
 - `backend/app/processing/stages/virus_scan.py` — `VirusScanStage`: clamd TCP socket, on `FOUND` → `status=quarantined`, emit `file.quarantined`

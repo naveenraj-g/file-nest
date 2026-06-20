@@ -94,6 +94,20 @@ class FileRepository:
         record.updated_at = datetime.now(UTC)
         return record
 
+    async def update_category(self, file_id: str, category: str) -> File:
+        """
+        Set the category column after classification.
+
+        Raises:
+            NotFoundError: If the file does not exist.
+        """
+        record = await self._session.get(File, file_id)
+        if record is None:
+            raise NotFoundError(f"File {file_id} not found")
+        record.category = category
+        record.updated_at = datetime.now(UTC)
+        return record
+
     async def soft_delete(self, file_id: str, organization_id: str, project_id: str) -> File:
         """
         Mark a file as deleted by setting deleted_at = now().

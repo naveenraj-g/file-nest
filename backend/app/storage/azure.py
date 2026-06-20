@@ -158,6 +158,26 @@ class AzureBlobStorageProvider:
         except AzureError as exc:
             raise StorageError(f"Failed to copy '{source_key}' → '{dest_key}'") from exc
 
+    async def download_bytes(
+        self,
+        key: str,
+        *,
+        range_start: int | None = None,
+        range_end: int | None = None,
+    ) -> bytes:
+        """Download blob bytes, optionally fetching a byte range."""
+        try:
+            offset = range_start or 0
+            length = (range_end - offset + 1) if range_end is not None else None
+            async with self._client() as client:
+                blob_client = client.get_blob_client(
+                    container=self._container_name, blob=key
+                )
+                stream = await blob_client.download_blob(offset=offset, length=length)
+                return await stream.readall()
+        except AzureError as exc:
+            raise StorageError(f"Failed to download '{key}'") from exc
+
     async def upload(self, key: str, data: bytes, content_type: str) -> None:
         """Upload bytes directly (used for connectivity probes and small objects)."""
         try:

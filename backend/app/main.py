@@ -23,6 +23,7 @@ from app.core.database import AsyncSessionLocal
 from app.core.logging import configure_logging, get_logger
 from app.core.messaging import OutboxWorker
 from app.di.container import Container
+from app.workers.processing import ProcessingWorker
 from app.errors.base import FileNestError
 from app.errors.handlers import (
     filenest_error_handler,
@@ -55,10 +56,19 @@ async def lifespan(app: FastAPI):
     outbox_worker = OutboxWorker(AsyncSessionLocal)
     worker_task = outbox_worker.start()
 
+    # Start the processing worker — pull consumer for file.uploaded events
+    processing_worker = ProcessingWorker()
+    processing_task = processing_worker.start()
+
     yield
 
-    # Graceful shutdown: cancel worker before closing NATS so no in-flight
-    # publishes attempt to use a closed connection
+    # Graceful shutdown: cancel workers before closing NATS
+    processing_task.cancel()
+    try:
+        await processing_task
+    except asyncio.CancelledError:
+        pass
+
     worker_task.cancel()
     try:
         await worker_task

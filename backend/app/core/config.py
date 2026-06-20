@@ -93,6 +93,10 @@ class Settings(BaseSettings):
     # ── Upload ────────────────────────────────────────────────────────────────
     multipart_threshold_bytes: int = 104857600  # 100 MB
 
+    # ── ClamAV ───────────────────────────────────────────────────────────────
+    clamav_host: str = "clamav"
+    clamav_port: int = 3310
+
     # ── Feature flags ─────────────────────────────────────────────────────────
     healthcare_pack_enabled: bool = False
 

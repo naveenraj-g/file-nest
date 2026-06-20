@@ -135,6 +135,22 @@ class S3StorageProvider:
         except BotoCoreError as exc:
             raise StorageError(f"Failed to check existence of '{key}'", detail={"error": str(exc)}) from exc
 
+    async def download_bytes(
+        self, key: str, *, range_start: int | None = None, range_end: int | None = None,
+    ) -> bytes:
+        """Download object bytes, optionally fetching a sub-range (e.g. for MIME sniffing)."""
+        try:
+            kwargs: dict = {"Bucket": self._bucket_name, "Key": key}
+            if range_start is not None or range_end is not None:
+                start = range_start or 0
+                end_str = str(range_end) if range_end is not None else ""
+                kwargs["Range"] = f"bytes={start}-{end_str}"
+            async with self._session.client("s3", **self._client_kwargs()) as s3:
+                response = await s3.get_object(**kwargs)
+                return await response["Body"].read()
+        except (BotoCoreError, ClientError) as exc:
+            raise StorageError(f"Failed to download '{key}'", detail={"error": str(exc)}) from exc
+
     async def upload(self, key: str, data: bytes, content_type: str) -> None:
         """Upload bytes directly to the bucket (used for connectivity probes)."""
         try:

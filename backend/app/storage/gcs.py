@@ -166,6 +166,27 @@ class GCSStorageProvider:
         except Exception as exc:
             raise StorageError(f"Failed to copy '{source_key}' → '{dest_key}'") from exc
 
+    async def download_bytes(
+        self,
+        key: str,
+        *,
+        range_start: int | None = None,
+        range_end: int | None = None,
+    ) -> bytes:
+        """Download object bytes, optionally fetching a byte range."""
+        def _download() -> bytes:
+            blob = self._bucket().blob(key)
+            if range_start is not None or range_end is not None:
+                start = range_start or 0
+                end = range_end if range_end is not None else None
+                return blob.download_as_bytes(start=start, end=end)
+            return blob.download_as_bytes()
+
+        try:
+            return await asyncio.to_thread(_download)
+        except Exception as exc:
+            raise StorageError(f"Failed to download '{key}'") from exc
+
     async def upload(self, key: str, data: bytes, content_type: str) -> None:
         """Upload bytes directly (used for connectivity probes and small objects)."""
         def _upload() -> None:
