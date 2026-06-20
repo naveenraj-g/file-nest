@@ -19,6 +19,13 @@ import type {
 
 export interface IProjectService {
   /**
+   * Returns a single project by ID.
+   * @param projectId - Target project ID.
+   * @throws ApiError on backend failure.
+   */
+  get(projectId: string): Promise<TProject>;
+
+  /**
    * Returns a page of projects matching the given params.
    * @param params - Pagination, sort, filter params forwarded to the backend.
    * @throws ApiError on backend failure.

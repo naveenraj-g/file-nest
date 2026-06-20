@@ -1,16 +1,14 @@
 /**
  * Create-project onboarding step.
  *
- * Reuses CreateProjectForm from the main app. On success saves the project ID
- * to sessionStorage for the next step (get-api-key). Users can skip this step
- * and all remaining onboarding steps and go straight to the dashboard.
+ * Reuses CreateProjectForm from the main app. On success passes the project ID
+ * as a URL param to the get-api-key step (no sessionStorage).
  *
  * @module
  */
 
 "use client";
 
-import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -30,10 +28,8 @@ export default function CreateProjectPage() {
   const orgId = searchParams.get("orgId") ?? "";
 
   function handleSuccess(data: TProject) {
-    sessionStorage.setItem("fn_onboarding_project_id", data.id);
-    sessionStorage.setItem("fn_onboarding_project_slug", data.slug);
     toast.success("Project created");
-    router.push(`/onboarding/get-api-key?orgId=${orgId}`);
+    router.push(`/onboarding/get-api-key?orgId=${orgId}&projectId=${data.id}`);
   }
 
   return (

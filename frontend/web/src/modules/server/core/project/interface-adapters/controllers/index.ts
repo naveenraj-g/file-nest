@@ -5,6 +5,11 @@
  * presentation layer has a single, stable import path.
  */
 export {
+  getProjectController,
+  type TGetProjectControllerOutput,
+} from "./getProject.controller";
+
+export {
   listProjectsController,
   type TListProjectsControllerOutput,
 } from "./listProjects.controller";

@@ -20,25 +20,39 @@
 import { authenticatedProcedure } from "./procedures";
 import { runWithTransport } from "@/modules/server/utils/run-with-transport";
 import {
+  getProjectController,
   listProjectsController,
   createProjectController,
   updateProjectController,
   deleteProjectController,
+  type TGetProjectControllerOutput,
   type TListProjectsControllerOutput,
   type TCreateProjectControllerOutput,
   type TUpdateProjectControllerOutput,
   type TDeleteProjectControllerOutput,
 } from "@/modules/server/core/project/interface-adapters/controllers";
 import {
+  GetProjectActionSchema,
   ListProjectsActionSchema,
   CreateProjectActionSchema,
   UpdateProjectActionSchema,
   DeleteProjectActionSchema,
+  type TGetProjectAction,
   type TListProjectsAction,
   type TCreateProjectAction,
   type TUpdateProjectAction,
   type TDeleteProjectAction,
 } from "@/modules/entities/schemas/project";
+
+export const getProjectAction = authenticatedProcedure
+  .createServerAction()
+  .input(GetProjectActionSchema, { skipInputParsing: true })
+  .handler(async ({ input }: { input: TGetProjectAction }) => {
+    return await runWithTransport<TGetProjectControllerOutput>(async () => {
+      const data = await getProjectController(input.payload);
+      return { result: data, transport: input.transportOptions };
+    });
+  });
 
 export const listProjectsAction = authenticatedProcedure
   .createServerAction()

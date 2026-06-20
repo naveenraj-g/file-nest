@@ -11,7 +11,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Copy, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -97,9 +97,12 @@ function CopyButton({ text }: { text: string }) {
 
 export default function InstallSdkPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selected, setSelected] = React.useState<SDK>("node");
   const [apiKey, setApiKey] = React.useState("YOUR_API_KEY");
-  const [projectId, setProjectId] = React.useState("YOUR_PROJECT_ID");
+  const [projectId, setProjectId] = React.useState(
+    searchParams.get("projectId") ?? "YOUR_PROJECT_ID",
+  );
 
   React.useEffect(() => {
     const storedKey = sessionStorage.getItem("fn_onboarding_key");

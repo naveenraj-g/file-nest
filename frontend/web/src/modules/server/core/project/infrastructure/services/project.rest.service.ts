@@ -29,6 +29,13 @@ import { OutputParseError } from "@/modules/server/shared/errors/schema-parse-er
 import type { IProjectService } from "../../domain/interfaces/project.service.interface";
 
 export class ProjectRestService implements IProjectService {
+  async get(projectId: string): Promise<TProject> {
+    const raw = await filenestApi<unknown>(`/v1/projects/${projectId}`);
+    const parsed = ProjectSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+
   async list(params?: TListProjectsParams): Promise<TProjectList> {
     const qs = params ? "?" + new URLSearchParams(
       Object.entries(params)

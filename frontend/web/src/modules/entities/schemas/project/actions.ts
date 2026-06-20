@@ -11,6 +11,13 @@ import { z } from "zod";
 import { TransportOptionsSchema } from "../transport";
 import { CreateProjectSchema, ListProjectsParamsSchema, UpdateProjectSchema } from "./input";
 
+export const GetProjectActionSchema = z.object({
+  payload: z.object({ projectId: z.string().min(1) }),
+  transportOptions: TransportOptionsSchema.optional(),
+});
+
+export type TGetProjectAction = z.infer<typeof GetProjectActionSchema>;
+
 export const ListProjectsActionSchema = z.object({
   payload: ListProjectsParamsSchema.optional(),
   transportOptions: TransportOptionsSchema.optional(),
