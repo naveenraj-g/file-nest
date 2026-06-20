@@ -24,11 +24,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import TenantContext
 from app.core.messaging import TransactionalOutboxPublisher
-from app.errors import FileTooLargeError
 from app.repositories.file import FileRepository
 from app.repositories.file_version import FileVersionRepository
 from app.repositories.project_config import ProjectConfigRepository
 from app.repositories.upload_session import UploadSessionRepository
+from app.services.upload_validation import validate_upload_request
 from app.schemas.file import (
     MultipartAbortResponse,
     MultipartCompleteRequest,
@@ -93,12 +93,12 @@ class MultipartUploadService:
         config = await self._config_repo.get_for_project(
             self._project_id, self._ctx.organization_id
         )
-
-        if config.max_file_size_bytes and req.total_size_bytes > config.max_file_size_bytes:
-            raise FileTooLargeError(
-                f"File size {req.total_size_bytes} bytes exceeds project limit "
-                f"of {config.max_file_size_bytes} bytes"
-            )
+        validate_upload_request(
+            config,
+            filename=req.filename,
+            content_type=req.content_type,
+            size_bytes=req.total_size_bytes,
+        )
 
         file_record = await self._file_repo.create(
             organization_id=self._ctx.organization_id,

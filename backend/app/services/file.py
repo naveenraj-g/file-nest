@@ -33,6 +33,7 @@ from app.core.messaging import TransactionalOutboxPublisher
 from app.repositories.file import FileRepository
 from app.repositories.file_version import FileVersionRepository
 from app.repositories.project_config import ProjectConfigRepository
+from app.services.upload_validation import validate_upload_request
 
 from app.schemas.file import (
     ConfirmUploadResponse,
@@ -93,9 +94,25 @@ class FileService:
         """
         Create a file record and return a presigned PUT URL.
 
-        The client PUTs bytes directly to storage — bytes never route through
-        this service. Call confirm_upload after the PUT succeeds.
+        Validates the declared filename, content_type, and size_bytes against
+        project_configs before issuing the URL. The client PUTs bytes directly
+        to storage — bytes never route through this service. Call confirm_upload
+        after the PUT succeeds.
+
+        Raises:
+            FileTooLargeError: size_bytes exceeds max_file_size_bytes.
+            ValidationError:   content_type or extension not in allowed lists.
         """
+        config = await self._config_repo.get_for_project(
+            self._project_id, self._ctx.organization_id
+        )
+        validate_upload_request(
+            config,
+            filename=req.filename,
+            content_type=req.content_type,
+            size_bytes=req.size_bytes,
+        )
+
         record = await self._repo.create(
             organization_id=self._ctx.organization_id,
             project_id=self._project_id,
