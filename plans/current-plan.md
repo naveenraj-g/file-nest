@@ -102,7 +102,7 @@ Deferred — a dedicated observability application will handle audit logs, trace
 
 ---
 
-### Step 7 — Webhooks
+### Step 7 — Webhooks ✅ COMPLETED
 
 **Files:**
 - `backend/app/models/webhook.py` — `Webhook` ORM model: `id`, `organization_id`, `project_id`, `url`, `events` (Text, comma-separated), `signing_secret`, `is_active`, `created_at`, `updated_at`; `WebhookDelivery` ORM model: `id`, `webhook_id`, `organization_id`, `project_id`, `event_type`, `payload_json`, `status`, `attempt_count`, `response_status_code`, `response_body`, `next_retry_at`, `created_at`

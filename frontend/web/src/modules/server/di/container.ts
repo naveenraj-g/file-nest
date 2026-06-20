@@ -20,6 +20,7 @@ import {
   registerStorageConfigModule,
   registerProjectConfigModule,
   registerApiKeyModule,
+  registerFileModule,
 } from "./modules";
 
 const ApplicationContainer = createContainer();
@@ -28,6 +29,7 @@ registerProjectModule(ApplicationContainer);
 registerStorageConfigModule(ApplicationContainer);
 registerProjectConfigModule(ApplicationContainer);
 registerApiKeyModule(ApplicationContainer);
+registerFileModule(ApplicationContainer);
 
 export function getInjection<K extends keyof typeof DI_SYMBOLS>(
   symbol: K,

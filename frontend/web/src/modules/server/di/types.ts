@@ -13,12 +13,14 @@ import type { IProjectService } from "../core/project/domain/interfaces/project.
 import type { IStorageConfigService } from "../core/storage-config/domain/interfaces/storage-config.service.interface";
 import type { IProjectConfigService } from "../core/project-config/domain/interfaces/project-config.service.interface";
 import type { IApiKeyService } from "../core/api-key/domain/interfaces/api-key.service.interface";
+import type { IFileService } from "../core/file/domain/interfaces/file.service.interface";
 
 export const DI_SYMBOLS = {
   IProjectService: Symbol.for("IProjectService"),
   IStorageConfigService: Symbol.for("IStorageConfigService"),
   IProjectConfigService: Symbol.for("IProjectConfigService"),
   IApiKeyService: Symbol.for("IApiKeyService"),
+  IFileService: Symbol.for("IFileService"),
 } as const;
 
 export interface DI_RETURN_TYPES {
@@ -26,4 +28,5 @@ export interface DI_RETURN_TYPES {
   IStorageConfigService: IStorageConfigService;
   IProjectConfigService: IProjectConfigService;
   IApiKeyService: IApiKeyService;
+  IFileService: IFileService;
 }
