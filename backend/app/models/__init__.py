@@ -6,8 +6,10 @@ from .project_config import ProjectConfig
 from .storage_config import StorageConfig
 from .storage_migration import StorageMigration
 from .upload_session import UploadSession
+from .webhook import Webhook, WebhookDelivery
 
 __all__ = [
     "Project", "ProjectConfig", "File", "FileVersion",
     "StorageConfig", "StorageMigration", "UploadSession",
+    "Webhook", "WebhookDelivery",
 ]

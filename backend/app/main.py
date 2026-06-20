@@ -24,6 +24,7 @@ from app.core.logging import configure_logging, get_logger
 from app.core.messaging import OutboxWorker
 from app.di.container import Container
 from app.workers.processing import ProcessingWorker
+from app.workers.webhook import WebhookWorker
 from app.errors.base import FileNestError
 from app.errors.handlers import (
     filenest_error_handler,
@@ -60,12 +61,22 @@ async def lifespan(app: FastAPI):
     processing_worker = ProcessingWorker()
     processing_task = processing_worker.start()
 
+    # Start the webhook worker — pull consumer for file.* events, delivers to customer URLs
+    webhook_worker = WebhookWorker()
+    webhook_task = webhook_worker.start()
+
     yield
 
     # Graceful shutdown: cancel workers before closing NATS
     processing_task.cancel()
     try:
         await processing_task
+    except asyncio.CancelledError:
+        pass
+
+    webhook_task.cancel()
+    try:
+        await webhook_task
     except asyncio.CancelledError:
         pass
 
