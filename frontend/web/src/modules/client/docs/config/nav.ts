@@ -32,6 +32,7 @@ export const docsNav: NavSection[] = [
       { title: "Organizations", href: "/docs/concepts/organizations" },
       { title: "Projects", href: "/docs/concepts/projects" },
       { title: "Files", href: "/docs/concepts/files" },
+      { title: "Upload Flow & Processing", href: "/docs/concepts/processing" },
       { title: "API Keys", href: "/docs/concepts/api-keys" },
     ],
   },

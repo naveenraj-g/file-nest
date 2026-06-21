@@ -54,8 +54,10 @@ Control the processing pipeline stages:
 
 ## Security tab
 
-- **IP allowlist** — restrict API access to specific CIDR ranges
-- **CORS origins** — allowed origins for browser-side uploads
+- **IP allowlist** — restrict API access to specific CIDR ranges (CIDR notation, e.g. `10.0.0.0/8`). Checked against the caller server IP, not end-user browser IPs.
+- **CORS origins** — allowed origins for browser-side requests (e.g. `https://app.example.com`). Leave empty to allow all origins.
+- **Require signed URLs (upload & download)** — when enabled, the SDK defaults to presigned URL mode for both uploads and downloads. Even when enabled, individual SDK calls can override this per-request.
+- **Signed URL TTL** — lifetime in seconds for all generated presigned URLs (upload + download + multipart parts). Min 60 s, max 86 400 s. When "Require signed URLs" is on, callers cannot override the TTL.
 
 ## Compliance tab
 

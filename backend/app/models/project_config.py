@@ -69,7 +69,9 @@ class ProjectConfig(Base):
     # e.g. "https://app.example.com,https://www.example.com". null = all origins (*).
     allowed_origins = Column(Text, nullable=True)
 
-    # When true, the download endpoint refuses direct responses and requires a signed URL.
+    # When true, presigned URLs are required for both upload and download operations.
+    # The SDK defaults to presigned URL mode; signed_url_ttl_seconds is the TTL for all
+    # generated URLs and cannot be overridden by the caller when this is enabled.
     require_signed_urls = Column(Boolean, nullable=False, default=False)
 
     # Lifetime in seconds for generated signed URLs. Default 3600 (1 hour).

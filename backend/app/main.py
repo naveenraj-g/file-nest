@@ -19,6 +19,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core import nats as nats_core
 from app.core.config import settings
+from app.core.cors_middleware import PerProjectCORSMiddleware
 from app.core.database import AsyncSessionLocal
 from app.core.logging import configure_logging, get_logger
 from app.core.messaging import OutboxWorker
@@ -102,6 +103,10 @@ app = FastAPI(
     redoc_url="/redoc" if settings.is_dev else None,
     lifespan=lifespan,
 )
+
+# Per-project CORS must be added before exception handlers so preflight
+# responses are returned before any middleware that might interfere.
+app.add_middleware(PerProjectCORSMiddleware, sessionmaker=AsyncSessionLocal)
 
 # Exception handlers — order matters: most specific first
 app.add_exception_handler(FileNestError, filenest_error_handler)

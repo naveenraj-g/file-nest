@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import TenantContext
 from app.core.messaging import TransactionalOutboxPublisher
+from app.auth.signed_url_policy import resolve_ttl
 from app.repositories.file import FileRepository
 from app.repositories.file_version import FileVersionRepository
 from app.repositories.project_config import ProjectConfigRepository
@@ -127,10 +128,11 @@ class FileService:
         record.storage_key = key
 
         provider = await storage_resolver.get_provider(self._project_id)
+        ttl = resolve_ttl(config)
         upload_url = await provider.generate_presigned_upload_url(
-            key, req.content_type, req.size_bytes, expires_in=3600,
+            key, req.content_type, req.size_bytes, expires_in=ttl,
         )
-        expires_at = datetime.now(UTC) + timedelta(hours=1)
+        expires_at = datetime.now(UTC) + timedelta(seconds=ttl)
 
         await self._outbox.publish(
             f"filenest.{self._ctx.organization_id}.{self._project_id}.file.upload.initiated",
@@ -220,18 +222,26 @@ class FileService:
         return FileVersionListResponse(items=items, total=len(items))
 
     async def get_version_download_url(
-        self, file_id: str, version_id: str, *, ttl: int = 3600
+        self, file_id: str, version_id: str, *, caller_ttl: int | None = None
     ) -> DownloadUrlResponse:
         """
         Generate a presigned download URL for a specific version's bytes.
 
         The version's own storage_key is used so the URL points to the
         exact bytes from when that version was created.
+
+        Args:
+            caller_ttl: Caller-requested TTL. Overridden by config when
+                        require_signed_urls is True.
         """
         await self._repo.get(file_id, self._ctx.organization_id, self._project_id)
         version = await self._version_repo.get(
             version_id, file_id, self._ctx.organization_id
         )
+        config = await self._config_repo.get_for_project(
+            self._project_id, self._ctx.organization_id
+        )
+        ttl = resolve_ttl(config, caller_ttl)
         provider = await storage_resolver.get_provider(self._project_id)
         url = await provider.generate_presigned_download_url(
             version.storage_key, expires_in=ttl
@@ -296,10 +306,19 @@ class FileService:
         record = await self._repo.get(file_id, self._ctx.organization_id, self._project_id)
         return self._to_response(record)
 
-    async def get_download_url(self, file_id: str, *, ttl: int = 3600) -> DownloadUrlResponse:
-        """Generate a presigned download URL for a file."""
-        record = await self._repo.get(file_id, self._ctx.organization_id, self._project_id)
+    async def get_download_url(self, file_id: str, *, caller_ttl: int | None = None) -> DownloadUrlResponse:
+        """
+        Generate a presigned download URL for a file.
 
+        Args:
+            caller_ttl: Caller-requested TTL. Overridden by config when
+                        require_signed_urls is True.
+        """
+        record = await self._repo.get(file_id, self._ctx.organization_id, self._project_id)
+        config = await self._config_repo.get_for_project(
+            self._project_id, self._ctx.organization_id
+        )
+        ttl = resolve_ttl(config, caller_ttl)
         provider = await storage_resolver.get_provider(self._project_id)
         url = await provider.generate_presigned_download_url(
             record.storage_key, filename=record.filename, expires_in=ttl,

@@ -75,7 +75,7 @@ async def get_download_url(
 ) -> DownloadUrlResponse:
     """Generate a presigned download URL. Scope: files:download."""
     require_scope(svc._ctx, "files:download")
-    return await svc.get_download_url(file_id, ttl=ttl)
+    return await svc.get_download_url(file_id, caller_ttl=ttl)
 
 
 @router.get("/projects/{project_id}/files/{file_id}", response_model=FileResponse)
@@ -140,7 +140,7 @@ async def get_version_download_url(
 ) -> DownloadUrlResponse:
     """Generate a presigned download URL for a specific version's bytes. Scope: files:download."""
     require_scope(svc._ctx, "files:download")
-    return await svc.get_version_download_url(file_id, version_id, ttl=ttl)
+    return await svc.get_version_download_url(file_id, version_id, caller_ttl=ttl)
 
 
 @router.post(
@@ -188,7 +188,7 @@ async def multipart_part_url(
 ) -> MultipartPartUrlResponse:
     """Generate a presigned URL for uploading a single part. Scope: files:upload."""
     require_scope(svc._ctx, "files:upload")
-    return await svc.part_url(upload_id, part, expires_in=ttl)
+    return await svc.part_url(upload_id, part, caller_ttl=ttl)
 
 
 @router.post(

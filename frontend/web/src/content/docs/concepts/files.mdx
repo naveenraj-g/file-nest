@@ -52,3 +52,15 @@ Uploading to an existing `storage_key` path creates a new version row and bumps 
 <Callout type="note">
 Files with a legal hold cannot be deleted until the hold is released. (Phase 8 — Compliance Pack.)
 </Callout>
+
+## Upload flow & processing pipeline
+
+FileNest uploads are presigned URL–based — your client PUTs bytes directly to S3,
+and a `confirm` call triggers the pipeline (virus scan → MIME validation → classification → indexing).
+
+See [Upload Flow & Processing](/docs/concepts/processing) for the complete flow, pipeline
+stage details, two-layer MIME validation, and security enforcement (IP allowlist, CORS,
+signed URL TTL).
+
+**If you are not using an SDK**, see the "Using the API without the SDK" section in that
+page for the manual step-by-step flow.

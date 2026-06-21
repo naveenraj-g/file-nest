@@ -23,6 +23,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import TenantContext
+from app.auth.signed_url_policy import resolve_ttl
 from app.core.messaging import TransactionalOutboxPublisher
 from app.repositories.file import FileRepository
 from app.repositories.file_version import FileVersionRepository
@@ -131,7 +132,7 @@ class MultipartUploadService:
         return MultipartStartResponse(upload_id=upload_session.id, file_id=file_record.id)
 
     async def part_url(
-        self, upload_id: str, part_number: int, *, expires_in: int = 3600
+        self, upload_id: str, part_number: int, *, caller_ttl: int | None = None
     ) -> MultipartPartUrlResponse:
         """
         Generate a presigned URL for uploading a single part directly to storage.
@@ -139,7 +140,8 @@ class MultipartUploadService:
         Args:
             upload_id:   Our UploadSession UUID (not the provider's upload ID).
             part_number: 1-based part index (S3 requires 1–10000).
-            expires_in:  Presigned URL TTL in seconds.
+            caller_ttl:  Caller-requested TTL. Overridden by config when
+                         require_signed_urls is True.
         """
         upload_session = await self._session_repo.get(
             upload_id, self._ctx.organization_id
@@ -147,18 +149,22 @@ class MultipartUploadService:
         file_record = await self._file_repo.get(
             upload_session.file_id, self._ctx.organization_id, self._project_id
         )
+        config = await self._config_repo.get_for_project(
+            self._project_id, self._ctx.organization_id
+        )
+        ttl = resolve_ttl(config, caller_ttl)
         provider = await storage_resolver.get_provider(self._project_id)
         url = await provider.generate_presigned_part_url(
             file_record.storage_key,
             upload_session.s3_upload_id,
             part_number,
-            expires_in=expires_in,
+            expires_in=ttl,
         )
         return MultipartPartUrlResponse(
             upload_id=upload_id,
             part_number=part_number,
             url=url,
-            expires_at=datetime.now(UTC) + timedelta(seconds=expires_in),
+            expires_at=datetime.now(UTC) + timedelta(seconds=ttl),
         )
 
     async def complete(

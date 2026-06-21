@@ -177,11 +177,12 @@ export function ProjectSecurityConfigForm({ projectId, config }: Props) {
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
               <FieldLabel className="text-sm font-medium leading-none">
-                Require signed URLs for downloads
+                Require signed URLs (upload &amp; download)
               </FieldLabel>
               <FieldDescription className="text-xs">
-                When enabled, the download endpoint rejects direct requests and
-                requires a time-limited signed URL.
+                When enabled, the SDK defaults to presigned URL mode for both
+                uploads and downloads. The signed URL TTL below applies to all
+                generated URLs.
               </FieldDescription>
             </div>
             <Controller
