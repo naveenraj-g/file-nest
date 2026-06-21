@@ -50,11 +50,21 @@ container = Container()
 
 async def _apply_startup_cors() -> None:
     """
-    Ensure the platform-managed default bucket exists and has CORS applied.
+    Ensure all managed storage buckets have CORS applied on startup.
 
-    Runs every time the backend starts. create_bucket() is idempotent — safe
-    to call even if the bucket already exists.
+    Two passes:
+      1. Default platform bucket — create if absent, set CORS to ["*"].
+      2. Per-project managed buckets — restore each bucket's CORS from the
+         project's stored allowed_origins in project_configs. This is necessary
+         because RustFS (and MinIO) do not persist CORS policies across container
+         restarts; without this pass any volume wipe or restart drops all
+         per-project bucket CORS, blocking browser presigned URL uploads.
     """
+    from sqlalchemy import select
+    from app.core.database import AsyncSessionLocal
+    from app.models.project_config import ProjectConfig
+    from app.models.storage_config import StorageConfig
+
     _default_buckets = {
         "s3": settings.s3_bucket_name,
         "minio": settings.minio_bucket_name,
@@ -63,13 +73,14 @@ async def _apply_startup_cors() -> None:
     }
     p = settings.default_storage_provider.lower()
     bucket = _default_buckets.get(p, "filenest")
+
+    # ── Pass 1: default platform bucket ──────────────────────────────────────
     try:
         provider = await storage_resolver.get_provider("_startup")
         await provider.create_bucket(bucket)
         await provider.set_bucket_cors(["*"])
         logger.info("storage.cors_applied_at_startup", provider=p, bucket=bucket)
     except Exception as exc:
-        # Log the full chain: StorageError message + the underlying S3/botocore error.
         cause = getattr(exc, "__cause__", None) or exc
         logger.error(
             "storage.cors_apply_failed",
@@ -77,6 +88,61 @@ async def _apply_startup_cors() -> None:
             bucket=bucket,
             error=str(exc),
             cause=str(cause),
+        )
+
+    # ── Pass 2: per-project managed buckets ──────────────────────────────────
+    try:
+        async with AsyncSessionLocal() as session:
+            rows = (
+                await session.execute(
+                    select(StorageConfig, ProjectConfig)
+                    .outerjoin(
+                        ProjectConfig,
+                        StorageConfig.project_id == ProjectConfig.project_id,
+                    )
+                    .where(
+                        StorageConfig.storage_mode == "managed",
+                        StorageConfig.status == "active",
+                    )
+                )
+            ).all()
+
+        await asyncio.gather(
+            *[_restore_project_bucket_cors(sc, pc) for sc, pc in rows],
+            return_exceptions=True,
+        )
+    except Exception as exc:
+        logger.error("storage.cors_restore_query_failed", error=str(exc))
+
+
+async def _restore_project_bucket_cors(storage_cfg, project_cfg) -> None:
+    """
+    Restore CORS on a single per-project managed bucket from the DB config.
+
+    Uses the project's stored allowed_origins (falling back to ["*"] when
+    no restriction is configured). Called concurrently for all projects at
+    startup — individual failures are logged and do not block the others.
+    """
+    origins = ["*"]
+    if project_cfg and project_cfg.allowed_origins:
+        parsed = [o.strip() for o in project_cfg.allowed_origins.split(",") if o.strip()]
+        if parsed:
+            origins = parsed
+    try:
+        provider = storage_resolver.build_provider(storage_cfg)
+        await provider.set_bucket_cors(origins)
+        logger.info(
+            "storage.project_cors_restored",
+            project_id=storage_cfg.project_id,
+            bucket=storage_cfg.bucket_name,
+            origins=origins,
+        )
+    except Exception as exc:
+        logger.error(
+            "storage.project_cors_restore_failed",
+            project_id=storage_cfg.project_id,
+            bucket=storage_cfg.bucket_name,
+            error=str(exc),
         )
 
 

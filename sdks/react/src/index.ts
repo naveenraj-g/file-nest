@@ -1,0 +1,63 @@
+/**
+ * @filenest/react — FileNest SDK for React.
+ *
+ * Provides the FileNestProvider context, upload/browse/preview components,
+ * and TanStack Query-backed data hooks for file operations.
+ *
+ * Usage:
+ *   import { FileNestProvider, FileUpload, useFiles } from '@filenest/react';
+ *
+ * @module
+ */
+
+// Context
+export { FileNestProvider, useFileNest } from "./context/FileNestContext.js";
+export type { FileNestProviderProps, FileNestContextValue } from "./context/FileNestContext.js";
+
+// Components
+export { FileUpload } from "./components/FileUpload.js";
+export type { FileUploadProps, MetadataFormField } from "./components/FileUpload.js";
+
+export { FileExplorer } from "./components/FileExplorer/index.js";
+export type { FileExplorerProps, ViewMode, SortField } from "./components/FileExplorer/index.js";
+
+export { FilePreview } from "./components/FilePreview.js";
+export type { FilePreviewProps } from "./components/FilePreview.js";
+
+export { FileViewer } from "./components/FileViewer.js";
+export type { FileViewerProps } from "./components/FileViewer.js";
+
+// Hooks
+export { useUpload } from "./hooks/useUpload.js";
+export type { UseUploadOptions, UploadState, UploadStatus } from "./hooks/useUpload.js";
+
+export { useFiles } from "./hooks/useFiles.js";
+export type { UseFilesOptions } from "./hooks/useFiles.js";
+
+export { useFile } from "./hooks/useFile.js";
+export type { UseFileOptions } from "./hooks/useFile.js";
+
+export { useSearch } from "./hooks/useSearch.js";
+export type { UseSearchOptions, SearchQuery } from "./hooks/useSearch.js";
+
+export { useFolder } from "./hooks/useFolder.js";
+export type { UseFolderResult, Breadcrumb } from "./hooks/useFolder.js";
+
+export { useInfiniteFiles } from "./hooks/useInfiniteFiles.js";
+export type { UseInfiniteFilesOptions } from "./hooks/useInfiniteFiles.js";
+
+// Re-export core types
+export type {
+  FileRecord,
+  FileStatus,
+  FileVersion,
+  Folder,
+  Project,
+  Webhook,
+  SearchResults,
+  SearchHit,
+  SearchFilters,
+  UploadProgress,
+  UploadToken,
+  ListResponse,
+} from "@filenest/core";
