@@ -135,3 +135,19 @@ export const AbortMultipartSchema = z.object({
 });
 
 export type TAbortMultipart = z.infer<typeof AbortMultipartSchema>;
+
+export const RenameFileSchema = z.object({
+  projectId: z.string().min(1),
+  fileId: z.string().min(1),
+  filename: z.string().min(1),
+});
+
+export type TRenameFile = z.infer<typeof RenameFileSchema>;
+
+export const MoveFileSchema = z.object({
+  projectId: z.string().min(1),
+  fileId: z.string().min(1),
+  folder_id: z.string().nullable(),
+});
+
+export type TMoveFile = z.infer<typeof MoveFileSchema>;

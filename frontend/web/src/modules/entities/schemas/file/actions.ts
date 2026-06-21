@@ -71,6 +71,8 @@ import {
   GetPartUrlSchema,
   CompleteMultipartSchema,
   AbortMultipartSchema,
+  RenameFileSchema,
+  MoveFileSchema,
 } from "./input";
 
 export const InitiateUploadActionSchema = z.object({
@@ -108,3 +110,15 @@ export const AbortMultipartActionSchema = z.object({
   transportOptions: TransportOptionsSchema.optional(),
 });
 export type TAbortMultipartAction = z.infer<typeof AbortMultipartActionSchema>;
+
+export const RenameFileActionSchema = z.object({
+  payload: RenameFileSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TRenameFileAction = z.infer<typeof RenameFileActionSchema>;
+
+export const MoveFileActionSchema = z.object({
+  payload: MoveFileSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TMoveFileAction = z.infer<typeof MoveFileActionSchema>;

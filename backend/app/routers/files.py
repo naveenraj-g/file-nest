@@ -37,6 +37,7 @@ from app.schemas.file import (
     MultipartPartUrlResponse,
     MultipartStartRequest,
     MultipartStartResponse,
+    RenameFileRequest,
     RestoreVersionResponse,
     TagsAddRequest,
     TagsReplaceRequest,
@@ -176,6 +177,18 @@ async def add_tags(
     """Append tags not already present on the file (union, no duplicates). Scope: files:update_metadata."""
     require_scope(svc._ctx, "files:update_metadata")
     return await svc.add_tags(file_id, body.tags)
+
+
+@router.patch("/projects/{project_id}/files/{file_id}", response_model=FileResponse)
+async def rename_file(
+    project_id: str,
+    file_id: str,
+    body: RenameFileRequest,
+    svc: FileService = Depends(get_file_service),
+) -> FileResponse:
+    """Rename a file's display filename. Scope: files:update_metadata."""
+    require_scope(svc._ctx, "files:update_metadata")
+    return await svc.rename_file(file_id, body)
 
 
 @router.delete("/projects/{project_id}/files/{file_id}", response_model=DeleteResponse)

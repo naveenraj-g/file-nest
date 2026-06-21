@@ -49,6 +49,7 @@ from app.schemas.file import (
     FileVersionListResponse,
     FileVersionResponse,
     MoveFileRequest,
+    RenameFileRequest,
     RestoreVersionResponse,
     TagsResponse,
     UploadInitRequest,
@@ -426,6 +427,23 @@ class FileService:
         )
         await self._session.commit()
         return TagsResponse(id=record.id, tags=record.tags or [])
+
+    async def rename_file(self, file_id: str, req: RenameFileRequest) -> FileResponse:
+        """
+        Rename a file's display filename.
+
+        Args:
+            file_id: The file to rename.
+            req:     RenameFileRequest with the new filename.
+
+        Raises:
+            NotFoundError: If the file does not exist.
+        """
+        record = await self._repo.rename_file(
+            file_id, self._ctx.organization_id, self._project_id, req.filename
+        )
+        await self._session.commit()
+        return self._to_response(record)
 
     async def move_file(self, file_id: str, req: MoveFileRequest) -> FileResponse:
         """

@@ -1,13 +1,13 @@
 /**
- * FolderTree — read-only folder sidebar for the files page.
+ * FolderTree — folder navigation sidebar with create and delete controls.
  *
  * Displays a hierarchical tree built from the flat folder list returned by
  * the API (materialized-path model). Clicking a folder pushes `?folder_id=xxx`
  * to the URL so the state is shareable and back-button safe. Clicking the
  * active folder (or "All files") clears the filter.
  *
- * No create/delete — those operations are SDK/API only. This is purely a
- * navigation aid for browsing the project's folder structure.
+ * Each folder row has a "..." menu for creating a subfolder or deleting the folder.
+ * The "+ New folder" button at the top creates a root-level folder.
  *
  * @module
  */
@@ -15,8 +15,17 @@
 
 import * as React from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { ChevronRight, Folder, FolderOpen, Files } from "lucide-react";
+import { ChevronRight, Folder, FolderOpen, Files, Plus, MoreHorizontal, FolderPlus, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { folderStore } from "@/modules/client/files/stores/folder.store";
 import type { TFolder, TFolderList } from "@/modules/entities/schemas/folder";
 
 interface FolderNode extends TFolder {
@@ -55,8 +64,8 @@ function FolderNodeItem({ node, activeFolderId, depth, onSelect }: FolderNodeIte
   const isActive = activeFolderId === node.id;
   const hasChildren = node.children.length > 0;
   const [expanded, setExpanded] = React.useState(false);
+  const [menuOpen, setMenuOpen] = React.useState(false);
 
-  // Auto-expand if a descendant is active
   const isAncestorOfActive = React.useMemo(() => {
     if (!activeFolderId) return false;
     const isDescendant = (n: FolderNode): boolean =>
@@ -70,39 +79,72 @@ function FolderNodeItem({ node, activeFolderId, depth, onSelect }: FolderNodeIte
 
   return (
     <li>
-      <button
-        type="button"
+      <div
         className={cn(
-          "w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-sm transition-colors text-left",
-          isActive
-            ? "bg-accent text-accent-foreground font-medium"
-            : "hover:bg-muted/60 text-muted-foreground hover:text-foreground",
+          "group flex items-center rounded-md transition-colors",
+          isActive ? "bg-accent text-accent-foreground" : "hover:bg-muted/60",
         )}
         style={{ paddingLeft: `${(depth + 1) * 12}px` }}
-        onClick={() => onSelect(node.id)}
       >
-        {hasChildren ? (
-          <span
-            className="shrink-0 text-muted-foreground"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded((p) => !p);
-            }}
-          >
-            <ChevronRight
-              className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-90")}
-            />
-          </span>
-        ) : (
-          <span className="w-3.5 shrink-0" />
-        )}
-        {isActive ? (
-          <FolderOpen className="h-3.5 w-3.5 shrink-0" />
-        ) : (
-          <Folder className="h-3.5 w-3.5 shrink-0" />
-        )}
-        <span className="truncate">{node.name}</span>
-      </button>
+        <button
+          type="button"
+          className={cn(
+            "flex-1 flex items-center gap-1.5 pr-1 py-1 text-sm text-left min-w-0",
+            isActive ? "text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground",
+          )}
+          onClick={() => onSelect(node.id)}
+        >
+          {hasChildren ? (
+            <span
+              className="shrink-0"
+              onClick={(e) => { e.stopPropagation(); setExpanded((p) => !p); }}
+            >
+              <ChevronRight
+                className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-90")}
+              />
+            </span>
+          ) : (
+            <span className="w-3.5 shrink-0" />
+          )}
+          {isActive
+            ? <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+            : <Folder className="h-3.5 w-3.5 shrink-0" />
+          }
+          <span className="truncate">{node.name}</span>
+        </button>
+
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                "p-1 mr-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted",
+                menuOpen && "opacity-100",
+              )}
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Folder options"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onClick={() => folderStore.getState().onOpen("createFolder", node)}
+            >
+              <FolderPlus className="mr-2 h-3.5 w-3.5" />
+              New subfolder
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => folderStore.getState().onOpen("deleteFolder", node)}
+            >
+              <Trash2 className="mr-2 h-3.5 w-3.5" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {hasChildren && expanded && (
         <ul className="mt-0.5 space-y-0.5">
@@ -123,11 +165,11 @@ function FolderNodeItem({ node, activeFolderId, depth, onSelect }: FolderNodeIte
 
 interface FolderTreeProps {
   folderList: TFolderList;
-  /** Current folder_id from URL search params — null means "all files". */
   activeFolderId: string | null;
+  projectId: string;
 }
 
-export function FolderTree({ folderList, activeFolderId }: FolderTreeProps) {
+export function FolderTree({ folderList, activeFolderId, projectId }: FolderTreeProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -147,13 +189,26 @@ export function FolderTree({ folderList, activeFolderId }: FolderTreeProps) {
     [router, pathname, searchParams],
   );
 
-  if (folderList.items.length === 0) return null;
-
   return (
     <nav className="w-52 shrink-0">
-      <p className="text-xs font-medium text-muted-foreground px-2 mb-1.5 uppercase tracking-wide">
-        Folders
-      </p>
+      <div className="flex items-center justify-between px-2 mb-1.5">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Folders
+        </p>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5"
+          onClick={() => folderStore.getState().onOpen("createFolder", null)}
+          title="New folder"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      {folderList.items.length === 0 && (
+        <p className="text-xs text-muted-foreground px-2">No folders yet.</p>
+      )}
       <ul className="space-y-0.5">
         {/* "All files" root entry */}
         <li>

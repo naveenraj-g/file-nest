@@ -15,6 +15,7 @@ import { getProjectConfigAction } from "@/modules/server/presentation/actions/pr
 import { FilesTable } from "@/modules/client/files/components/FilesTable";
 import { FolderTree } from "@/modules/client/files/components/FolderTree";
 import { FileModalProvider } from "@/modules/client/files/provider/FileModalProvider";
+import { FolderModalProvider } from "@/modules/client/files/provider/FolderModalProvider";
 import type { TFileList } from "@/modules/entities/schemas/file";
 import type { TFolderList } from "@/modules/entities/schemas/folder";
 
@@ -68,14 +69,13 @@ export default async function FilesPage({ params, searchParams }: FilesPageProps
       </div>
 
       <div className="flex gap-6 items-start">
-        {folderList.items.length > 0 && (
-          <Suspense>
-            <FolderTree
-              folderList={folderList}
-              activeFolderId={folderId ?? null}
-            />
-          </Suspense>
-        )}
+        <Suspense>
+          <FolderTree
+            folderList={folderList}
+            activeFolderId={folderId ?? null}
+            projectId={projectId}
+          />
+        </Suspense>
 
         <div className="flex-1 min-w-0">
           <FilesTable
@@ -87,6 +87,7 @@ export default async function FilesPage({ params, searchParams }: FilesPageProps
       </div>
 
       <FileModalProvider projectId={projectId} folders={folderList} projectConfig={projectConfig} />
+      <FolderModalProvider projectId={projectId} />
     </div>
   );
 }

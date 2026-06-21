@@ -3,9 +3,15 @@
  *
  * @module
  */
-import type { TFolderList } from "@/modules/entities/schemas/folder";
+import type {
+  TFolder,
+  TFolderList,
+  TFolderDeleteResponse,
+  TCreateFolderParams,
+} from "@/modules/entities/schemas/folder";
 
 export interface IFolderService {
-  /** Returns all active folders in the project, ordered by path. */
   list(projectId: string): Promise<TFolderList>;
+  create(params: TCreateFolderParams): Promise<TFolder>;
+  delete(projectId: string, folderId: string): Promise<TFolderDeleteResponse>;
 }

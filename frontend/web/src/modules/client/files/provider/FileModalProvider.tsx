@@ -13,6 +13,8 @@
 
 import { useEffect, useState } from "react";
 import { DeleteFileModal } from "@/modules/client/files/modals/DeleteFileModal";
+import { RenameFileModal } from "@/modules/client/files/modals/RenameFileModal";
+import { MoveFileModal } from "@/modules/client/files/modals/MoveFileModal";
 import { FileMetadataPanel } from "@/modules/client/files/components/FileMetadataPanel";
 import { FileUploadModal } from "@/modules/client/files/components/upload/FileUploadModal";
 import type { TFolderList } from "@/modules/entities/schemas/folder";
@@ -37,6 +39,8 @@ export function FileModalProvider({ projectId, folders, projectConfig }: FileMod
   return (
     <>
       <DeleteFileModal />
+      <RenameFileModal />
+      <MoveFileModal folders={folders} />
       <FileMetadataPanel />
       <FileUploadModal
         projectId={projectId}

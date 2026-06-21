@@ -317,3 +317,17 @@ class FileRepository:
         record.folder_id = folder_id
         record.updated_at = datetime.now(UTC)
         return record
+
+    async def rename_file(
+        self, file_id: str, organization_id: str, project_id: str, filename: str
+    ) -> File:
+        """
+        Update a file's display filename.
+
+        Raises:
+            NotFoundError: If the file does not exist.
+        """
+        record = await self.get(file_id, organization_id, project_id)
+        record.filename = filename
+        record.updated_at = datetime.now(UTC)
+        return record

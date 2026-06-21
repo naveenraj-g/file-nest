@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class FileStatus(StrEnum):
@@ -177,3 +177,16 @@ class MultipartAbortResponse(BaseModel):
 class MoveFileRequest(BaseModel):
     """Move a file to a different folder (or to the root when folder_id is null)."""
     folder_id: str | None = None
+
+
+class RenameFileRequest(BaseModel):
+    """Rename a file."""
+    filename: str
+
+    @field_validator("filename")
+    @classmethod
+    def filename_not_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Filename must not be empty")
+        return v

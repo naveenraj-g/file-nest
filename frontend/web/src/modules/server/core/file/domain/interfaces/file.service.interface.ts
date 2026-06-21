@@ -9,6 +9,7 @@
  * @module
  */
 import type {
+  TFile,
   TFileList,
   TFileDownloadUrl,
   TListFilesParams,
@@ -49,4 +50,8 @@ export interface IFileService {
   getPartUrl(params: TGetPartUrl): Promise<TPartUrlResponse>;
   completeMultipart(params: TCompleteMultipart): Promise<TMultipartCompleteResponse>;
   abortMultipart(params: TAbortMultipart): Promise<TMultipartAbortResponse>;
+
+  // ── File management ──────────────────────────────────────────────────────
+  rename(projectId: string, fileId: string, filename: string): Promise<TFile>;
+  move(projectId: string, fileId: string, folderId: string | null): Promise<TFile>;
 }

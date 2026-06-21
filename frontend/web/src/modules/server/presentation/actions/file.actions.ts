@@ -34,6 +34,8 @@ import {
   getPartUrlController,
   completeMultipartController,
   abortMultipartController,
+  renameFileController,
+  moveFileController,
   type TListFilesControllerOutput,
   type TDeleteFileControllerOutput,
   type TGetFileDownloadUrlControllerOutput,
@@ -47,6 +49,8 @@ import {
   type TGetPartUrlControllerOutput,
   type TCompleteMultipartControllerOutput,
   type TAbortMultipartControllerOutput,
+  type TRenameFileControllerOutput,
+  type TMoveFileControllerOutput,
 } from "@/modules/server/core/file/interface-adapters/controllers";
 import {
   ListFilesActionSchema,
@@ -62,6 +66,8 @@ import {
   GetPartUrlActionSchema,
   CompleteMultipartActionSchema,
   AbortMultipartActionSchema,
+  RenameFileActionSchema,
+  MoveFileActionSchema,
   type TListFilesAction,
   type TDeleteFileAction,
   type TGetFileDownloadUrlAction,
@@ -75,6 +81,8 @@ import {
   type TGetPartUrlAction,
   type TCompleteMultipartAction,
   type TAbortMultipartAction,
+  type TRenameFileAction,
+  type TMoveFileAction,
 } from "@/modules/entities/schemas/file";
 
 export const listFilesAction = authenticatedProcedure
@@ -205,6 +213,26 @@ export const abortMultipartAction = authenticatedProcedure
   .handler(async ({ input }: { input: TAbortMultipartAction }) => {
     return await runWithTransport<TAbortMultipartControllerOutput>(async () => {
       const data = await abortMultipartController(input.payload);
+      return { result: data, transport: input.transportOptions };
+    });
+  });
+
+export const renameFileAction = authenticatedProcedure
+  .createServerAction()
+  .input(RenameFileActionSchema, { skipInputParsing: true })
+  .handler(async ({ input }: { input: TRenameFileAction }) => {
+    return await runWithTransport<TRenameFileControllerOutput>(async () => {
+      const data = await renameFileController(input.payload);
+      return { result: data, transport: input.transportOptions };
+    });
+  });
+
+export const moveFileAction = authenticatedProcedure
+  .createServerAction()
+  .input(MoveFileActionSchema, { skipInputParsing: true })
+  .handler(async ({ input }: { input: TMoveFileAction }) => {
+    return await runWithTransport<TMoveFileControllerOutput>(async () => {
+      const data = await moveFileController(input.payload);
       return { result: data, transport: input.transportOptions };
     });
   });

@@ -25,3 +25,10 @@ export const FolderListSchema = z.object({
 });
 
 export type TFolderList = z.infer<typeof FolderListSchema>;
+
+export const FolderDeleteResponseSchema = z.object({
+  id: z.string(),
+  deleted: z.boolean(),
+});
+
+export type TFolderDeleteResponse = z.infer<typeof FolderDeleteResponseSchema>;

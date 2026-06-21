@@ -67,3 +67,13 @@ export {
   abortMultipartController,
   type TAbortMultipartControllerOutput,
 } from "./abortMultipart.controller";
+
+export {
+  renameFileController,
+  type TRenameFileControllerOutput,
+} from "./renameFile.controller";
+
+export {
+  moveFileController,
+  type TMoveFileControllerOutput,
+} from "./moveFile.controller";

@@ -7,7 +7,7 @@
  * @module
  */
 import type { ColumnDef } from "@tanstack/react-table";
-import { Download, Info, Trash2 } from "lucide-react";
+import { Download, Info, Pencil, FolderInput, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -163,6 +163,20 @@ export function filesTableColumns(): ColumnDef<TFile>[] {
               icon: Download,
               onClick: (r) => {
                 void openDownload(r.original.project_id, r.original.id);
+              },
+            },
+            {
+              label: "Rename",
+              icon: Pencil,
+              onClick: (r) => {
+                fileStore.getState().onOpen("renameFile", r.original);
+              },
+            },
+            {
+              label: "Move to folder",
+              icon: FolderInput,
+              onClick: (r) => {
+                fileStore.getState().onOpen("moveFile", r.original);
               },
             },
             {

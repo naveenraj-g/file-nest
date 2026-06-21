@@ -15,6 +15,7 @@
 
 import { filenestApi } from "@/modules/server/utils/api-client";
 import {
+  FileSchema,
   FileListSchema,
   FileDownloadUrlSchema,
   TagsResponseSchema,
@@ -25,6 +26,7 @@ import {
   PartUrlResponseSchema,
   MultipartCompleteResponseSchema,
   MultipartAbortResponseSchema,
+  type TFile,
   type TFileList,
   type TFileDownloadUrl,
   type TListFilesParams,
@@ -200,6 +202,26 @@ export class FileRestService implements IFileService {
       { method: "DELETE" },
     );
     const parsed = MultipartAbortResponseSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+
+  async rename(projectId: string, fileId: string, filename: string): Promise<TFile> {
+    const raw = await filenestApi<unknown>(
+      `/v1/projects/${projectId}/files/${fileId}`,
+      { method: "PATCH", body: JSON.stringify({ filename }) },
+    );
+    const parsed = FileSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+
+  async move(projectId: string, fileId: string, folderId: string | null): Promise<TFile> {
+    const raw = await filenestApi<unknown>(
+      `/v1/projects/${projectId}/files/${fileId}/move`,
+      { method: "POST", body: JSON.stringify({ folder_id: folderId }) },
+    );
+    const parsed = FileSchema.safeParse(raw);
     if (!parsed.success) throw new OutputParseError(parsed.error);
     return parsed.data;
   }

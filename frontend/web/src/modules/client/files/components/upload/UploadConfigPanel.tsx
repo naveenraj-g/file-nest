@@ -19,6 +19,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { FolderPickerPopover } from "@/modules/client/files/components/FolderPickerPopover";
 import type { TFolderList } from "@/modules/entities/schemas/folder";
 
 export type UploadMode = "presigned" | "server";
@@ -137,30 +138,17 @@ export function UploadConfigPanel({
       </div>
 
       {/* Folder */}
-      {folders.items.length > 0 && (
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="upload-folder"
-            className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-          >
-            Folder
-          </Label>
-          <select
-            id="upload-folder"
-            value={folderId ?? ""}
-            onChange={(e) => onFolderChange(e.target.value || null)}
-            disabled={disabled}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
-          >
-            <option value="">Root (no folder)</option>
-            {folders.items.map((folder) => (
-              <option key={folder.id} value={folder.id}>
-                {folder.path}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Folder
+        </Label>
+        <FolderPickerPopover
+          folders={folders}
+          value={folderId}
+          onChange={onFolderChange}
+          disabled={disabled}
+        />
+      </div>
 
       {/* Tags */}
       <div className="space-y-1.5">
