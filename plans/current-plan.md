@@ -141,7 +141,7 @@ Shows org-level usage meters with a per-project breakdown table.
 
 ---
 
-## Step 6 — Project Settings — General + Processing tabs
+## Step 6 — Project Settings — General + Processing tabs ✅ COMPLETED
 
 The Settings page already has the Storage tab. Complete the other two tabs.
 
@@ -181,5 +181,5 @@ Review all Phase 4 features built in this phase and ensure the docs route reflec
 | 3 | File rename + move to folder — row actions + modals, folder create/delete, hierarchical folder picker | ✅ Completed |
 | 4 | Team management — invite, role assignment, remove | ⏭ Deferred |
 | 5 | Usage page — org meters + per-project breakdown | ✅ Completed |
-| 6 | Project Settings — General + Processing tabs | ⬜ Not started |
+| 6 | Project Settings — General + Processing tabs | ✅ Completed |
 | 7 | Docs audit — Console app docs route | ⬜ Not started |
