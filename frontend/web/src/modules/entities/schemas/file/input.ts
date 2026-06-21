@@ -10,8 +10,21 @@ import { z } from "zod";
 
 export const ListFilesParamsSchema = z.object({
   projectId: z.string().min(1),
+  // ── Filters ──────────────────────────────────────────────────────────────
   folder_id: z.string().optional(),
+  q: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  category: z.string().optional(),
+  status: z.string().optional(),
+  date_from: z.string().optional(),
+  date_to: z.string().optional(),
+  size_min: z.number().int().min(0).optional(),
+  size_max: z.number().int().min(0).optional(),
+  /** JSON object string for JSONB metadata containment, e.g. '{"patientId":"P-001"}' */
+  metadata: z.string().optional(),
+  // ── Pagination ────────────────────────────────────────────────────────────
   limit: z.number().int().min(1).max(200).optional(),
+  offset: z.number().int().min(0).optional(),
   cursor: z.string().optional(),
 });
 

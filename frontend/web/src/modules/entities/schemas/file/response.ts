@@ -28,7 +28,10 @@ export const FileSchema = z.object({
   status: FileStatusSchema,
   storage_key: z.string(),
   folder_id: z.string().nullable(),
-  metadata: z.record(z.string(), z.string()),
+  category: z.string().nullable(),
+  version_count: z.number().int(),
+  tags: z.array(z.string()),
+  metadata: z.record(z.string(), z.unknown()),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -37,8 +40,11 @@ export type TFile = z.infer<typeof FileSchema>;
 
 export const FileListSchema = z.object({
   items: z.array(FileSchema),
-  total: z.number(),
-  cursor: z.string().nullable().optional(),
+  total: z.number().int(),
+  limit: z.number().int(),
+  offset: z.number().int(),
+  has_more: z.boolean(),
+  next_cursor: z.string().nullable().optional(),
 });
 
 export type TFileList = z.infer<typeof FileListSchema>;

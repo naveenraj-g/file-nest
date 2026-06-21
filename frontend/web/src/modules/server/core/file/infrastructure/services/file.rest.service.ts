@@ -29,14 +29,22 @@ export class FileRestService implements IFileService {
     projectId: string,
     params?: Omit<TListFilesParams, "projectId">,
   ): Promise<TFileList> {
-    const qs = params
-      ? "?" +
-        new URLSearchParams(
-          Object.entries(params)
-            .filter(([, v]) => v !== undefined && v !== null && v !== "")
-            .map(([k, v]) => [k, String(v)]),
-        ).toString()
-      : "";
+    let qs = "";
+    if (params) {
+      const parts: string[] = [];
+      for (const [k, v] of Object.entries(params)) {
+        if (v === undefined || v === null || v === "") continue;
+        if (Array.isArray(v)) {
+          // tags: repeat the param — ?tags=a&tags=b
+          for (const item of v) {
+            parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(item))}`);
+          }
+        } else {
+          parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+        }
+      }
+      if (parts.length > 0) qs = "?" + parts.join("&");
+    }
     const raw = await filenestApi<unknown>(`/v1/projects/${projectId}/files${qs}`);
     const parsed = FileListSchema.safeParse(raw);
     if (!parsed.success) throw new OutputParseError(parsed.error);
