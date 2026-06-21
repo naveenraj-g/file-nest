@@ -27,8 +27,8 @@ export type TSecurityConfigForm = z.infer<typeof SecurityConfigFormSchema>;
 
 export const ProcessingConfigFormSchema = z.object({
   versioning_enabled: z.boolean(),
-  ocr_enabled: z.boolean(),
   virus_scan_enabled: z.boolean(),
+  // ocr_enabled intentionally omitted — OCR is deferred to a later release
 });
 export type TProcessingConfigForm = z.infer<typeof ProcessingConfigFormSchema>;
 

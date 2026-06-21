@@ -13,6 +13,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useServerAction } from "zsa-react";
 import { toast } from "sonner";
 import { Save } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -39,7 +40,6 @@ export function ProjectProcessingConfigForm({ projectId, config }: Props) {
     resolver: zodResolver(ProcessingConfigFormSchema),
     defaultValues: {
       versioning_enabled: config.versioning_enabled,
-      ocr_enabled: config.ocr_enabled,
       virus_scan_enabled: config.virus_scan_enabled,
     },
   });
@@ -64,12 +64,6 @@ export function ProjectProcessingConfigForm({ projectId, config }: Props) {
       label: "File versioning",
       description:
         "Keep previous versions of every file. Each upload creates a new version rather than replacing the existing file.",
-    },
-    {
-      name: "ocr_enabled",
-      label: "OCR extraction",
-      description:
-        "Run optical character recognition on PDFs and images after upload. Extracted text is indexed for full-text search.",
     },
     {
       name: "virus_scan_enabled",
@@ -107,6 +101,25 @@ export function ProjectProcessingConfigForm({ projectId, config }: Props) {
             </div>
           </Field>
         ))}
+
+        {/* OCR — deferred to a later release */}
+        <Field>
+          <div className="flex items-center justify-between rounded-lg border p-4 opacity-60">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <FieldLabel className="text-sm font-medium leading-none">
+                  OCR extraction
+                </FieldLabel>
+                <Badge variant="secondary" className="text-xs">Coming soon</Badge>
+              </div>
+              <FieldDescription className="text-xs max-w-sm">
+                Run optical character recognition on PDFs and images after upload.
+                Extracted text will be indexed for full-text search.
+              </FieldDescription>
+            </div>
+            <Switch disabled aria-label="OCR extraction — coming soon" />
+          </div>
+        </Field>
       </FieldGroup>
 
       <Button type="submit" disabled={isPending}>

@@ -207,11 +207,13 @@ Phases 6 and 7 overlap — start Phase 7 when Phase 6 is 60% done.
 - `IndexingStage` (replaces Phase 2 stub): indexes on `file.ready`
 - Delete from index on `file.deleted`
 
-**OCR Stage**
+**OCR Stage** _(deferred — not included in Phase 3 / v1.0)_
 - `OCRStage`: PyMuPDF text extraction for PDFs (fast path). pytesseract fallback for scanned images.
 - Extracted text stored in `ocr_texts` table (separate from `files` — avoids large column on main table)
 - OCR text indexed into OpenSearch `ocr_text` field
 - Stage added to pipeline after `MimeValidationStage` (sequential, PDF/image only)
+- The `ocr_enabled` project config flag and the Settings → Processing UI are scaffolded; the toggle shows as "Coming soon" until this is implemented
+- `IndexingStage` (Step 5) is designed to pick up `ocr_text` from `ocr_texts` when the row exists — no changes to the indexing stage will be needed when OCR ships
 
 **Search API**
 - `POST /v1/projects/{id}/search` — body: `{ q, filters, tags, date_from, date_to, size_min, size_max, folder_id, sort_by, sort_order, limit, offset }`

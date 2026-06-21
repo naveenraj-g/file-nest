@@ -119,7 +119,9 @@ The processing pipeline needs an `IndexingStage` that runs after `Classification
 
 ---
 
-## Step 6 — OCR stage
+## Step 6 — OCR stage ⏸ DEFERRED
+
+> **Deferred — not included in Phase 3 / v1.0.** OCR will be implemented in a later release after the core search infrastructure (Steps 4, 5, 7) is stable. The `ocr_enabled` toggle in the console Settings → Processing tab is visible but disabled with a "Coming soon" badge. The `ocr_texts` table and `IndexingStage` are designed to accommodate the `ocr_text` field when OCR is added — no schema changes will be needed.
 
 OCR extracts text from PDFs and scanned images, stores it separately, and feeds it into OpenSearch for full-text search.
 
@@ -247,7 +249,7 @@ Review all Phase 3 features and ensure the docs route (`frontend/web/src/content
 | 3 | Folder hierarchy — table + CRUD + file move | ⬜ Not started |
 | 4 | OpenSearch client + index management | ⬜ Not started |
 | 5 | IndexingStage + sync on metadata/tag/delete | ⬜ Not started |
-| 6 | OCR stage — PyMuPDF + pytesseract + ocr_texts table | ⬜ Not started |
+| 6 | OCR stage — PyMuPDF + pytesseract + ocr_texts table | ⏸ Deferred |
 | 7 | Search API — POST /v1/projects/{id}/search | ⬜ Not started |
 | 8 | Console: Metadata & Tags UI — side panel + tag editing | ⬜ Not started |
 | 9 | Console: Folders UI — sidebar tree + URL-driven filter | ⬜ Not started |
