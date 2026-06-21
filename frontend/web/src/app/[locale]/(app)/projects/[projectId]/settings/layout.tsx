@@ -12,9 +12,10 @@
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { HardDrive, Upload, ShieldCheck, Scale, Cpu } from "lucide-react";
+import { Settings, HardDrive, Upload, ShieldCheck, Scale, Cpu } from "lucide-react";
 
 const PROJECT_SETTINGS_NAV = [
+  { segment: "general",    label: "General",    icon: Settings },
   { segment: "storage",    label: "Storage",    icon: HardDrive },
   { segment: "uploads",    label: "Uploads",    icon: Upload },
   { segment: "security",   label: "Security",   icon: ShieldCheck },

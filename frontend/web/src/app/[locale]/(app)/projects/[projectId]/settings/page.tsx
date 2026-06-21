@@ -14,5 +14,5 @@ interface Props {
 
 export default async function ProjectSettingsPage({ params }: Props) {
   const { projectId } = await params;
-  redirect(`/projects/${projectId}/settings/storage`);
+  redirect(`/projects/${projectId}/settings/general`);
 }
