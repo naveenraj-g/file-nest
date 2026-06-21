@@ -1,7 +1,7 @@
 # FileNest — Phase 5 Implementation Plan
 
 **Phase:** 5 — SDKs & Developer Experience  
-**Status:** 🔄 In Progress  
+**Status:** 🔄 In Progress (Steps 1–6 ✅, Step 7 partial, Steps 8–9 pending)  
 **Source:** `dev-docs/plan/00_Implementation_Roadmap.md` — Phase 5 section  
 **Goal:** External developers can integrate FileNest in under 30 minutes. SDKs published. Example applications demonstrate every SDK feature in isolation.
 
@@ -27,7 +27,7 @@
 
 ---
 
-## Step 1 — Monorepo workspace setup
+## Step 1 — Monorepo workspace setup ✅ COMPLETED
 
 Configure the repo root as a pnpm workspace so TypeScript SDK packages can be developed and cross-linked locally.
 
@@ -48,7 +48,7 @@ Configure the repo root as a pnpm workspace so TypeScript SDK packages can be de
 
 ---
 
-## Step 2 — `@filenest/core` (shared base)
+## Step 2 — `@filenest/core` (shared base) ✅ COMPLETED
 
 Shared HTTP client, error hierarchy, and TypeScript types used by all JS/TS SDKs.
 
@@ -97,7 +97,7 @@ FileNestError (base)
 
 ---
 
-## Step 3 — `@filenest/node`
+## Step 3 — `@filenest/node` ✅ COMPLETED
 
 Full server-side Node.js SDK. Extends `@filenest/core` HTTP client.
 
@@ -155,7 +155,7 @@ export class FileNest {
 
 ---
 
-## Step 4 — `@filenest/react`
+## Step 4 — `@filenest/react` ✅ COMPLETED
 
 React SDK with `FileNestProvider`, UI components, and TanStack Query–backed hooks.
 
@@ -173,7 +173,7 @@ React SDK with `FileNestProvider`, UI components, and TanStack Query–backed ho
 - Calls `useFileNest().upload()` after token fetch
 - Shows per-file progress bars, error badges, success states
 
-**`components/FileExplorer.tsx`** — `<FileExplorer>`:
+**`components/FileExplorer/`** — `<FileExplorer>` (rebuilt as 16-file directory — Google Drive UX):
 - Props: `rootFolderId`, `defaultView` (`grid | list`), `showFolders`, `showSearch`, `showFilters`, `showUploadButton`, `columns`, `searchFacets`, `selectable`, `multiSelect`, `selectedIds`, `onSelectionChange`, `actions`, `onFileClick`, `metadataColumns`, `emptyState`
 - Internal: folder sidebar + file grid/list + search bar
 - Uses `useFiles`, `useFolder`, `useSearch` internally
@@ -203,11 +203,15 @@ React SDK with `FileNestProvider`, UI components, and TanStack Query–backed ho
 **`hooks/useFolder.ts`** — folder navigation:
 - Returns `{ folder, files, subfolders, isLoading, breadcrumbs }`
 
+**`hooks/useInfiniteFiles.ts`** — TanStack Query infinite scroll (added beyond original spec):
+- `useInfiniteQuery` with `initialPageParam: 0`, `getNextPageParam` from pagination response
+- Used inside `<FileExplorer>` with `IntersectionObserver` sentinel for scroll-to-load
+
 **`index.ts`** — export all components and hooks
 
 ---
 
-## Step 5 — `@filenest/nextjs`
+## Step 5 — `@filenest/nextjs` ✅ COMPLETED
 
 Next.js server utilities. Thin wrapper — delegates to `@filenest/node` for API calls.
 
@@ -229,7 +233,7 @@ Next.js server utilities. Thin wrapper — delegates to `@filenest/node` for API
 
 ---
 
-## Step 6 — `filenest` Python SDK
+## Step 6 — `filenest` Python SDK ✅ COMPLETED
 
 Sync + async Python SDK. Packaged as `filenest` on PyPI.
 
@@ -291,11 +295,13 @@ Sync + async Python SDK. Packaged as `filenest` on PyPI.
 
 ---
 
-## Step 7 — Example applications
+## Step 7 — Example applications 🔄 In Progress
 
 Four standalone apps. Each lives in `examples/`, has its own `README.md` and `.env.example`, and requires only `FILENEST_API_KEY + FILENEST_PROJECT_ID + FILENEST_API_URL` to run.
 
-### `examples/node-sdk/` — Express + `@filenest/node`
+> **Note:** Only `examples/nextjs-sdk/` has been built. The node, react, and python examples are explicitly deferred — user will request them separately when ready.
+
+### `examples/node-sdk/` — Express + `@filenest/node` ⏳ Deferred
 
 **Files:**
 - `package.json` — deps: express, multer, `@filenest/node`
@@ -308,7 +314,7 @@ Four standalone apps. Each lives in `examples/`, has its own `README.md` and `.e
 
 Each route is self-contained — imports `FileNest` directly, no shared state beyond the client instance.
 
-### `examples/react-sdk/` — Vite + React + `@filenest/react`
+### `examples/react-sdk/` — Vite + React + `@filenest/react` ⏳ Deferred
 
 **Files:**
 - `package.json` — deps: vite, react, react-dom, react-router-dom, `@filenest/react`
@@ -327,7 +333,7 @@ Each route is self-contained — imports `FileNest` directly, no shared state be
 - `src/api/token.ts` — tiny Express server (separate process) that issues upload tokens
 - `README.md`
 
-### `examples/nextjs-sdk/` — Next.js 16 App Router + `@filenest/nextjs`
+### `examples/nextjs-sdk/` — Next.js 16 App Router + `@filenest/nextjs` ✅ COMPLETED
 
 **Files:**
 - `package.json` — deps: next, react, `@filenest/nextjs`, `@filenest/react`
@@ -341,9 +347,17 @@ Each route is self-contained — imports `FileNest` directly, no shared state be
 - `src/app/search/page.tsx` — server component calling `filenestServer().search.query()`
 - `src/app/api/filenest-token/route.ts` — `createUploadToken()`
 - `src/app/api/webhooks/filenest/route.ts` — `verifyWebhookSignature` + `parseWebhookEvent`
-- `README.md`
+- `src/app/api/webhooks/filenest/log/route.ts` — in-memory event log endpoint for webhook demo page
+- `src/app/api/webhooks/filenest/route.ts` — `verifyWebhookSignature` + `parseWebhookEvent`
 
-### `examples/python-sdk/` — FastAPI + `filenest`
+Additional pages built beyond original spec:
+- `src/app/file-detail/page.tsx` — `useFile()` demo with version history table
+- `src/app/folder/page.tsx` — `useFolder()` with clickable breadcrumbs + subfolder cards
+- `src/app/files/page.tsx` — `useFiles()` with paginated list + live state display
+- `src/app/webhooks/page.tsx` — webhook event log with 3-second polling
+- `src/app/file-explorer/page.tsx` — full Google Drive-inspired `<FileExplorer>` demo
+
+### `examples/python-sdk/` — FastAPI + `filenest` ⏳ Deferred
 
 **Files:**
 - `pyproject.toml` — deps: fastapi, uvicorn, python-multipart, filenest
@@ -386,16 +400,26 @@ Review all Phase 5 features and update the docs route.
 
 ---
 
+## Backend fix (done during Phase 5)
+
+**Startup CORS restoration** — `backend/app/main.py`
+
+`_apply_startup_cors` previously only restored CORS on the default platform bucket. Per-project managed buckets (`fn-{project_id}`) only got CORS set at project creation time. After a Docker restart or volume wipe, those bucket CORS policies were lost, blocking browser presigned URL uploads.
+
+Fix: added a second pass that queries all active managed `storage_configs`, joins `project_configs` for each project's `allowed_origins`, and calls `set_bucket_cors` on every per-project bucket concurrently via `asyncio.gather`. Individual failures are logged but do not block startup.
+
+---
+
 ## Summary
 
 | Step | Description | Status |
 |------|-------------|--------|
-| 1 | Monorepo workspace setup — pnpm-workspace, package.json, tsup configs | ⏳ Pending |
-| 2 | `@filenest/core` — HTTP client, error hierarchy, shared types | ⏳ Pending |
-| 3 | `@filenest/node` — full server-side Node SDK | ⏳ Pending |
-| 4 | `@filenest/react` — provider, components, hooks | ⏳ Pending |
-| 5 | `@filenest/nextjs` — server utilities | ⏳ Pending |
-| 6 | `filenest` Python SDK | ⏳ Pending |
-| 7 | Example applications — node, react, nextjs, python | ⏳ Pending |
+| 1 | Monorepo workspace setup — pnpm-workspace, package.json, tsup configs | ✅ Completed |
+| 2 | `@filenest/core` — HTTP client, error hierarchy, shared types | ✅ Completed |
+| 3 | `@filenest/node` — full server-side Node SDK | ✅ Completed |
+| 4 | `@filenest/react` — provider, components, hooks, Google Drive FileExplorer, useInfiniteFiles | ✅ Completed |
+| 5 | `@filenest/nextjs` — server utilities | ✅ Completed |
+| 6 | `filenest` Python SDK | ✅ Completed |
+| 7 | Example applications — nextjs done; node/react/python deferred | 🔄 In Progress |
 | 8 | Wire console app to real SDK packages | ⏳ Pending |
 | 9 | Docs audit — SDK docs route | ⏳ Pending |
