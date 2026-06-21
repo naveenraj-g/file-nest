@@ -1,6 +1,7 @@
 """app.schemas.file — Pydantic request/response models for files and file versions."""
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -20,14 +21,15 @@ class UploadInitRequest(BaseModel):
     content_type: str
     size_bytes: int
     folder_id: str | None = None
-    metadata: dict[str, str] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class UploadInitResponse(BaseModel):
     """Returned after upload initiation. Client PUTs bytes to upload_url."""
     file_id: str
     upload_url: str
-    upload_id: str | None = None  # multipart only (Phase 2)
+    upload_id: str | None = None  # multipart only
     expires_at: datetime
 
 
@@ -42,7 +44,10 @@ class FileResponse(BaseModel):
     status: FileStatus
     storage_key: str
     folder_id: str | None
-    metadata: dict[str, str]
+    category: str | None
+    version_count: int
+    tags: list[str]
+    metadata: dict[str, Any]
     created_at: datetime
     updated_at: datetime
 
@@ -95,6 +100,24 @@ class RestoreVersionResponse(BaseModel):
     version_number: int  # the new current version number after restore
 
 
+# ── Tags ────────────────────────────────────────────────────────────────────
+
+class TagsReplaceRequest(BaseModel):
+    """Replace the full tag list on a file."""
+    tags: list[str]
+
+
+class TagsAddRequest(BaseModel):
+    """Append tags to a file (union — no duplicates)."""
+    tags: list[str]
+
+
+class TagsResponse(BaseModel):
+    """Returned after a tag mutation."""
+    id: str
+    tags: list[str]
+
+
 # ── Multipart upload ────────────────────────────────────────────────────────
 
 class MultipartStartRequest(BaseModel):
@@ -103,7 +126,8 @@ class MultipartStartRequest(BaseModel):
     content_type: str
     total_size_bytes: int
     folder_id: str | None = None
-    metadata: dict[str, str] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class MultipartStartResponse(BaseModel):

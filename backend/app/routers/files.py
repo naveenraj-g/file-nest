@@ -35,6 +35,9 @@ from app.schemas.file import (
     MultipartStartRequest,
     MultipartStartResponse,
     RestoreVersionResponse,
+    TagsAddRequest,
+    TagsReplaceRequest,
+    TagsResponse,
     UploadInitRequest,
     UploadInitResponse,
 )
@@ -100,6 +103,30 @@ async def list_files(
     """Return a cursor-paginated list of files in the project. Scope: files:read."""
     require_scope(svc._ctx, "files:read")
     return await svc.list_files(folder_id=folder_id, limit=limit, cursor=cursor)
+
+
+@router.put("/projects/{project_id}/files/{file_id}/tags", response_model=TagsResponse)
+async def set_tags(
+    project_id: str,
+    file_id: str,
+    body: TagsReplaceRequest,
+    svc: FileService = Depends(get_file_service),
+) -> TagsResponse:
+    """Replace the full tag list on a file. Scope: files:update_metadata."""
+    require_scope(svc._ctx, "files:update_metadata")
+    return await svc.set_tags(file_id, body.tags)
+
+
+@router.post("/projects/{project_id}/files/{file_id}/tags", response_model=TagsResponse)
+async def add_tags(
+    project_id: str,
+    file_id: str,
+    body: TagsAddRequest,
+    svc: FileService = Depends(get_file_service),
+) -> TagsResponse:
+    """Append tags not already present on the file (union, no duplicates). Scope: files:update_metadata."""
+    require_scope(svc._ctx, "files:update_metadata")
+    return await svc.add_tags(file_id, body.tags)
 
 
 @router.delete("/projects/{project_id}/files/{file_id}", response_model=DeleteResponse)

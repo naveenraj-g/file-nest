@@ -108,6 +108,7 @@ class MultipartUploadService:
             content_type=req.content_type,
             size_bytes=req.total_size_bytes,
             folder_id=req.folder_id,
+            tags=list(dict.fromkeys(req.tags)),
             metadata_json=json.dumps(req.metadata),
             status="pending",
         )

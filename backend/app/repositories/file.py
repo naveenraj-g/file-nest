@@ -7,6 +7,7 @@ Soft-deleted files (deleted_at IS NOT NULL) are excluded from all queries.
 Usage:
     from app.repositories.file import FileRepository
 """
+import json
 from datetime import UTC, datetime
 
 from sqlalchemy import select
@@ -117,5 +118,66 @@ class FileRepository:
         """
         record = await self.get(file_id, organization_id, project_id)
         record.deleted_at = datetime.now(UTC)
+        record.updated_at = datetime.now(UTC)
+        return record
+
+    async def set_tags(
+        self, file_id: str, organization_id: str, project_id: str, tags: list[str]
+    ) -> File:
+        """
+        Replace the full tag list on a file. Duplicates are removed preserving order.
+
+        Raises:
+            NotFoundError: If the file does not exist.
+        """
+        record = await self.get(file_id, organization_id, project_id)
+        record.tags = list(dict.fromkeys(tags))
+        record.updated_at = datetime.now(UTC)
+        return record
+
+    async def add_tags(
+        self, file_id: str, organization_id: str, project_id: str, tags: list[str]
+    ) -> File:
+        """
+        Append tags that are not already present (union, no duplicates).
+
+        Raises:
+            NotFoundError: If the file does not exist.
+        """
+        record = await self.get(file_id, organization_id, project_id)
+        existing = set(record.tags or [])
+        new_tags = [t for t in tags if t not in existing]
+        record.tags = (record.tags or []) + new_tags
+        record.updated_at = datetime.now(UTC)
+        return record
+
+    async def update_metadata(
+        self, file_id: str, organization_id: str, project_id: str, metadata: dict
+    ) -> File:
+        """
+        Replace the entire metadata object on a file.
+
+        Raises:
+            NotFoundError: If the file does not exist.
+        """
+        record = await self.get(file_id, organization_id, project_id)
+        record.metadata_json = json.dumps(metadata)
+        record.updated_at = datetime.now(UTC)
+        return record
+
+    async def merge_metadata(
+        self, file_id: str, organization_id: str, project_id: str, updates: dict
+    ) -> File:
+        """
+        Merge specific keys into the existing metadata. Existing keys not in
+        updates are preserved.
+
+        Raises:
+            NotFoundError: If the file does not exist.
+        """
+        record = await self.get(file_id, organization_id, project_id)
+        current = json.loads(record.metadata_json or "{}")
+        current.update(updates)
+        record.metadata_json = json.dumps(current)
         record.updated_at = datetime.now(UTC)
         return record

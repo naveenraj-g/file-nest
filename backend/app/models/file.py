@@ -3,6 +3,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY
 
 from app.core.database import Base
 
@@ -30,7 +31,10 @@ class File(Base):
     category = Column(String, nullable=True)
     # Incremented on each confirmed upload when versioning_enabled = true
     version_count = Column(Integer, nullable=False, default=0)
+    # Free-form JSON metadata supplied by the caller at upload time or updated later.
     metadata_json = Column(Text, nullable=False, default="{}")
+    # Searchable string labels. Stored as a PostgreSQL text array.
+    tags = Column(ARRAY(String), nullable=False, server_default="{}")
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at = Column(

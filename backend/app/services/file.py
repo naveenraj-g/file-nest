@@ -45,6 +45,7 @@ from app.schemas.file import (
     FileVersionListResponse,
     FileVersionResponse,
     RestoreVersionResponse,
+    TagsResponse,
     UploadInitRequest,
     UploadInitResponse,
 )
@@ -121,6 +122,7 @@ class FileService:
             content_type=req.content_type,
             size_bytes=req.size_bytes,
             folder_id=req.folder_id,
+            tags=list(dict.fromkeys(req.tags)),
             metadata_json=json.dumps(req.metadata),
         )
 
@@ -353,6 +355,22 @@ class FileService:
             cursor=items[-1].id if len(items) == limit else None,
         )
 
+    async def set_tags(self, file_id: str, tags: list[str]) -> TagsResponse:
+        """Replace the full tag list on a file."""
+        record = await self._repo.set_tags(
+            file_id, self._ctx.organization_id, self._project_id, tags
+        )
+        await self._session.commit()
+        return TagsResponse(id=record.id, tags=record.tags or [])
+
+    async def add_tags(self, file_id: str, tags: list[str]) -> TagsResponse:
+        """Append tags not already present on the file (union, no duplicates)."""
+        record = await self._repo.add_tags(
+            file_id, self._ctx.organization_id, self._project_id, tags
+        )
+        await self._session.commit()
+        return TagsResponse(id=record.id, tags=record.tags or [])
+
     def _to_response(self, record) -> FileResponse:
         return FileResponse(
             id=record.id,
@@ -364,7 +382,10 @@ class FileService:
             status=record.status,
             storage_key=record.storage_key or "",
             folder_id=record.folder_id,
-            metadata=json.loads(record.metadata_json),
+            category=record.category,
+            version_count=record.version_count or 0,
+            tags=record.tags or [],
+            metadata=json.loads(record.metadata_json or "{}"),
             created_at=record.created_at,
             updated_at=record.updated_at,
         )

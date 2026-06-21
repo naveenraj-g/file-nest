@@ -77,6 +77,10 @@ class ProjectConfig(Base):
     # Lifetime in seconds for generated signed URLs. Default 3600 (1 hour).
     signed_url_ttl_seconds = Column(Integer, nullable=False, default=3600)
 
+    # When true, metadata writes (upload, PUT/PATCH metadata) are validated against
+    # the project's active metadata schema. Rejects with 422 on violation.
+    enforce_schema = Column(Boolean, nullable=False, default=False)
+
     # ── Processing / feature flags ────────────────────────────────────────────
     # These mirror versioning_enabled and ocr_enabled on the Project model.
     # Project remains the source of truth until a future migration consolidates
