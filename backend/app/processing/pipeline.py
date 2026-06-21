@@ -31,8 +31,10 @@ from app.core.messaging import TransactionalOutboxPublisher
 from app.processing.stages.classification import ClassificationStage
 from app.processing.stages.mime_validation import MimeValidationStage
 from app.processing.stages.virus_scan import VirusScanStage
+from app.errors import NotFoundError
 from app.repositories.file import FileRepository
 from app.repositories.project_config import ProjectConfigRepository
+from app.repositories.storage_config import StorageConfigRepository
 from app.storage.resolver import storage_resolver
 
 logger = get_logger(__name__)
@@ -83,7 +85,18 @@ class PipelineExecutor:
             file = await repo.get(file_id, organization_id, project_id)
             config = await config_repo.get_for_project(project_id, organization_id)
 
-            provider = await storage_resolver.get_provider(project_id)
+            # Resolve storage provider the same way FileService does — read the
+            # project's StorageConfig so we hit the correct bucket (managed or BYOB).
+            # Fall back to the platform default only if no StorageConfig exists yet.
+            storage_config_repo = StorageConfigRepository(session)
+            try:
+                storage_cfg = await storage_config_repo.get_for_project(
+                    project_id, organization_id
+                )
+                provider = storage_resolver.build_provider(storage_cfg)
+            except NotFoundError:
+                provider = await storage_resolver.get_provider(project_id)
+
             content = await provider.download_bytes(file.storage_key)
 
             # Build stage list — ClassificationStage always last
