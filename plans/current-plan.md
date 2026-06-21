@@ -74,7 +74,7 @@ The **Upload** button in the files page toolbar is currently disabled. Wire it t
 
 ---
 
-## Step 3 — File rename + move to folder
+## Step 3 — File rename + move to folder ✅ COMPLETED
 
 Two new row actions in the files table, both using the existing backend endpoints.
 
@@ -178,7 +178,7 @@ Review all Phase 4 features built in this phase and ensure the docs route reflec
 | — | Auth, onboarding, layout, projects, API keys, webhooks, settings | ✅ Carried over |
 | 1 | Dashboard page — usage cards, recent files, quick actions | ✅ Completed |
 | 2 | File upload UI — drag-and-drop, presigned URL flow, progress bars | ✅ Completed |
-| 3 | File rename + move to folder — row actions + modals | ⬜ Not started |
+| 3 | File rename + move to folder — row actions + modals, folder create/delete, hierarchical folder picker | ✅ Completed |
 | 4 | Team management — invite, role assignment, remove | ⬜ Not started |
 | 5 | Usage page — org meters + per-project breakdown | ⬜ Not started |
 | 6 | Project Settings — General + Processing tabs | ⬜ Not started |
