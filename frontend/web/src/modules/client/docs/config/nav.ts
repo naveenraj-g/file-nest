@@ -77,8 +77,10 @@ export const docsNav: NavSection[] = [
     title: "Console Guide",
     items: [
       { title: "Overview", href: "/docs/console/overview" },
+      { title: "Dashboard", href: "/docs/console/dashboard" },
       { title: "Projects", href: "/docs/console/projects" },
       { title: "Files", href: "/docs/console/files" },
+      { title: "Usage", href: "/docs/console/usage" },
       { title: "API Keys", href: "/docs/console/api-keys" },
       { title: "Webhooks", href: "/docs/console/webhooks" },
       { title: "Settings", href: "/docs/console/settings" },
