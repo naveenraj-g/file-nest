@@ -12,6 +12,10 @@ import {
   ListFilesParamsSchema,
   DeleteFileSchema,
   GetFileDownloadUrlSchema,
+  SetTagsSchema,
+  AddTagsSchema,
+  UpdateMetadataSchema,
+  MergeMetadataSchema,
 } from "./input";
 
 export const ListFilesActionSchema = z.object({
@@ -32,5 +36,28 @@ export const GetFileDownloadUrlActionSchema = z.object({
   payload: GetFileDownloadUrlSchema,
   transportOptions: TransportOptionsSchema.optional(),
 });
-
 export type TGetFileDownloadUrlAction = z.infer<typeof GetFileDownloadUrlActionSchema>;
+
+export const SetTagsActionSchema = z.object({
+  payload: SetTagsSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TSetTagsAction = z.infer<typeof SetTagsActionSchema>;
+
+export const AddTagsActionSchema = z.object({
+  payload: AddTagsSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TAddTagsAction = z.infer<typeof AddTagsActionSchema>;
+
+export const UpdateMetadataActionSchema = z.object({
+  payload: UpdateMetadataSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TUpdateMetadataAction = z.infer<typeof UpdateMetadataActionSchema>;
+
+export const MergeMetadataActionSchema = z.object({
+  payload: MergeMetadataSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TMergeMetadataAction = z.infer<typeof MergeMetadataActionSchema>;

@@ -7,7 +7,7 @@
  * @module
  */
 import type { ColumnDef } from "@tanstack/react-table";
-import { Download, Trash2 } from "lucide-react";
+import { Download, Info, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -151,6 +151,13 @@ export function filesTableColumns(): ColumnDef<TFile>[] {
         <DataTableRowActions
           row={row}
           actions={[
+            {
+              label: "View details",
+              icon: Info,
+              onClick: (r) => {
+                fileStore.getState().onOpen("fileDetails", r.original);
+              },
+            },
             {
               label: "Download",
               icon: Download,

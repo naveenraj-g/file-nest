@@ -55,3 +55,17 @@ export const FileDownloadUrlSchema = z.object({
 });
 
 export type TFileDownloadUrl = z.infer<typeof FileDownloadUrlSchema>;
+
+export const TagsResponseSchema = z.object({
+  id: z.string(),
+  tags: z.array(z.string()),
+});
+
+export type TTagsResponse = z.infer<typeof TagsResponseSchema>;
+
+export const MetadataResponseSchema = z.object({
+  id: z.string(),
+  metadata: z.record(z.string(), z.unknown()),
+});
+
+export type TMetadataResponse = z.infer<typeof MetadataResponseSchema>;

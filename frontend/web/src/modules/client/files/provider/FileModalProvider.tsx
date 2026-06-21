@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from "react";
 import { DeleteFileModal } from "@/modules/client/files/modals/DeleteFileModal";
+import { FileMetadataPanel } from "@/modules/client/files/components/FileMetadataPanel";
 
 export function FileModalProvider() {
   const [isMounted, setIsMounted] = useState(false);
@@ -20,5 +21,10 @@ export function FileModalProvider() {
 
   if (!isMounted) return null;
 
-  return <DeleteFileModal />;
+  return (
+    <>
+      <DeleteFileModal />
+      <FileMetadataPanel />
+    </>
+  );
 }

@@ -187,7 +187,7 @@ The main search endpoint. Queries OpenSearch with the given parameters and retur
 
 ---
 
-## Step 8 — Console: Metadata & Tags UI
+## Step 8 — Console: Metadata & Tags UI ✅ COMPLETED
 
 Wire the new backend APIs into the file explorer — metadata side panel and tag editing.
 
@@ -253,7 +253,7 @@ Review all Phase 3 features and ensure the docs route (`frontend/web/src/content
 | 5 | IndexingStage + sync on metadata/tag/delete | ⏸ Deferred |
 | 6 | OCR stage — PyMuPDF + pytesseract + ocr_texts table | ⏸ Deferred |
 | 7 | Search API — POST /v1/projects/{id}/search | ⏸ Deferred |
-| 8 | Console: Metadata & Tags UI — side panel + tag editing | ⬜ Not started |
+| 8 | Console: Metadata & Tags UI — side panel + tag editing | ✅ Completed |
 | 9 | Console: Folders UI — sidebar tree + URL-driven filter | ⬜ Not started |
 | 10 | Console: Search UI — debounced search bar + result view | ⏸ Deferred |
 | 11 | Docs audit — Console app docs route | ⬜ Not started |

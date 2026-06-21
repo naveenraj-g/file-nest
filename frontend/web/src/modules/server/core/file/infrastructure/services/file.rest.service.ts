@@ -17,9 +17,13 @@ import { filenestApi } from "@/modules/server/utils/api-client";
 import {
   FileListSchema,
   FileDownloadUrlSchema,
+  TagsResponseSchema,
+  MetadataResponseSchema,
   type TFileList,
   type TFileDownloadUrl,
   type TListFilesParams,
+  type TTagsResponse,
+  type TMetadataResponse,
 } from "@/modules/entities/schemas/file";
 import { OutputParseError } from "@/modules/server/shared/errors/schema-parse-error";
 import type { IFileService } from "../../domain/interfaces/file.service.interface";
@@ -69,5 +73,45 @@ export class FileRestService implements IFileService {
     await filenestApi<void>(`/v1/projects/${projectId}/files/${fileId}`, {
       method: "DELETE",
     });
+  }
+
+  async setTags(projectId: string, fileId: string, tags: string[]): Promise<TTagsResponse> {
+    const raw = await filenestApi<unknown>(
+      `/v1/projects/${projectId}/files/${fileId}/tags`,
+      { method: "PUT", body: JSON.stringify({ tags }) },
+    );
+    const parsed = TagsResponseSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+
+  async addTags(projectId: string, fileId: string, tags: string[]): Promise<TTagsResponse> {
+    const raw = await filenestApi<unknown>(
+      `/v1/projects/${projectId}/files/${fileId}/tags`,
+      { method: "POST", body: JSON.stringify({ tags }) },
+    );
+    const parsed = TagsResponseSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+
+  async updateMetadata(projectId: string, fileId: string, metadata: Record<string, unknown>): Promise<TMetadataResponse> {
+    const raw = await filenestApi<unknown>(
+      `/v1/projects/${projectId}/files/${fileId}/metadata`,
+      { method: "PUT", body: JSON.stringify({ metadata }) },
+    );
+    const parsed = MetadataResponseSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+
+  async mergeMetadata(projectId: string, fileId: string, metadata: Record<string, unknown>): Promise<TMetadataResponse> {
+    const raw = await filenestApi<unknown>(
+      `/v1/projects/${projectId}/files/${fileId}/metadata`,
+      { method: "PATCH", body: JSON.stringify({ metadata }) },
+    );
+    const parsed = MetadataResponseSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
   }
 }

@@ -30,6 +30,34 @@ export const ListFilesParamsSchema = z.object({
 
 export type TListFilesParams = z.infer<typeof ListFilesParamsSchema>;
 
+export const SetTagsSchema = z.object({
+  projectId: z.string().min(1),
+  fileId: z.string().min(1),
+  tags: z.array(z.string()),
+});
+export type TSetTags = z.infer<typeof SetTagsSchema>;
+
+export const AddTagsSchema = z.object({
+  projectId: z.string().min(1),
+  fileId: z.string().min(1),
+  tags: z.array(z.string()),
+});
+export type TAddTags = z.infer<typeof AddTagsSchema>;
+
+export const UpdateMetadataSchema = z.object({
+  projectId: z.string().min(1),
+  fileId: z.string().min(1),
+  metadata: z.record(z.string(), z.unknown()),
+});
+export type TUpdateMetadata = z.infer<typeof UpdateMetadataSchema>;
+
+export const MergeMetadataSchema = z.object({
+  projectId: z.string().min(1),
+  fileId: z.string().min(1),
+  metadata: z.record(z.string(), z.unknown()),
+});
+export type TMergeMetadata = z.infer<typeof MergeMetadataSchema>;
+
 export const DeleteFileSchema = z.object({
   projectId: z.string().min(1),
   fileId: z.string().min(1),
