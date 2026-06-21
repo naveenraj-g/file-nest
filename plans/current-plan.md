@@ -89,7 +89,9 @@ Folders let clients organise files into a tree structure. Files can be moved bet
 
 ---
 
-## Step 4 — OpenSearch client + index management
+## Step 4 — OpenSearch client + index management ⏸ DEFERRED
+
+> **Deferred — not included in Phase 3 / v1.0.** OpenSearch setup, indexing, and search will be implemented in a later release. Steps 5, 7, and 10 are also deferred as they all depend on this step.
 
 Before the indexing stage and search API can work, the OpenSearch client must be initialised and the per-project index created when a project is created.
 
@@ -107,7 +109,7 @@ Before the indexing stage and search API can work, the OpenSearch client must be
 
 ---
 
-## Step 5 — IndexingStage + re-index on metadata/tag update
+## Step 5 — IndexingStage + re-index on metadata/tag update ⏸ DEFERRED
 
 The processing pipeline needs an `IndexingStage` that runs after `ClassificationStage` and indexes the file into OpenSearch when it reaches `ready` status. Metadata and tag updates must also keep the index in sync.
 
@@ -145,7 +147,7 @@ OCR extracts text from PDFs and scanned images, stores it separately, and feeds 
 
 ---
 
-## Step 7 — Search API
+## Step 7 — Search API ⏸ DEFERRED
 
 The main search endpoint. Queries OpenSearch with the given parameters and returns ranked results with highlights.
 
@@ -211,7 +213,7 @@ Folder tree sidebar in the file explorer. Clicking a folder filters the file lis
 
 ---
 
-## Step 10 — Console: Search UI
+## Step 10 — Console: Search UI ⏸ DEFERRED
 
 Search bar above the file table. Calls the search API and shows results with highlights.
 
@@ -247,11 +249,11 @@ Review all Phase 3 features and ensure the docs route (`frontend/web/src/content
 | 1 | Tags on files — DB column + set/add endpoints | ✅ Completed |
 | 2 | Custom metadata — schemas table + metadata update endpoint | ✅ Completed |
 | 3 | Folder hierarchy — table + CRUD + file move | ✅ Completed |
-| 4 | OpenSearch client + index management | ⬜ Not started |
-| 5 | IndexingStage + sync on metadata/tag/delete | ⬜ Not started |
+| 4 | OpenSearch client + index management | ⏸ Deferred |
+| 5 | IndexingStage + sync on metadata/tag/delete | ⏸ Deferred |
 | 6 | OCR stage — PyMuPDF + pytesseract + ocr_texts table | ⏸ Deferred |
-| 7 | Search API — POST /v1/projects/{id}/search | ⬜ Not started |
+| 7 | Search API — POST /v1/projects/{id}/search | ⏸ Deferred |
 | 8 | Console: Metadata & Tags UI — side panel + tag editing | ⬜ Not started |
 | 9 | Console: Folders UI — sidebar tree + URL-driven filter | ⬜ Not started |
-| 10 | Console: Search UI — debounced search bar + result view | ⬜ Not started |
+| 10 | Console: Search UI — debounced search bar + result view | ⏸ Deferred |
 | 11 | Docs audit — Console app docs route | ⬜ Not started |
