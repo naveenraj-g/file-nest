@@ -200,7 +200,7 @@ Wire the new backend APIs into the file explorer — metadata side panel and tag
 
 ---
 
-## Step 9 — Console: Folders UI
+## Step 9 — Console: Folders UI ✅ COMPLETED
 
 Folder tree sidebar in the file explorer. Clicking a folder filters the file list.
 
