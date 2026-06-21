@@ -22,11 +22,11 @@ import {
 import type { TStatusCount } from "@/modules/entities/schemas/dashboard";
 
 const STATUS_COLORS: Record<string, string> = {
-  ready: "hsl(var(--chart-1))",
-  processing: "hsl(var(--chart-2))",
-  failed: "hsl(var(--chart-3))",
-  quarantined: "hsl(var(--chart-4))",
-  pending: "hsl(var(--chart-5))",
+  ready: "var(--chart-1)",
+  processing: "var(--chart-2)",
+  failed: "var(--chart-3)",
+  quarantined: "var(--chart-4)",
+  pending: "var(--chart-5)",
 };
 
 function buildConfig(data: TStatusCount[]): ChartConfig {

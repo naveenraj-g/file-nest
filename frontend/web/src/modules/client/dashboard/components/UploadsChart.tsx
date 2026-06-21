@@ -23,7 +23,7 @@ import type { TUploadsByDay } from "@/modules/entities/schemas/dashboard";
 const chartConfig = {
   count: {
     label: "Uploads",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
 

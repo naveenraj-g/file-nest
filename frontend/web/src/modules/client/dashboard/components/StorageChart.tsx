@@ -23,7 +23,7 @@ import type { TStorageByDay } from "@/modules/entities/schemas/dashboard";
 const chartConfig = {
   bytes: {
     label: "Storage",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
 } satisfies ChartConfig;
 
