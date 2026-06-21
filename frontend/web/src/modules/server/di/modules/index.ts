@@ -2,6 +2,7 @@
  * Barrel export for all DI module registration functions.
  * Import from here in container.ts to keep it tidy as new domains are added.
  */
+export { registerDashboardModule } from "./dashboard/dashboard.module";
 export { registerProjectModule } from "./project/project.module";
 export { registerStorageConfigModule } from "./storage-config/storage-config.module";
 export { registerProjectConfigModule } from "./project-config/project-config.module";

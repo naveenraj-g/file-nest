@@ -1,6 +1,7 @@
 """app.routers — All API routers aggregated here."""
 from fastapi import APIRouter
 
+from .dashboard import router as dashboard_router
 from .files import router as files_router
 from .folders import router as folders_router
 from .metadata import router as metadata_router
@@ -10,6 +11,7 @@ from .storage import router as storage_router
 from .webhooks import router as webhooks_router
 
 api_router = APIRouter(prefix="/v1")
+api_router.include_router(dashboard_router)
 api_router.include_router(projects_router)
 api_router.include_router(project_config_router)
 api_router.include_router(files_router)

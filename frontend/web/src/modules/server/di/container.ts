@@ -16,6 +16,7 @@
 import { createContainer } from "@evyweb/ioctopus";
 import { DI_SYMBOLS, type DI_RETURN_TYPES } from "./types";
 import {
+  registerDashboardModule,
   registerProjectModule,
   registerStorageConfigModule,
   registerProjectConfigModule,
@@ -27,6 +28,7 @@ import {
 
 const ApplicationContainer = createContainer();
 
+registerDashboardModule(ApplicationContainer);
 registerProjectModule(ApplicationContainer);
 registerStorageConfigModule(ApplicationContainer);
 registerProjectConfigModule(ApplicationContainer);
