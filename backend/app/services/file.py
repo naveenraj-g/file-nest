@@ -22,6 +22,7 @@ Usage:
                       project_id=project_id)
     result = await svc.init_upload(request_body)
 """
+import asyncio
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -357,34 +358,37 @@ class FileService:
         size_max: int | None = None,
         metadata_filter: dict[str, Any] | None = None,
         limit: int = 50,
+        offset: int = 0,
         cursor: str | None = None,
     ) -> FileListResponse:
         """
-        Return a cursor-paginated, filtered list of files in the current project.
+        Return a paginated, filtered list of files in the current project.
 
-        All filter args are optional — omitting them returns all files.
-        See FileRepository.list() for filter semantics.
+        Runs two queries: one COUNT(*) for the total and one SELECT for the page.
+        Supports cursor (infinite scroll) and offset (page table) modes — see
+        FileRepository.list() for pagination semantics.
         """
-        records = await self._repo.list(
-            self._ctx.organization_id,
-            self._project_id,
-            folder_id=folder_id,
-            q=q,
-            tags=tags,
-            category=category,
-            status=status,
-            date_from=date_from,
-            date_to=date_to,
-            size_min=size_min,
-            size_max=size_max,
-            metadata_filter=metadata_filter,
-            limit=limit,
-            cursor=cursor,
+        filter_kwargs: dict[str, Any] = dict(
+            folder_id=folder_id, q=q, tags=tags, category=category,
+            status=status, date_from=date_from, date_to=date_to,
+            size_min=size_min, size_max=size_max, metadata_filter=metadata_filter,
+        )
+        total, records = await asyncio.gather(
+            self._repo.count(self._ctx.organization_id, self._project_id, **filter_kwargs),
+            self._repo.list(
+                self._ctx.organization_id, self._project_id,
+                **filter_kwargs, limit=limit, offset=offset, cursor=cursor,
+            ),
         )
         items = [self._to_response(r) for r in records]
+        has_more = len(items) == limit and (offset + limit) < total if not cursor else len(items) == limit
         return FileListResponse(
-            items=items, total=len(items),
-            cursor=items[-1].id if len(items) == limit else None,
+            items=items,
+            total=total,
+            limit=limit,
+            offset=offset if not cursor else 0,
+            has_more=has_more,
+            next_cursor=items[-1].id if items and has_more else None,
         )
 
     async def set_tags(self, file_id: str, tags: list[str]) -> TagsResponse:

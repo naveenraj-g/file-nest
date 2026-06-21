@@ -73,10 +73,11 @@ async def list_folder_files(
     size_max: int | None = Query(None, ge=0, description="size_bytes <= size_max"),
     metadata: str | None = Query(None, description='JSONB containment filter as JSON string'),
     limit: int = Query(50, ge=1, le=200, description="Page size"),
-    cursor: str | None = Query(None, description="Last file id from previous page"),
+    offset: int = Query(0, ge=0, description="Records to skip — for page-table navigation (ignored when cursor is set)"),
+    cursor: str | None = Query(None, description="Last file id from previous page — for infinite scroll (takes priority over offset)"),
     svc: FolderService = Depends(get_folder_service),
 ) -> FileListResponse:
-    """Return files inside a specific folder, cursor-paginated with optional filters. Scope: files:read."""
+    """Return files inside a specific folder, paginated with optional filters. Scope: files:read."""
     require_scope(svc._ctx, "files:read")
 
     metadata_filter = None
@@ -103,6 +104,7 @@ async def list_folder_files(
         size_max=size_max,
         metadata_filter=metadata_filter,
         limit=limit,
+        offset=offset,
         cursor=cursor,
     )
 

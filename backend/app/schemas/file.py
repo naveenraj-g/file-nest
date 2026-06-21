@@ -53,10 +53,13 @@ class FileResponse(BaseModel):
 
 
 class FileListResponse(BaseModel):
-    """Cursor-paginated list of files."""
+    """Paginated list of files — supports both cursor (infinite scroll) and offset (page table) modes."""
     items: list[FileResponse]
-    total: int
-    cursor: str | None = None
+    total: int            # total records matching the current filters (for page-count calculation)
+    limit: int            # page size applied
+    offset: int           # offset applied (0 when cursor mode is used)
+    has_more: bool        # whether another page exists after this one
+    next_cursor: str | None = None  # last item id — pass as cursor= on next request for keyset pagination
 
 
 class DownloadUrlResponse(BaseModel):

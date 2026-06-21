@@ -14,6 +14,7 @@ Usage:
     svc = FolderService(session=session, repo=repo, file_repo=file_repo, ctx=ctx, project_id=project_id)
     result = await svc.create_folder(req)
 """
+import asyncio
 import json
 from datetime import datetime
 from typing import Any
@@ -109,10 +110,11 @@ class FolderService:
         size_max: int | None = None,
         metadata_filter: dict[str, Any] | None = None,
         limit: int = 50,
+        offset: int = 0,
         cursor: str | None = None,
     ) -> FileListResponse:
         """
-        List files inside a specific folder with the same filter set as the global file list.
+        List files inside a specific folder with the same filter + pagination set as the global file list.
 
         Verifies the folder exists and belongs to this project before querying.
 
@@ -120,22 +122,20 @@ class FolderService:
             NotFoundError: If the folder does not exist.
         """
         await self._repo.get(folder_id, self._ctx.organization_id, self._project_id)
-        records = await self._file_repo.list(
-            self._ctx.organization_id,
-            self._project_id,
-            folder_id=folder_id,
-            q=q,
-            tags=tags,
-            category=category,
-            status=status,
-            date_from=date_from,
-            date_to=date_to,
-            size_min=size_min,
-            size_max=size_max,
-            metadata_filter=metadata_filter,
-            limit=limit,
-            cursor=cursor,
+
+        filter_kwargs: dict[str, Any] = dict(
+            folder_id=folder_id, q=q, tags=tags, category=category,
+            status=status, date_from=date_from, date_to=date_to,
+            size_min=size_min, size_max=size_max, metadata_filter=metadata_filter,
         )
+        total, records = await asyncio.gather(
+            self._file_repo.count(self._ctx.organization_id, self._project_id, **filter_kwargs),
+            self._file_repo.list(
+                self._ctx.organization_id, self._project_id,
+                **filter_kwargs, limit=limit, offset=offset, cursor=cursor,
+            ),
+        )
+
         from app.schemas.file import FileResponse
         items = [
             FileResponse(
@@ -157,10 +157,14 @@ class FolderService:
             )
             for r in records
         ]
+        has_more = len(items) == limit and (offset + limit) < total if not cursor else len(items) == limit
         return FileListResponse(
             items=items,
-            total=len(items),
-            cursor=items[-1].id if len(items) == limit else None,
+            total=total,
+            limit=limit,
+            offset=offset if not cursor else 0,
+            has_more=has_more,
+            next_cursor=items[-1].id if items and has_more else None,
         )
 
     async def delete_folder(self, folder_id: str) -> DeleteFolderResponse:

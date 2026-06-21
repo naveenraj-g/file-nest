@@ -4,15 +4,19 @@ app.repositories.file — Database access layer for files.
 Every query includes organization_id + project_id to prevent cross-tenant leaks.
 Soft-deleted files (deleted_at IS NOT NULL) are excluded from all queries.
 
+Pagination modes:
+  - Cursor (keyset): pass cursor=<last_id>. Efficient at any depth, ideal for infinite scroll.
+  - Offset: pass offset=N. Supports random-access page jumps, ideal for table pagination.
+  When cursor is provided it takes priority; offset is ignored.
+
 Usage:
     from app.repositories.file import FileRepository
 """
 import json
 from datetime import UTC, datetime
 
-from sqlalchemy import cast, select, type_coerce
+from sqlalchemy import String, cast, func, select, type_coerce
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import NotFoundError
@@ -52,6 +56,95 @@ class FileRepository:
             raise NotFoundError(f"File {file_id} not found")
         return record
 
+    def _apply_filters(
+        self,
+        stmt,
+        organization_id: str,
+        project_id: str,
+        *,
+        folder_id: str | None = None,
+        q: str | None = None,
+        tags: list[str] | None = None,
+        category: str | None = None,
+        status: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+        size_min: int | None = None,
+        size_max: int | None = None,
+        metadata_filter: dict | None = None,
+    ):
+        """Apply the shared WHERE clauses used by both list() and count()."""
+        stmt = stmt.where(
+            File.organization_id == organization_id,
+            File.project_id == project_id,
+            File.deleted_at.is_(None),
+        )
+        if folder_id is not None:
+            stmt = stmt.where(File.folder_id == folder_id)
+        if q:
+            stmt = stmt.where(File.filename.ilike(f"%{q}%"))
+        if tags:
+            stmt = stmt.where(File.tags.op("@>")(type_coerce(tags, ARRAY(String()))))
+        if category:
+            stmt = stmt.where(File.category == category)
+        if status:
+            stmt = stmt.where(File.status == status)
+        if date_from:
+            stmt = stmt.where(File.created_at >= date_from)
+        if date_to:
+            stmt = stmt.where(File.created_at <= date_to)
+        if size_min is not None:
+            stmt = stmt.where(File.size_bytes >= size_min)
+        if size_max is not None:
+            stmt = stmt.where(File.size_bytes <= size_max)
+        if metadata_filter:
+            stmt = stmt.where(
+                cast(File.metadata_json, JSONB).op("@>")(
+                    cast(json.dumps(metadata_filter), JSONB)
+                )
+            )
+        return stmt
+
+    async def count(
+        self,
+        organization_id: str,
+        project_id: str,
+        *,
+        folder_id: str | None = None,
+        q: str | None = None,
+        tags: list[str] | None = None,
+        category: str | None = None,
+        status: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+        size_min: int | None = None,
+        size_max: int | None = None,
+        metadata_filter: dict | None = None,
+    ) -> int:
+        """
+        Return the total number of files matching the given filters.
+
+        Runs the same WHERE clause as list() without LIMIT/OFFSET so the caller
+        can compute total page count or display "N files" in the UI.
+        """
+        stmt = self._apply_filters(
+            select(func.count(File.id)),
+            organization_id,
+            project_id,
+            folder_id=folder_id,
+            q=q,
+            tags=tags,
+            category=category,
+            status=status,
+            date_from=date_from,
+            date_to=date_to,
+            size_min=size_min,
+            size_max=size_max,
+            metadata_filter=metadata_filter,
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one()
+
     async def list(
         self,
         organization_id: str,
@@ -68,63 +161,44 @@ class FileRepository:
         size_max: int | None = None,
         metadata_filter: dict | None = None,
         limit: int = 50,
+        offset: int = 0,
         cursor: str | None = None,
     ) -> list[File]:
         """
-        Return a cursor-paginated list of files, newest first, with optional filters.
+        Return a paginated list of files, newest first.
+
+        Pagination modes (cursor takes priority when both are provided):
+          - Cursor (keyset): set cursor=<last_id>. Efficient at any depth; use for
+            infinite scroll. offset is ignored when cursor is set.
+          - Offset: set offset=N. Supports page jumps; use for table page navigation.
 
         Args:
-            folder_id:       Scope to a specific folder; None returns all files regardless of folder.
-            q:               Filename substring search (case-insensitive).
-            tags:            File must have ALL of these tags (array containment).
-            category:        Exact match on category (document, image, video, …).
-            status:          Exact match on status (ready, processing, …).
-            date_from:       created_at >= date_from.
-            date_to:         created_at <= date_to.
-            size_min:        size_bytes >= size_min.
-            size_max:        size_bytes <= size_max.
-            metadata_filter: JSONB containment — file metadata must include all key-value pairs.
-            limit:           Page size (max 200).
-            cursor:          Last file id from the previous page for keyset pagination.
+            limit:           Page size (1–200).
+            offset:          Number of records to skip. Ignored when cursor is set.
+            cursor:          Last file id from the previous page (keyset pagination).
         """
-        stmt = select(File).where(
-            File.organization_id == organization_id,
-            File.project_id == project_id,
-            File.deleted_at.is_(None),
+        stmt = self._apply_filters(
+            select(File),
+            organization_id,
+            project_id,
+            folder_id=folder_id,
+            q=q,
+            tags=tags,
+            category=category,
+            status=status,
+            date_from=date_from,
+            date_to=date_to,
+            size_min=size_min,
+            size_max=size_max,
+            metadata_filter=metadata_filter,
         )
-
-        if folder_id is not None:
-            stmt = stmt.where(File.folder_id == folder_id)
-        if q:
-            stmt = stmt.where(File.filename.ilike(f"%{q}%"))
-        if tags:
-            # tags @> ARRAY['a','b'] — file must have ALL of the specified tags
-            stmt = stmt.where(
-                File.tags.op("@>")(type_coerce(tags, ARRAY(String())))
-            )
-        if category:
-            stmt = stmt.where(File.category == category)
-        if status:
-            stmt = stmt.where(File.status == status)
-        if date_from:
-            stmt = stmt.where(File.created_at >= date_from)
-        if date_to:
-            stmt = stmt.where(File.created_at <= date_to)
-        if size_min is not None:
-            stmt = stmt.where(File.size_bytes >= size_min)
-        if size_max is not None:
-            stmt = stmt.where(File.size_bytes <= size_max)
-        if metadata_filter:
-            # Cast Text column to JSONB for containment check
-            stmt = stmt.where(
-                cast(File.metadata_json, JSONB).op("@>")(
-                    cast(json.dumps(metadata_filter), JSONB)
-                )
-            )
+        stmt = stmt.order_by(File.created_at.desc())
 
         if cursor:
-            stmt = stmt.where(File.id > cursor)
-        stmt = stmt.order_by(File.created_at.desc()).limit(limit)
+            # Keyset pagination — cursor is the last seen file id
+            stmt = stmt.where(File.id > cursor).limit(limit)
+        else:
+            stmt = stmt.offset(offset).limit(limit)
 
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
