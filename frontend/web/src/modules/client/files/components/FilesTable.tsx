@@ -38,19 +38,25 @@ import type { TFileList } from "@/modules/entities/schemas/file";
 
 interface FilesTableProps {
   projectId: string;
+  /** When set, only files inside this folder are shown. Driven by URL `?folder_id=`. */
+  folderId?: string | null;
   /** SSR-fetched first page — seeds the query to avoid a loading flash. */
   initialData: TFileList;
 }
 
-export function FilesTable({ projectId, initialData }: FilesTableProps) {
+export function FilesTable({ projectId, folderId, initialData }: FilesTableProps) {
   const { onOpen, trigger } = useFileStore();
   const queryClient = useQueryClient();
 
   const columns = React.useMemo(() => filesTableColumns(), []);
 
   const queryParams = React.useMemo(
-    () => ({ projectId, limit: 200 }),
-    [projectId],
+    () => ({
+      projectId,
+      limit: 200,
+      ...(folderId ? { folder_id: folderId } : {}),
+    }),
+    [projectId, folderId],
   );
 
   const { data, isFetching } = useServerActionQuery(listFilesAction, {

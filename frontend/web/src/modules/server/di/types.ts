@@ -14,6 +14,7 @@ import type { IStorageConfigService } from "../core/storage-config/domain/interf
 import type { IProjectConfigService } from "../core/project-config/domain/interfaces/project-config.service.interface";
 import type { IApiKeyService } from "../core/api-key/domain/interfaces/api-key.service.interface";
 import type { IFileService } from "../core/file/domain/interfaces/file.service.interface";
+import type { IFolderService } from "../core/folder/domain/interfaces/folder.service.interface";
 import type { IWebhookService } from "../core/webhook/domain/interfaces/webhook.service.interface";
 
 export const DI_SYMBOLS = {
@@ -22,6 +23,7 @@ export const DI_SYMBOLS = {
   IProjectConfigService: Symbol.for("IProjectConfigService"),
   IApiKeyService: Symbol.for("IApiKeyService"),
   IFileService: Symbol.for("IFileService"),
+  IFolderService: Symbol.for("IFolderService"),
   IWebhookService: Symbol.for("IWebhookService"),
 } as const;
 
@@ -31,5 +33,6 @@ export interface DI_RETURN_TYPES {
   IProjectConfigService: IProjectConfigService;
   IApiKeyService: IApiKeyService;
   IFileService: IFileService;
+  IFolderService: IFolderService;
   IWebhookService: IWebhookService;
 }

@@ -8,3 +8,4 @@ export { registerProjectConfigModule } from "./project-config/project-config.mod
 export { registerApiKeyModule } from "./api-key/api-key.module";
 export { registerFileModule } from "./file/file.module";
 export { registerWebhookModule } from "./webhook/webhook.module";
+export { registerFolderModule } from "./folder/folder.module";
