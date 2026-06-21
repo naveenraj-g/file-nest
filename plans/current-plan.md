@@ -63,7 +63,7 @@ Per-file key-value metadata stored as JSONB, validated against a project-scoped 
 
 ---
 
-## Step 3 — Folder hierarchy
+## Step 3 — Folder hierarchy ✅ COMPLETED
 
 Folders let clients organise files into a tree structure. Files can be moved between folders.
 
@@ -246,7 +246,7 @@ Review all Phase 3 features and ensure the docs route (`frontend/web/src/content
 |------|-------------|--------|
 | 1 | Tags on files — DB column + set/add endpoints | ✅ Completed |
 | 2 | Custom metadata — schemas table + metadata update endpoint | ✅ Completed |
-| 3 | Folder hierarchy — table + CRUD + file move | ⬜ Not started |
+| 3 | Folder hierarchy — table + CRUD + file move | ✅ Completed |
 | 4 | OpenSearch client + index management | ⬜ Not started |
 | 5 | IndexingStage + sync on metadata/tag/delete | ⬜ Not started |
 | 6 | OCR stage — PyMuPDF + pytesseract + ocr_texts table | ⏸ Deferred |

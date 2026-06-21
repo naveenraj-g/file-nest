@@ -167,3 +167,10 @@ class MultipartAbortResponse(BaseModel):
     """Returned after a multipart upload is aborted."""
     upload_id: str
     aborted: bool = True
+
+
+# ── Folders ─────────────────────────────────────────────────────────────────
+
+class MoveFileRequest(BaseModel):
+    """Move a file to a different folder (or to the root when folder_id is null)."""
+    folder_id: str | None = None

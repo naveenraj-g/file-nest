@@ -1,6 +1,7 @@
 """app.models — SQLAlchemy ORM models. Import all here so Alembic sees the full schema."""
 from .file import File
 from .file_version import FileVersion
+from .folder import Folder
 from .metadata_schema import MetadataSchema
 from .project import Project
 from .project_config import ProjectConfig
@@ -10,7 +11,7 @@ from .upload_session import UploadSession
 from .webhook import Webhook, WebhookDelivery
 
 __all__ = [
-    "Project", "ProjectConfig", "File", "FileVersion",
+    "Project", "ProjectConfig", "File", "FileVersion", "Folder",
     "MetadataSchema", "StorageConfig", "StorageMigration",
     "UploadSession", "Webhook", "WebhookDelivery",
 ]

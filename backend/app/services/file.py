@@ -44,6 +44,7 @@ from app.schemas.file import (
     FileResponse,
     FileVersionListResponse,
     FileVersionResponse,
+    MoveFileRequest,
     RestoreVersionResponse,
     TagsResponse,
     UploadInitRequest,
@@ -370,6 +371,23 @@ class FileService:
         )
         await self._session.commit()
         return TagsResponse(id=record.id, tags=record.tags or [])
+
+    async def move_file(self, file_id: str, req: MoveFileRequest) -> FileResponse:
+        """
+        Move a file to a different folder or to the root.
+
+        Args:
+            file_id: The file to move.
+            req:     MoveFileRequest with the target folder_id (None = root).
+
+        Raises:
+            NotFoundError: If the file does not exist.
+        """
+        record = await self._repo.move_file(
+            file_id, self._ctx.organization_id, self._project_id, req.folder_id
+        )
+        await self._session.commit()
+        return self._to_response(record)
 
     def _to_response(self, record) -> FileResponse:
         return FileResponse(
