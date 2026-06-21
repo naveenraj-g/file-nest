@@ -18,7 +18,7 @@
 
 ---
 
-## Step 1 — Tags on files
+## Step 1 — Tags on files ✅ COMPLETED
 
 Tags are the simplest Phase 3 feature and a prerequisite for search filtering. Add `tags` to the `files` table first so all later steps can index and filter by them.
 
@@ -39,7 +39,7 @@ Tags are the simplest Phase 3 feature and a prerequisite for search filtering. A
 
 ---
 
-## Step 2 — Custom metadata
+## Step 2 — Custom metadata ✅ COMPLETED
 
 Per-file key-value metadata stored as JSONB, validated against a project-scoped JSON Schema when `enforce_schema=true`.
 
@@ -244,8 +244,8 @@ Review all Phase 3 features and ensure the docs route (`frontend/web/src/content
 
 | Step | Description | Status |
 |------|-------------|--------|
-| 1 | Tags on files — DB column + set/add endpoints | ⬜ Not started |
-| 2 | Custom metadata — schemas table + metadata update endpoint | ⬜ Not started |
+| 1 | Tags on files — DB column + set/add endpoints | ✅ Completed |
+| 2 | Custom metadata — schemas table + metadata update endpoint | ✅ Completed |
 | 3 | Folder hierarchy — table + CRUD + file move | ⬜ Not started |
 | 4 | OpenSearch client + index management | ⬜ Not started |
 | 5 | IndexingStage + sync on metadata/tag/delete | ⬜ Not started |
