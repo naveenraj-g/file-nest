@@ -124,7 +124,7 @@ Invite members, assign roles, remove members. All operations call the **IAM API*
 
 ---
 
-## Step 5 — Usage page (`/org/usage`)
+## Step 5 — Usage page (`/org/usage`) ✅ COMPLETED
 
 Shows org-level usage meters with a per-project breakdown table.
 
@@ -179,7 +179,7 @@ Review all Phase 4 features built in this phase and ensure the docs route reflec
 | 1 | Dashboard page — usage cards, recent files, quick actions | ✅ Completed |
 | 2 | File upload UI — drag-and-drop, presigned URL flow, progress bars | ✅ Completed |
 | 3 | File rename + move to folder — row actions + modals, folder create/delete, hierarchical folder picker | ✅ Completed |
-| 4 | Team management — invite, role assignment, remove | ⬜ Not started |
-| 5 | Usage page — org meters + per-project breakdown | ⬜ Not started |
+| 4 | Team management — invite, role assignment, remove | ⏭ Deferred |
+| 5 | Usage page — org meters + per-project breakdown | ✅ Completed |
 | 6 | Project Settings — General + Processing tabs | ⬜ Not started |
 | 7 | Docs audit — Console app docs route | ⬜ Not started |

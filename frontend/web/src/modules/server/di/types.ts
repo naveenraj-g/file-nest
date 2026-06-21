@@ -17,6 +17,7 @@ import type { IDashboardService } from "../core/dashboard/domain/interfaces/dash
 import type { IFileService } from "../core/file/domain/interfaces/file.service.interface";
 import type { IFolderService } from "../core/folder/domain/interfaces/folder.service.interface";
 import type { IWebhookService } from "../core/webhook/domain/interfaces/webhook.service.interface";
+import type { IUsageService } from "../core/usage/domain/interfaces/usage.service.interface";
 
 export const DI_SYMBOLS = {
   IDashboardService: Symbol.for("IDashboardService"),
@@ -27,6 +28,7 @@ export const DI_SYMBOLS = {
   IFileService: Symbol.for("IFileService"),
   IFolderService: Symbol.for("IFolderService"),
   IWebhookService: Symbol.for("IWebhookService"),
+  IUsageService: Symbol.for("IUsageService"),
 } as const;
 
 export interface DI_RETURN_TYPES {
@@ -38,4 +40,5 @@ export interface DI_RETURN_TYPES {
   IFileService: IFileService;
   IFolderService: IFolderService;
   IWebhookService: IWebhookService;
+  IUsageService: IUsageService;
 }

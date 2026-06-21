@@ -24,6 +24,7 @@ import {
   registerFileModule,
   registerWebhookModule,
   registerFolderModule,
+  registerUsageModule,
 } from "./modules";
 
 const ApplicationContainer = createContainer();
@@ -36,6 +37,7 @@ registerApiKeyModule(ApplicationContainer);
 registerFileModule(ApplicationContainer);
 registerWebhookModule(ApplicationContainer);
 registerFolderModule(ApplicationContainer);
+registerUsageModule(ApplicationContainer);
 
 export function getInjection<K extends keyof typeof DI_SYMBOLS>(
   symbol: K,
