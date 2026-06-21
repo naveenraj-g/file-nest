@@ -61,3 +61,50 @@ export const MergeMetadataActionSchema = z.object({
   transportOptions: TransportOptionsSchema.optional(),
 });
 export type TMergeMetadataAction = z.infer<typeof MergeMetadataActionSchema>;
+
+// ── Upload actions ───────────────────────────────────────────────────────────
+
+import {
+  InitiateUploadSchema,
+  ConfirmUploadSchema,
+  InitiateMultipartSchema,
+  GetPartUrlSchema,
+  CompleteMultipartSchema,
+  AbortMultipartSchema,
+} from "./input";
+
+export const InitiateUploadActionSchema = z.object({
+  payload: InitiateUploadSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TInitiateUploadAction = z.infer<typeof InitiateUploadActionSchema>;
+
+export const ConfirmUploadActionSchema = z.object({
+  payload: ConfirmUploadSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TConfirmUploadAction = z.infer<typeof ConfirmUploadActionSchema>;
+
+export const InitiateMultipartActionSchema = z.object({
+  payload: InitiateMultipartSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TInitiateMultipartAction = z.infer<typeof InitiateMultipartActionSchema>;
+
+export const GetPartUrlActionSchema = z.object({
+  payload: GetPartUrlSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TGetPartUrlAction = z.infer<typeof GetPartUrlActionSchema>;
+
+export const CompleteMultipartActionSchema = z.object({
+  payload: CompleteMultipartSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TCompleteMultipartAction = z.infer<typeof CompleteMultipartActionSchema>;
+
+export const AbortMultipartActionSchema = z.object({
+  payload: AbortMultipartSchema,
+  transportOptions: TransportOptionsSchema.optional(),
+});
+export type TAbortMultipartAction = z.infer<typeof AbortMultipartActionSchema>;

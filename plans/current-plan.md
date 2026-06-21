@@ -34,7 +34,7 @@ These Phase 4 deliverables are done — no further work needed:
 
 ---
 
-## Step 1 — Dashboard page (`/dashboard`)
+## Step 1 — Dashboard page (`/dashboard`) ✅ COMPLETED
 
 The landing page after login. Shows a snapshot of the active org's usage and quick-access actions.
 
@@ -53,7 +53,7 @@ The landing page after login. Shows a snapshot of the active org's usage and qui
 
 ---
 
-## Step 2 — File upload UI
+## Step 2 — File upload UI ✅ COMPLETED
 
 The **Upload** button in the files page toolbar is currently disabled. Wire it to a real upload flow.
 
@@ -176,8 +176,8 @@ Review all Phase 4 features built in this phase and ensure the docs route reflec
 | Step | Description | Status |
 |------|-------------|--------|
 | — | Auth, onboarding, layout, projects, API keys, webhooks, settings | ✅ Carried over |
-| 1 | Dashboard page — usage cards, recent files, quick actions | ⬜ Not started |
-| 2 | File upload UI — drag-and-drop, presigned URL flow, progress bars | ⬜ Not started |
+| 1 | Dashboard page — usage cards, recent files, quick actions | ✅ Completed |
+| 2 | File upload UI — drag-and-drop, presigned URL flow, progress bars | ✅ Completed |
 | 3 | File rename + move to folder — row actions + modals | ⬜ Not started |
 | 4 | Team management — invite, role assignment, remove | ⬜ Not started |
 | 5 | Usage page — org meters + per-project breakdown | ⬜ Not started |

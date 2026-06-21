@@ -13,6 +13,7 @@ from app.core.messaging import TransactionalOutboxPublisher
 from app.repositories.file import FileRepository
 from app.repositories.file_version import FileVersionRepository
 from app.repositories.project_config import ProjectConfigRepository
+from app.repositories.storage_config import StorageConfigRepository
 from app.repositories.upload_session import UploadSessionRepository
 from app.services.multipart import MultipartUploadService
 
@@ -41,6 +42,7 @@ async def get_multipart_service(
         version_repo=FileVersionRepository(session),
         session_repo=UploadSessionRepository(session),
         config_repo=config_repo,
+        storage_config_repo=StorageConfigRepository(session),
         outbox=TransactionalOutboxPublisher(session),
         ctx=ctx,
         project_id=project_id,

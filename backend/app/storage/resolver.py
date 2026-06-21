@@ -68,6 +68,10 @@ class StorageResolver:
         p = (provider or settings.default_storage_provider).lower()
         managed = self._build_managed_provider(p, bucket_name)
         await managed.create_bucket(bucket_name)
+        # Apply permissive CORS immediately so browsers can PUT presigned URLs.
+        # When the project later configures allowed_origins, update_security_config
+        # syncs the specific origins to the bucket.
+        await managed.set_bucket_cors(["*"])
         return bucket_name
 
     def build_provider(self, storage_config) -> StorageProvider:

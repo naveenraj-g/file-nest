@@ -37,3 +37,33 @@ export {
   mergeMetadataController,
   type TMergeMetadataControllerOutput,
 } from "./mergeMetadata.controller";
+
+export {
+  initiateUploadController,
+  type TInitiateUploadControllerOutput,
+} from "./initiateUpload.controller";
+
+export {
+  confirmUploadController,
+  type TConfirmUploadControllerOutput,
+} from "./confirmUpload.controller";
+
+export {
+  initiateMultipartController,
+  type TInitiateMultipartControllerOutput,
+} from "./initiateMultipart.controller";
+
+export {
+  getPartUrlController,
+  type TGetPartUrlControllerOutput,
+} from "./getPartUrl.controller";
+
+export {
+  completeMultipartController,
+  type TCompleteMultipartControllerOutput,
+} from "./completeMultipart.controller";
+
+export {
+  abortMultipartController,
+  type TAbortMultipartControllerOutput,
+} from "./abortMultipart.controller";

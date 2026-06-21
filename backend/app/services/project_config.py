@@ -17,8 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import TenantContext
 from app.core.logging import get_logger
+from app.errors import NotFoundError
 from app.models.project_config import ProjectConfig
 from app.repositories.project_config import ProjectConfigRepository
+from app.repositories.storage_config import StorageConfigRepository
 from app.schemas.project_config import (
     ProjectConfigResponse,
     UpdateComplianceConfigRequest,
@@ -85,19 +87,23 @@ class ProjectConfigService:
     Orchestrates project configuration reads and updates for a single request.
 
     Args:
-        session: Active DB session (owns commit/rollback).
-        repo:    ProjectConfigRepository bound to the same session.
-        ctx:     Resolved caller identity (organization_id required).
+        session:             Active DB session (owns commit/rollback).
+        repo:                ProjectConfigRepository bound to the same session.
+        storage_config_repo: StorageConfigRepository — used to look up the project's
+                             bucket when syncing CORS after allowed_origins changes.
+        ctx:                 Resolved caller identity (organization_id required).
     """
 
     def __init__(
         self,
         session: AsyncSession,
         repo: ProjectConfigRepository,
+        storage_config_repo: StorageConfigRepository,
         ctx: TenantContext,
     ) -> None:
         self._session = session
         self._repo = repo
+        self._storage_config_repo = storage_config_repo
         self._ctx = ctx
 
     async def get_config(self, project_id: str) -> ProjectConfigResponse:
@@ -178,12 +184,53 @@ class ProjectConfigService:
         )
         await self._session.commit()
 
+        # Sync CORS to the bucket whenever allowed_origins changes so that browsers
+        # can PUT presigned URLs directly from the origins the developer configured.
+        # null allowed_origins means "all origins" → use ["*"].
+        if req.allowed_origins is not None:
+            await self._sync_bucket_cors(project_id, record)
+
         logger.info(
             "project_config.security.updated",
             project_id=project_id,
             organization_id=self._ctx.organization_id,
         )
         return _to_response(record)
+
+    async def _sync_bucket_cors(self, project_id: str, config: ProjectConfig) -> None:
+        """
+        Apply the project's allowed_origins to its storage bucket CORS policy.
+
+        null allowed_origins → ["*"] (no restriction configured).
+        Best-effort: logs a warning on failure but does not raise so the config
+        update is not rolled back.
+        """
+        from app.storage.resolver import storage_resolver  # local import avoids circular
+
+        origins = _split(config.allowed_origins) or ["*"]
+        try:
+            try:
+                storage_cfg = await self._storage_config_repo.get_for_project(
+                    project_id, self._ctx.organization_id
+                )
+                provider = storage_resolver.build_provider(storage_cfg)
+            except NotFoundError:
+                provider = await storage_resolver.get_provider(project_id)
+
+            await provider.set_bucket_cors(origins)
+            logger.info(
+                "project_config.cors_synced",
+                project_id=project_id,
+                organization_id=self._ctx.organization_id,
+                origins=origins,
+            )
+        except Exception as exc:
+            logger.error(
+                "project_config.cors_sync_failed",
+                project_id=project_id,
+                organization_id=self._ctx.organization_id,
+                error=str(exc),
+            )
 
     async def update_processing_config(
         self, project_id: str, req: UpdateProcessingConfigRequest

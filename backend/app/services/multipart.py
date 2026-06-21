@@ -28,8 +28,10 @@ from app.core.messaging import TransactionalOutboxPublisher
 from app.repositories.file import FileRepository
 from app.repositories.file_version import FileVersionRepository
 from app.repositories.project_config import ProjectConfigRepository
+from app.repositories.storage_config import StorageConfigRepository
 from app.repositories.upload_session import UploadSessionRepository
 from app.services.upload_validation import validate_upload_request
+from app.errors import NotFoundError
 from app.schemas.file import (
     MultipartAbortResponse,
     MultipartCompleteRequest,
@@ -67,6 +69,7 @@ class MultipartUploadService:
         version_repo: FileVersionRepository,
         session_repo: UploadSessionRepository,
         config_repo: ProjectConfigRepository,
+        storage_config_repo: StorageConfigRepository,
         outbox: TransactionalOutboxPublisher,
         ctx: TenantContext,
         project_id: str,
@@ -78,7 +81,22 @@ class MultipartUploadService:
         self._version_repo = version_repo
         self._session_repo = session_repo
         self._config_repo = config_repo
+        self._storage_config_repo = storage_config_repo
         self._outbox = outbox
+
+    async def _get_provider(self):
+        """
+        Resolve the storage provider for this project from storage_configs.
+
+        Falls back to the platform default only if no StorageConfig row exists.
+        """
+        try:
+            storage_cfg = await self._storage_config_repo.get_for_project(
+                self._project_id, self._ctx.organization_id
+            )
+            return storage_resolver.build_provider(storage_cfg)
+        except NotFoundError:
+            return await storage_resolver.get_provider(self._project_id)
 
     async def start(self, req: MultipartStartRequest) -> MultipartStartResponse:
         """
@@ -116,7 +134,7 @@ class MultipartUploadService:
         key = _storage_key(self._ctx.organization_id, self._project_id, file_record.id)
         file_record.storage_key = key
 
-        provider = await storage_resolver.get_provider(self._project_id)
+        provider = await self._get_provider()
         provider_upload_id = await provider.create_multipart_upload(key, req.content_type)
 
         upload_session = await self._session_repo.create(
@@ -154,7 +172,7 @@ class MultipartUploadService:
             self._project_id, self._ctx.organization_id
         )
         ttl = resolve_ttl(config, caller_ttl)
-        provider = await storage_resolver.get_provider(self._project_id)
+        provider = await self._get_provider()
         url = await provider.generate_presigned_part_url(
             file_record.storage_key,
             upload_session.s3_upload_id,
@@ -189,7 +207,7 @@ class MultipartUploadService:
             self._project_id, self._ctx.organization_id
         )
 
-        provider = await storage_resolver.get_provider(self._project_id)
+        provider = await self._get_provider()
         parts = [
             {"PartNumber": p.part_number, "ETag": p.etag}
             for p in req.parts
@@ -256,7 +274,7 @@ class MultipartUploadService:
             upload_session.file_id, self._ctx.organization_id, self._project_id
         )
 
-        provider = await storage_resolver.get_provider(self._project_id)
+        provider = await self._get_provider()
         await provider.abort_multipart_upload(file_record.storage_key, upload_session.s3_upload_id)
 
         await self._session_repo.mark_aborted(upload_id)

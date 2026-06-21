@@ -260,6 +260,43 @@ class S3StorageProvider:
         except BotoCoreError as exc:
             raise StorageError(f"Failed to create bucket '{bucket_name}'") from exc
 
+    async def set_bucket_cors(self, allowed_origins: list[str]) -> None:
+        """
+        Apply a CORS policy to the bucket so browsers can PUT presigned URLs directly.
+
+        Must include:
+          - AllowedMethods: PUT (for presigned uploads), HEAD (for preflight)
+          - ExposeHeaders: ETag (required for multipart part tracking)
+
+        Call this at startup for every managed bucket. Idempotent — re-applying
+        the same policy overwrites it without error.
+
+        Args:
+            allowed_origins: List of origins to allow (e.g. ["http://localhost:3000"]).
+        """
+        try:
+            cors_config = {
+                "CORSRules": [
+                    {
+                        "AllowedOrigins": allowed_origins,
+                        "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+                        "AllowedHeaders": ["*"],
+                        "ExposeHeaders": ["ETag", "x-amz-request-id"],
+                        "MaxAgeSeconds": 3600,
+                    }
+                ]
+            }
+            async with self._session.client("s3", **self._client_kwargs()) as s3:
+                await s3.put_bucket_cors(
+                    Bucket=self._bucket_name,
+                    CORSConfiguration=cors_config,
+                )
+        except (BotoCoreError, ClientError) as exc:
+            raise StorageError(
+                f"Failed to set CORS on bucket '{self._bucket_name}'",
+                detail={"error": str(exc)},
+            ) from exc
+
     async def copy_object(self, source_key: str, dest_key: str) -> None:
         """Copy an object within the bucket (versioning, Phase 3)."""
         try:

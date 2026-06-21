@@ -317,3 +317,6 @@ class GCSStorageProvider:
             raise
         except Exception as exc:
             raise StorageError(f"Failed to create bucket '{bucket_name}'") from exc
+
+    async def set_bucket_cors(self, allowed_origins: list[str]) -> None:
+        """No-op: GCS CORS is configured via the GCS console or gsutil separately."""

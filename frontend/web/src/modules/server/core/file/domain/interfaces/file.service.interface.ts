@@ -14,6 +14,17 @@ import type {
   TListFilesParams,
   TTagsResponse,
   TMetadataResponse,
+  TInitiateUpload,
+  TUploadInitResponse,
+  TConfirmUploadResponse,
+  TInitiateMultipart,
+  TMultipartStartResponse,
+  TGetPartUrl,
+  TPartUrlResponse,
+  TCompleteMultipart,
+  TMultipartCompleteResponse,
+  TAbortMultipart,
+  TMultipartAbortResponse,
 } from "@/modules/entities/schemas/file";
 
 export interface IFileService {
@@ -28,4 +39,14 @@ export interface IFileService {
   updateMetadata(projectId: string, fileId: string, metadata: Record<string, unknown>): Promise<TMetadataResponse>;
   /** Merge specific keys into the file's existing metadata (PATCH). */
   mergeMetadata(projectId: string, fileId: string, metadata: Record<string, unknown>): Promise<TMetadataResponse>;
+
+  // ── Upload — single-file presigned URL flow ──────────────────────────────
+  initiateUpload(params: TInitiateUpload): Promise<TUploadInitResponse>;
+  confirmUpload(projectId: string, fileId: string): Promise<TConfirmUploadResponse>;
+
+  // ── Upload — multipart flow ──────────────────────────────────────────────
+  initiateMultipart(params: TInitiateMultipart): Promise<TMultipartStartResponse>;
+  getPartUrl(params: TGetPartUrl): Promise<TPartUrlResponse>;
+  completeMultipart(params: TCompleteMultipart): Promise<TMultipartCompleteResponse>;
+  abortMultipart(params: TAbortMultipart): Promise<TMultipartAbortResponse>;
 }

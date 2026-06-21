@@ -14,6 +14,7 @@ from app.core.messaging import TransactionalOutboxPublisher
 from app.repositories.file import FileRepository
 from app.repositories.file_version import FileVersionRepository
 from app.repositories.project_config import ProjectConfigRepository
+from app.repositories.storage_config import StorageConfigRepository
 from app.services.file import FileService
 
 
@@ -40,6 +41,7 @@ async def get_file_service(
         repo=FileRepository(session),
         version_repo=FileVersionRepository(session),
         config_repo=config_repo,
+        storage_config_repo=StorageConfigRepository(session),
         outbox=TransactionalOutboxPublisher(session),
         ctx=ctx,
         project_id=project_id,

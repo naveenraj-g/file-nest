@@ -36,7 +36,9 @@ from app.auth.signed_url_policy import resolve_ttl
 from app.repositories.file import FileRepository
 from app.repositories.file_version import FileVersionRepository
 from app.repositories.project_config import ProjectConfigRepository
+from app.repositories.storage_config import StorageConfigRepository
 from app.services.upload_validation import validate_upload_request
+from app.errors import NotFoundError
 
 from app.schemas.file import (
     ConfirmUploadResponse,
@@ -83,6 +85,7 @@ class FileService:
         repo: FileRepository,
         version_repo: FileVersionRepository,
         config_repo: ProjectConfigRepository,
+        storage_config_repo: StorageConfigRepository,
         outbox: TransactionalOutboxPublisher,
         ctx: TenantContext,
         project_id: str,
@@ -93,7 +96,24 @@ class FileService:
         self._repo = repo
         self._version_repo = version_repo
         self._config_repo = config_repo
+        self._storage_config_repo = storage_config_repo
         self._outbox = outbox
+
+    async def _get_provider(self):
+        """
+        Resolve the storage provider for this project.
+
+        Loads the project's StorageConfig from the database and builds the
+        correct provider (managed or BYOB, correct bucket). Falls back to the
+        platform default only if no StorageConfig row exists yet.
+        """
+        try:
+            storage_cfg = await self._storage_config_repo.get_for_project(
+                self._project_id, self._ctx.organization_id
+            )
+            return storage_resolver.build_provider(storage_cfg)
+        except NotFoundError:
+            return await storage_resolver.get_provider(self._project_id)
 
     async def init_upload(self, req: UploadInitRequest) -> UploadInitResponse:
         """
@@ -132,7 +152,7 @@ class FileService:
         key = _storage_key(self._ctx.organization_id, self._project_id, record.id)
         record.storage_key = key
 
-        provider = await storage_resolver.get_provider(self._project_id)
+        provider = await self._get_provider()
         ttl = resolve_ttl(config)
         upload_url = await provider.generate_presigned_upload_url(
             key, req.content_type, req.size_bytes, expires_in=ttl,
@@ -247,7 +267,7 @@ class FileService:
             self._project_id, self._ctx.organization_id
         )
         ttl = resolve_ttl(config, caller_ttl)
-        provider = await storage_resolver.get_provider(self._project_id)
+        provider = await self._get_provider()
         url = await provider.generate_presigned_download_url(
             version.storage_key, expires_in=ttl
         )
@@ -324,7 +344,7 @@ class FileService:
             self._project_id, self._ctx.organization_id
         )
         ttl = resolve_ttl(config, caller_ttl)
-        provider = await storage_resolver.get_provider(self._project_id)
+        provider = await self._get_provider()
         url = await provider.generate_presigned_download_url(
             record.storage_key, filename=record.filename, expires_in=ttl,
         )

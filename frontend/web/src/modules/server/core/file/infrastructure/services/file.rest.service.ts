@@ -19,11 +19,28 @@ import {
   FileDownloadUrlSchema,
   TagsResponseSchema,
   MetadataResponseSchema,
+  UploadInitResponseSchema,
+  ConfirmUploadResponseSchema,
+  MultipartStartResponseSchema,
+  PartUrlResponseSchema,
+  MultipartCompleteResponseSchema,
+  MultipartAbortResponseSchema,
   type TFileList,
   type TFileDownloadUrl,
   type TListFilesParams,
   type TTagsResponse,
   type TMetadataResponse,
+  type TInitiateUpload,
+  type TUploadInitResponse,
+  type TConfirmUploadResponse,
+  type TInitiateMultipart,
+  type TMultipartStartResponse,
+  type TGetPartUrl,
+  type TPartUrlResponse,
+  type TCompleteMultipart,
+  type TMultipartCompleteResponse,
+  type TAbortMultipart,
+  type TMultipartAbortResponse,
 } from "@/modules/entities/schemas/file";
 import { OutputParseError } from "@/modules/server/shared/errors/schema-parse-error";
 import type { IFileService } from "../../domain/interfaces/file.service.interface";
@@ -111,6 +128,78 @@ export class FileRestService implements IFileService {
       { method: "PATCH", body: JSON.stringify({ metadata }) },
     );
     const parsed = MetadataResponseSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+
+  // ── Upload — single-file presigned URL flow ────────────────────────────────
+
+  async initiateUpload(params: TInitiateUpload): Promise<TUploadInitResponse> {
+    const { projectId, ...body } = params;
+    const raw = await filenestApi<unknown>(
+      `/v1/projects/${projectId}/files/upload`,
+      { method: "POST", body: JSON.stringify(body) },
+    );
+    const parsed = UploadInitResponseSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+
+  async confirmUpload(projectId: string, fileId: string): Promise<TConfirmUploadResponse> {
+    const raw = await filenestApi<unknown>(
+      `/v1/projects/${projectId}/files/${fileId}/confirm`,
+      { method: "POST" },
+    );
+    const parsed = ConfirmUploadResponseSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+
+  // ── Upload — multipart flow ────────────────────────────────────────────────
+
+  async initiateMultipart(params: TInitiateMultipart): Promise<TMultipartStartResponse> {
+    const { projectId, ...body } = params;
+    const raw = await filenestApi<unknown>(
+      `/v1/projects/${projectId}/files/upload/multipart/start`,
+      { method: "POST", body: JSON.stringify(body) },
+    );
+    const parsed = MultipartStartResponseSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+
+  async getPartUrl(params: TGetPartUrl): Promise<TPartUrlResponse> {
+    const { projectId, uploadId, part } = params;
+    const raw = await filenestApi<unknown>(
+      `/v1/projects/${projectId}/files/upload/multipart/${uploadId}/part-url?part=${part}`,
+    );
+    const parsed = PartUrlResponseSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+
+  async completeMultipart(params: TCompleteMultipart): Promise<TMultipartCompleteResponse> {
+    const { projectId, uploadId, parts } = params;
+    // Backend uses alias names PartNumber / ETag (AWS S3 SDK convention).
+    const body = {
+      parts: parts.map((p) => ({ PartNumber: p.part_number, ETag: p.etag })),
+    };
+    const raw = await filenestApi<unknown>(
+      `/v1/projects/${projectId}/files/upload/multipart/${uploadId}/complete`,
+      { method: "POST", body: JSON.stringify(body) },
+    );
+    const parsed = MultipartCompleteResponseSchema.safeParse(raw);
+    if (!parsed.success) throw new OutputParseError(parsed.error);
+    return parsed.data;
+  }
+
+  async abortMultipart(params: TAbortMultipart): Promise<TMultipartAbortResponse> {
+    const { projectId, uploadId } = params;
+    const raw = await filenestApi<unknown>(
+      `/v1/projects/${projectId}/files/upload/multipart/${uploadId}`,
+      { method: "DELETE" },
+    );
+    const parsed = MultipartAbortResponseSchema.safeParse(raw);
     if (!parsed.success) throw new OutputParseError(parsed.error);
     return parsed.data;
   }

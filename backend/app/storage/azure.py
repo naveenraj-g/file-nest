@@ -282,3 +282,6 @@ class AzureBlobStorageProvider:
             pass
         except AzureError as exc:
             raise StorageError(f"Failed to create container '{bucket_name}'") from exc
+
+    async def set_bucket_cors(self, allowed_origins: list[str]) -> None:
+        """No-op: Azure CORS is configured in the Azure Portal or via the SDK separately."""

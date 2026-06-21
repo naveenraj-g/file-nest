@@ -36,6 +36,7 @@ from app.errors.handlers import (
 )
 from app.routers import api_router
 from app.routers.health import router as health_router
+from app.storage.resolver import storage_resolver
 
 # Import all models so Alembic can discover the full schema in one pass
 import app.models  # noqa: F401
@@ -47,9 +48,44 @@ logger = get_logger(__name__)
 container = Container()
 
 
+async def _apply_startup_cors() -> None:
+    """
+    Ensure the platform-managed default bucket exists and has CORS applied.
+
+    Runs every time the backend starts. create_bucket() is idempotent — safe
+    to call even if the bucket already exists.
+    """
+    _default_buckets = {
+        "s3": settings.s3_bucket_name,
+        "minio": settings.minio_bucket_name,
+        "rustfs": settings.rustfs_bucket_name,
+        "r2": settings.r2_bucket_name,
+    }
+    p = settings.default_storage_provider.lower()
+    bucket = _default_buckets.get(p, "filenest")
+    try:
+        provider = await storage_resolver.get_provider("_startup")
+        await provider.create_bucket(bucket)
+        await provider.set_bucket_cors(["*"])
+        logger.info("storage.cors_applied_at_startup", provider=p, bucket=bucket)
+    except Exception as exc:
+        # Log the full chain: StorageError message + the underlying S3/botocore error.
+        cause = getattr(exc, "__cause__", None) or exc
+        logger.error(
+            "storage.cors_apply_failed",
+            provider=p,
+            bucket=bucket,
+            error=str(exc),
+            cause=str(cause),
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("filenest.startup", env=settings.env, service=settings.service_name)
+
+    # Apply CORS to the default managed bucket so browsers can PUT presigned URLs.
+    await _apply_startup_cors()
 
     # Connect NATS and ensure the FILENEST_EVENTS stream exists
     await nats_core.connect()

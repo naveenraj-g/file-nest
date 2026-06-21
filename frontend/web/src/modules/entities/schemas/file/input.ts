@@ -72,3 +72,66 @@ export const GetFileDownloadUrlSchema = z.object({
 });
 
 export type TGetFileDownloadUrl = z.infer<typeof GetFileDownloadUrlSchema>;
+
+// ── Upload — single-file presigned URL flow ─────────────────────────────────
+
+export const InitiateUploadSchema = z.object({
+  projectId: z.string().min(1),
+  filename: z.string().min(1),
+  content_type: z.string().min(1),
+  size_bytes: z.number().int().positive(),
+  folder_id: z.string().optional(),
+  tags: z.array(z.string()).default([]),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+export type TInitiateUpload = z.infer<typeof InitiateUploadSchema>;
+
+export const ConfirmUploadSchema = z.object({
+  projectId: z.string().min(1),
+  fileId: z.string().min(1),
+});
+
+export type TConfirmUpload = z.infer<typeof ConfirmUploadSchema>;
+
+// ── Upload — multipart flow ────────────────────────────────────────────────
+
+export const InitiateMultipartSchema = z.object({
+  projectId: z.string().min(1),
+  filename: z.string().min(1),
+  content_type: z.string().min(1),
+  total_size_bytes: z.number().int().positive(),
+  folder_id: z.string().optional(),
+  tags: z.array(z.string()).default([]),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+export type TInitiateMultipart = z.infer<typeof InitiateMultipartSchema>;
+
+export const GetPartUrlSchema = z.object({
+  projectId: z.string().min(1),
+  uploadId: z.string().min(1),
+  part: z.number().int().min(1),
+});
+
+export type TGetPartUrl = z.infer<typeof GetPartUrlSchema>;
+
+export const CompleteMultipartSchema = z.object({
+  projectId: z.string().min(1),
+  uploadId: z.string().min(1),
+  parts: z.array(
+    z.object({
+      part_number: z.number().int().min(1),
+      etag: z.string().min(1),
+    }),
+  ),
+});
+
+export type TCompleteMultipart = z.infer<typeof CompleteMultipartSchema>;
+
+export const AbortMultipartSchema = z.object({
+  projectId: z.string().min(1),
+  uploadId: z.string().min(1),
+});
+
+export type TAbortMultipart = z.infer<typeof AbortMultipartSchema>;

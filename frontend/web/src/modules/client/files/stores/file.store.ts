@@ -9,7 +9,7 @@
 import { create } from "zustand";
 import type { TFile } from "@/modules/entities/schemas/file";
 
-export type FileModalType = "deleteFile" | "fileDetails";
+export type FileModalType = "deleteFile" | "fileDetails" | "uploadFile";
 
 interface FileStoreState {
   modalType: FileModalType | null;

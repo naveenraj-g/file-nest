@@ -11,6 +11,7 @@
 import { Suspense } from "react";
 import { listFilesAction } from "@/modules/server/presentation/actions/file.actions";
 import { listFoldersAction } from "@/modules/server/presentation/actions/folder.actions";
+import { getProjectConfigAction } from "@/modules/server/presentation/actions/project-config.actions";
 import { FilesTable } from "@/modules/client/files/components/FilesTable";
 import { FolderTree } from "@/modules/client/files/components/FolderTree";
 import { FileModalProvider } from "@/modules/client/files/provider/FileModalProvider";
@@ -37,7 +38,7 @@ export default async function FilesPage({ params, searchParams }: FilesPageProps
   const { projectId } = await params;
   const { folder_id: folderId } = await searchParams;
 
-  const [filesResult, foldersResult] = await Promise.all([
+  const [filesResult, foldersResult, configResult] = await Promise.all([
     listFilesAction({
       payload: {
         projectId,
@@ -46,13 +47,16 @@ export default async function FilesPage({ params, searchParams }: FilesPageProps
       },
     }),
     listFoldersAction({ payload: { projectId } }),
+    getProjectConfigAction({ payload: { projectId } }),
   ]);
 
   const [filesData] = filesResult;
   const [foldersData] = foldersResult;
+  const [configData] = configResult;
 
   const initialData = filesData ?? EMPTY_FILE_LIST;
   const folderList = foldersData ?? EMPTY_FOLDER_LIST;
+  const projectConfig = configData ?? null;
 
   return (
     <div className="space-y-6">
@@ -82,7 +86,7 @@ export default async function FilesPage({ params, searchParams }: FilesPageProps
         </div>
       </div>
 
-      <FileModalProvider />
+      <FileModalProvider projectId={projectId} folders={folderList} projectConfig={projectConfig} />
     </div>
   );
 }

@@ -69,3 +69,50 @@ export const MetadataResponseSchema = z.object({
 });
 
 export type TMetadataResponse = z.infer<typeof MetadataResponseSchema>;
+
+// ── Upload responses ────────────────────────────────────────────────────────
+
+export const UploadInitResponseSchema = z.object({
+  file_id: z.string(),
+  upload_url: z.string(),
+  expires_at: z.string(),
+});
+
+export type TUploadInitResponse = z.infer<typeof UploadInitResponseSchema>;
+
+export const ConfirmUploadResponseSchema = z.object({
+  id: z.string(),
+  status: FileStatusSchema,
+});
+
+export type TConfirmUploadResponse = z.infer<typeof ConfirmUploadResponseSchema>;
+
+export const MultipartStartResponseSchema = z.object({
+  upload_id: z.string(),
+  file_id: z.string(),
+});
+
+export type TMultipartStartResponse = z.infer<typeof MultipartStartResponseSchema>;
+
+export const PartUrlResponseSchema = z.object({
+  upload_id: z.string(),
+  part_number: z.number(),
+  url: z.string(),
+  expires_at: z.string(),
+});
+
+export type TPartUrlResponse = z.infer<typeof PartUrlResponseSchema>;
+
+export const MultipartCompleteResponseSchema = z.object({
+  file_id: z.string(),
+  status: FileStatusSchema,
+});
+
+export type TMultipartCompleteResponse = z.infer<typeof MultipartCompleteResponseSchema>;
+
+export const MultipartAbortResponseSchema = z.object({
+  upload_id: z.string(),
+  aborted: z.boolean(),
+});
+
+export type TMultipartAbortResponse = z.infer<typeof MultipartAbortResponseSchema>;

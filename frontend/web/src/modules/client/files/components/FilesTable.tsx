@@ -104,7 +104,11 @@ export function FilesTable({ projectId, folderId, initialData }: FilesTableProps
   const toolbar = (
     <DataTableToolbar table={table}>
       <DataTableGlobalSearch table={table} placeholder="Search files…" />
-      <Button size="default" variant="outline" disabled>
+      <Button
+        size="default"
+        variant="outline"
+        onClick={() => onOpen("uploadFile")}
+      >
         <Upload className="h-4 w-4 mr-1.5" />
         Upload
       </Button>

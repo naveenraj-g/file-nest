@@ -4,9 +4,15 @@
  * Layer: presentation / actions
  * Resource: File
  *
- * listFilesAction          — read; call from RSC pages or client components.
- * deleteFileAction         — mutation; revalidates the files page.
- * getFileDownloadUrlAction — read; returns presigned URL for client to open.
+ * listFilesAction            — read; call from RSC pages or client components.
+ * deleteFileAction           — mutation; revalidates the files page.
+ * getFileDownloadUrlAction   — read; returns presigned URL for client to open.
+ * initiateUploadAction       — mutation; creates file record + presigned PUT URL.
+ * confirmUploadAction        — mutation; marks file ready after PUT completes.
+ * initiateMultipartAction    — mutation; starts multipart upload session.
+ * getPartUrlAction           — read; presigned URL for one chunk.
+ * completeMultipartAction    — mutation; assembles chunks and triggers pipeline.
+ * abortMultipartAction       — mutation; discards in-progress multipart session.
  *
  * @module
  */
@@ -22,6 +28,12 @@ import {
   addTagsController,
   updateMetadataController,
   mergeMetadataController,
+  initiateUploadController,
+  confirmUploadController,
+  initiateMultipartController,
+  getPartUrlController,
+  completeMultipartController,
+  abortMultipartController,
   type TListFilesControllerOutput,
   type TDeleteFileControllerOutput,
   type TGetFileDownloadUrlControllerOutput,
@@ -29,6 +41,12 @@ import {
   type TAddTagsControllerOutput,
   type TUpdateMetadataControllerOutput,
   type TMergeMetadataControllerOutput,
+  type TInitiateUploadControllerOutput,
+  type TConfirmUploadControllerOutput,
+  type TInitiateMultipartControllerOutput,
+  type TGetPartUrlControllerOutput,
+  type TCompleteMultipartControllerOutput,
+  type TAbortMultipartControllerOutput,
 } from "@/modules/server/core/file/interface-adapters/controllers";
 import {
   ListFilesActionSchema,
@@ -38,6 +56,12 @@ import {
   AddTagsActionSchema,
   UpdateMetadataActionSchema,
   MergeMetadataActionSchema,
+  InitiateUploadActionSchema,
+  ConfirmUploadActionSchema,
+  InitiateMultipartActionSchema,
+  GetPartUrlActionSchema,
+  CompleteMultipartActionSchema,
+  AbortMultipartActionSchema,
   type TListFilesAction,
   type TDeleteFileAction,
   type TGetFileDownloadUrlAction,
@@ -45,6 +69,12 @@ import {
   type TAddTagsAction,
   type TUpdateMetadataAction,
   type TMergeMetadataAction,
+  type TInitiateUploadAction,
+  type TConfirmUploadAction,
+  type TInitiateMultipartAction,
+  type TGetPartUrlAction,
+  type TCompleteMultipartAction,
+  type TAbortMultipartAction,
 } from "@/modules/entities/schemas/file";
 
 export const listFilesAction = authenticatedProcedure
@@ -113,6 +143,68 @@ export const mergeMetadataAction = authenticatedProcedure
   .handler(async ({ input }: { input: TMergeMetadataAction }) => {
     return await runWithTransport<TMergeMetadataControllerOutput>(async () => {
       const data = await mergeMetadataController(input.payload);
+      return { result: data, transport: input.transportOptions };
+    });
+  });
+
+// ── Upload actions ───────────────────────────────────────────────────────────
+
+export const initiateUploadAction = authenticatedProcedure
+  .createServerAction()
+  .input(InitiateUploadActionSchema, { skipInputParsing: true })
+  .handler(async ({ input }: { input: TInitiateUploadAction }) => {
+    return await runWithTransport<TInitiateUploadControllerOutput>(async () => {
+      const data = await initiateUploadController(input.payload);
+      return { result: data, transport: input.transportOptions };
+    });
+  });
+
+export const confirmUploadAction = authenticatedProcedure
+  .createServerAction()
+  .input(ConfirmUploadActionSchema, { skipInputParsing: true })
+  .handler(async ({ input }: { input: TConfirmUploadAction }) => {
+    return await runWithTransport<TConfirmUploadControllerOutput>(async () => {
+      const data = await confirmUploadController(input.payload);
+      return { result: data, transport: input.transportOptions };
+    });
+  });
+
+export const initiateMultipartAction = authenticatedProcedure
+  .createServerAction()
+  .input(InitiateMultipartActionSchema, { skipInputParsing: true })
+  .handler(async ({ input }: { input: TInitiateMultipartAction }) => {
+    return await runWithTransport<TInitiateMultipartControllerOutput>(async () => {
+      const data = await initiateMultipartController(input.payload);
+      return { result: data, transport: input.transportOptions };
+    });
+  });
+
+export const getPartUrlAction = authenticatedProcedure
+  .createServerAction()
+  .input(GetPartUrlActionSchema, { skipInputParsing: true })
+  .handler(async ({ input }: { input: TGetPartUrlAction }) => {
+    return await runWithTransport<TGetPartUrlControllerOutput>(async () => {
+      const data = await getPartUrlController(input.payload);
+      return { result: data, transport: input.transportOptions };
+    });
+  });
+
+export const completeMultipartAction = authenticatedProcedure
+  .createServerAction()
+  .input(CompleteMultipartActionSchema, { skipInputParsing: true })
+  .handler(async ({ input }: { input: TCompleteMultipartAction }) => {
+    return await runWithTransport<TCompleteMultipartControllerOutput>(async () => {
+      const data = await completeMultipartController(input.payload);
+      return { result: data, transport: input.transportOptions };
+    });
+  });
+
+export const abortMultipartAction = authenticatedProcedure
+  .createServerAction()
+  .input(AbortMultipartActionSchema, { skipInputParsing: true })
+  .handler(async ({ input }: { input: TAbortMultipartAction }) => {
+    return await runWithTransport<TAbortMultipartControllerOutput>(async () => {
+      const data = await abortMultipartController(input.payload);
       return { result: data, transport: input.transportOptions };
     });
   });
