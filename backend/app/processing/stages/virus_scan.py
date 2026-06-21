@@ -28,15 +28,18 @@ class VirusScanStage:
     Sends file bytes to ClamAV via INSTREAM and returns a quarantine/pass result.
 
     Args:
-        host: Hostname of the clamd daemon (Docker Compose service name).
-        port: TCP port clamd listens on (default 3310).
+        host:    Hostname of the clamd daemon (Docker Compose service name).
+        port:    TCP port clamd listens on (default 3310).
+        timeout: Seconds to wait for clamd before raising RuntimeError. ClamAV
+                 takes 1–3 minutes on startup to load its virus definitions.
     """
 
     name = "virus_scan"
 
-    def __init__(self, host: str = "clamav", port: int = 3310) -> None:
+    def __init__(self, host: str = "clamav", port: int = 3310, timeout: int = 300) -> None:
         self._host = host
         self._port = port
+        self._timeout = timeout
 
     async def run(
         self,
@@ -52,20 +55,29 @@ class VirusScanStage:
             StageResult(passed=True)              when the scan is clean.
 
         Raises:
-            RuntimeError: If clamd is unreachable or returns an unexpected error.
-                          PipelineExecutor catches this and marks the file failed.
+            RuntimeError: If clamd is unreachable, times out, or returns an
+                          unexpected error. PipelineExecutor catches this and
+                          marks the file failed.
         """
-        host, port = self._host, self._port
+        host, port, timeout = self._host, self._port, self._timeout
 
         def _scan() -> dict:
             try:
                 import clamd
             except ImportError as exc:
                 raise RuntimeError("python-clamd is not installed") from exc
-            cd = clamd.ClamdNetworkSocket(host=host, port=port)
+            cd = clamd.ClamdNetworkSocket(host=host, port=port, timeout=timeout)
             return cd.instream(io.BytesIO(content))
 
-        result: dict = await asyncio.to_thread(_scan)
+        try:
+            result: dict = await asyncio.wait_for(
+                asyncio.to_thread(_scan), timeout=float(timeout)
+            )
+        except asyncio.TimeoutError as exc:
+            raise RuntimeError(
+                f"ClamAV scan timed out after {timeout}s for '{filename}' — "
+                "clamd may still be loading virus definitions"
+            ) from exc
         status, virus_name = result.get("stream", ("ERROR", None))
 
         if status == "FOUND":

@@ -89,7 +89,11 @@ class PipelineExecutor:
             # Build stage list — ClassificationStage always last
             stages = []
             if config.virus_scan_enabled:
-                stages.append(VirusScanStage(host=settings.clamav_host, port=settings.clamav_port))
+                stages.append(VirusScanStage(
+                    host=settings.clamav_host,
+                    port=settings.clamav_port,
+                    timeout=settings.clamav_timeout,
+                ))
             stages.append(MimeValidationStage())
             stages.append(ClassificationStage())
 

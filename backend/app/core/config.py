@@ -96,6 +96,10 @@ class Settings(BaseSettings):
     # ── ClamAV ───────────────────────────────────────────────────────────────
     clamav_host: str = "clamav"
     clamav_port: int = 3310
+    # How long to wait for clamd to respond, in seconds. ClamAV takes 1-3 min
+    # on startup to load virus definitions; this timeout prevents the pipeline
+    # from hanging indefinitely if clamd is slow or crashes mid-load.
+    clamav_timeout: int = 300
 
     # ── Feature flags ─────────────────────────────────────────────────────────
     healthcare_pack_enabled: bool = False

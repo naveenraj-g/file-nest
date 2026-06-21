@@ -80,10 +80,19 @@ services:
       retries: 5
 
   # ── ClamAV (virus scanning) ───────────────────────────────────────────────
+  # Startup is slow: clamd loads its virus database (~250 MB) before it accepts
+  # scan requests. Expect 1–3 minutes before the healthcheck turns healthy.
+  # CLAMAV_HOST in backend .env should be "localhost" when running outside Docker.
   clamav:
     image: clamav/clamav:stable
     ports:
       - "3310:3310"
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
 
 volumes:
   iam_postgres_data:
