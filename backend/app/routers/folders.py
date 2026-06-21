@@ -10,7 +10,10 @@ Routes registered at /v1 prefix:
     DELETE /v1/projects/{project_id}/folders/{folder_id}                soft-delete folder
     POST   /v1/projects/{project_id}/files/{file_id}/move               move file to folder
 """
-from fastapi import APIRouter, Depends, Query
+import json
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.auth import require_scope
 from app.di.dependencies.file import get_file_service
@@ -60,13 +63,48 @@ async def list_folders(
 async def list_folder_files(
     project_id: str,
     folder_id: str,
+    q: str | None = Query(None, description="Filename substring search (case-insensitive)"),
+    tags: list[str] = Query(default=[], description="File must have ALL these tags — repeat: ?tags=a&tags=b"),
+    category: str | None = Query(None, description="Exact category match"),
+    status: str | None = Query(None, description="Exact status match"),
+    date_from: datetime | None = Query(None, description="created_at >= date_from (ISO 8601)"),
+    date_to: datetime | None = Query(None, description="created_at <= date_to (ISO 8601)"),
+    size_min: int | None = Query(None, ge=0, description="size_bytes >= size_min"),
+    size_max: int | None = Query(None, ge=0, description="size_bytes <= size_max"),
+    metadata: str | None = Query(None, description='JSONB containment filter as JSON string'),
     limit: int = Query(50, ge=1, le=200, description="Page size"),
     cursor: str | None = Query(None, description="Last file id from previous page"),
     svc: FolderService = Depends(get_folder_service),
 ) -> FileListResponse:
-    """Return files inside a specific folder, cursor-paginated. Scope: files:read."""
+    """Return files inside a specific folder, cursor-paginated with optional filters. Scope: files:read."""
     require_scope(svc._ctx, "files:read")
-    return await svc.list_folder_files(folder_id, limit=limit, cursor=cursor)
+
+    metadata_filter = None
+    if metadata:
+        try:
+            metadata_filter = json.loads(metadata)
+            if not isinstance(metadata_filter, dict):
+                raise ValueError
+        except (ValueError, json.JSONDecodeError):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "INVALID_METADATA_FILTER", "message": "metadata must be a valid JSON object string"},
+            )
+
+    return await svc.list_folder_files(
+        folder_id,
+        q=q,
+        tags=tags or None,
+        category=category,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        size_min=size_min,
+        size_max=size_max,
+        metadata_filter=metadata_filter,
+        limit=limit,
+        cursor=cursor,
+    )
 
 
 @router.delete(

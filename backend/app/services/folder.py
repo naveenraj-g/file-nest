@@ -15,6 +15,8 @@ Usage:
     result = await svc.create_folder(req)
 """
 import json
+from datetime import datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -94,10 +96,23 @@ class FolderService:
         return FolderListResponse(items=items, total=len(items))
 
     async def list_folder_files(
-        self, folder_id: str, *, limit: int = 50, cursor: str | None = None
+        self,
+        folder_id: str,
+        *,
+        q: str | None = None,
+        tags: list[str] | None = None,
+        category: str | None = None,
+        status: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+        size_min: int | None = None,
+        size_max: int | None = None,
+        metadata_filter: dict[str, Any] | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
     ) -> FileListResponse:
         """
-        List files inside a specific folder, cursor-paginated.
+        List files inside a specific folder with the same filter set as the global file list.
 
         Verifies the folder exists and belongs to this project before querying.
 
@@ -109,6 +124,15 @@ class FolderService:
             self._ctx.organization_id,
             self._project_id,
             folder_id=folder_id,
+            q=q,
+            tags=tags,
+            category=category,
+            status=status,
+            date_from=date_from,
+            date_to=date_to,
+            size_min=size_min,
+            size_max=size_max,
+            metadata_filter=metadata_filter,
             limit=limit,
             cursor=cursor,
         )

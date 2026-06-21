@@ -25,6 +25,7 @@ Usage:
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -343,12 +344,42 @@ class FileService:
         return DeleteResponse(id=record.id)
 
     async def list_files(
-        self, *, folder_id: str | None = None, limit: int = 50, cursor: str | None = None,
+        self,
+        *,
+        folder_id: str | None = None,
+        q: str | None = None,
+        tags: list[str] | None = None,
+        category: str | None = None,
+        status: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+        size_min: int | None = None,
+        size_max: int | None = None,
+        metadata_filter: dict[str, Any] | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
     ) -> FileListResponse:
-        """Return a cursor-paginated list of files in the current project."""
+        """
+        Return a cursor-paginated, filtered list of files in the current project.
+
+        All filter args are optional — omitting them returns all files.
+        See FileRepository.list() for filter semantics.
+        """
         records = await self._repo.list(
-            self._ctx.organization_id, self._project_id,
-            folder_id=folder_id, limit=limit, cursor=cursor,
+            self._ctx.organization_id,
+            self._project_id,
+            folder_id=folder_id,
+            q=q,
+            tags=tags,
+            category=category,
+            status=status,
+            date_from=date_from,
+            date_to=date_to,
+            size_min=size_min,
+            size_max=size_max,
+            metadata_filter=metadata_filter,
+            limit=limit,
+            cursor=cursor,
         )
         items = [self._to_response(r) for r in records]
         return FileListResponse(

@@ -16,7 +16,10 @@ Routes registered at /v1 prefix:
     GET    /v1/projects/{project_id}/files/{file_id}/versions/{version_id}/download version download URL
     POST   /v1/projects/{project_id}/files/{file_id}/versions/{version_id}/restore restore version
 """
-from fastapi import APIRouter, Depends, Query
+import json
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.auth import require_scope
 from app.di.dependencies.file import get_file_service
@@ -95,14 +98,58 @@ async def get_file(
 @router.get("/projects/{project_id}/files", response_model=FileListResponse)
 async def list_files(
     project_id: str,
-    folder_id: str | None = Query(None, description="Filter to files in this folder"),
+    # ── Filters ────────────────────────────────────────────────────────────
+    folder_id: str | None = Query(None, description="Scope to a specific folder"),
+    q: str | None = Query(None, description="Filename substring search (case-insensitive)"),
+    tags: list[str] = Query(default=[], description="File must have ALL these tags — repeat param: ?tags=a&tags=b"),
+    category: str | None = Query(None, description="Exact category match: document, image, video, audio, archive, other"),
+    status: str | None = Query(None, description="Exact status match: pending, processing, ready, failed, quarantined"),
+    date_from: datetime | None = Query(None, description="created_at >= date_from (ISO 8601)"),
+    date_to: datetime | None = Query(None, description="created_at <= date_to (ISO 8601)"),
+    size_min: int | None = Query(None, ge=0, description="size_bytes >= size_min"),
+    size_max: int | None = Query(None, ge=0, description="size_bytes <= size_max"),
+    metadata: str | None = Query(None, description='JSONB containment filter as JSON string, e.g. {"patientId":"P-001"}'),
+    # ── Pagination ─────────────────────────────────────────────────────────
     limit: int = Query(50, ge=1, le=200, description="Page size"),
-    cursor: str | None = Query(None, description="Last file id from previous page"),
+    cursor: str | None = Query(None, description="Last file id from previous page (keyset pagination)"),
     svc: FileService = Depends(get_file_service),
 ) -> FileListResponse:
-    """Return a cursor-paginated list of files in the project. Scope: files:read."""
+    """
+    Return a cursor-paginated, filtered list of files in the project. Scope: files:read.
+
+    All filters are optional and combinable. The `tags` param can be repeated
+    (`?tags=clinical&tags=lab`) — the file must have ALL specified tags.
+    The `metadata` param accepts a JSON object string — the file's metadata must
+    contain all key-value pairs in the object (JSONB containment).
+    """
     require_scope(svc._ctx, "files:read")
-    return await svc.list_files(folder_id=folder_id, limit=limit, cursor=cursor)
+
+    metadata_filter = None
+    if metadata:
+        try:
+            metadata_filter = json.loads(metadata)
+            if not isinstance(metadata_filter, dict):
+                raise ValueError
+        except (ValueError, json.JSONDecodeError):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "INVALID_METADATA_FILTER", "message": "metadata must be a valid JSON object string"},
+            )
+
+    return await svc.list_files(
+        folder_id=folder_id,
+        q=q,
+        tags=tags or None,
+        category=category,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        size_min=size_min,
+        size_max=size_max,
+        metadata_filter=metadata_filter,
+        limit=limit,
+        cursor=cursor,
+    )
 
 
 @router.put("/projects/{project_id}/files/{file_id}/tags", response_model=TagsResponse)
