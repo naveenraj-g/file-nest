@@ -226,7 +226,7 @@ Search bar above the file table. Calls the search API and shows results with hig
 
 ---
 
-## Step 11 — Docs audit — Console app docs route
+## Step 11 — Docs audit — Console app docs route ✅ COMPLETED
 
 Review all Phase 3 features and ensure the docs route (`frontend/web/src/content/docs/`) reflects them.
 
@@ -254,6 +254,6 @@ Review all Phase 3 features and ensure the docs route (`frontend/web/src/content
 | 6 | OCR stage — PyMuPDF + pytesseract + ocr_texts table | ⏸ Deferred |
 | 7 | Search API — POST /v1/projects/{id}/search | ⏸ Deferred |
 | 8 | Console: Metadata & Tags UI — side panel + tag editing | ✅ Completed |
-| 9 | Console: Folders UI — sidebar tree + URL-driven filter | ⬜ Not started |
+| 9 | Console: Folders UI — sidebar tree + URL-driven filter | ✅ Completed |
 | 10 | Console: Search UI — debounced search bar + result view | ⏸ Deferred |
-| 11 | Docs audit — Console app docs route | ⬜ Not started |
+| 11 | Docs audit — Console app docs route | ✅ Completed |

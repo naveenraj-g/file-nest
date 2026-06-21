@@ -76,8 +76,34 @@ GET /v1/projects/{project_id}/files
 | Param | Type | Description |
 |-------|------|-------------|
 | `folder_id` | `string` | Filter to a specific folder |
+| `q` | `string` | Case-insensitive filename search (ILIKE `%q%`) |
+| `tags` | `string` (repeatable) | Return files containing **all** specified tags — `?tags=a&tags=b` |
+| `category` | `string` | Filter by classification category (e.g. `document`, `image`, `video`) |
+| `status` | `string` | Filter by lifecycle status |
+| `date_from` | `string` | ISO 8601 — earliest `created_at` to include |
+| `date_to` | `string` | ISO 8601 — latest `created_at` to include |
+| `size_min` | `number` | Minimum file size in bytes |
+| `size_max` | `number` | Maximum file size in bytes |
+| `metadata` | `string` | JSON object — returns files whose metadata contains **all** key-value pairs (JSONB containment) |
 | `limit` | `number` | Page size (default 50, max 200) |
-| `cursor` | `string` | Last file ID from previous page for cursor pagination |
+| `offset` | `number` | Zero-based page offset for table pagination |
+| `cursor` | `string` | Cursor from `next_cursor` for keyset (infinite-scroll) pagination. Takes priority over `offset`. |
+
+**Response `200`:**
+
+```json
+{
+  "items": [ /* file objects */ ],
+  "total": 142,
+  "limit": 50,
+  "offset": 0,
+  "has_more": true,
+  "next_cursor": "file_01j..."
+}
+```
+
+Use `cursor` / `next_cursor` for infinite scroll; use `offset` for page-number tables.
+`total` is always the full un-paginated count matching the current filters.
 
 ## Get a file
 
@@ -112,6 +138,43 @@ value. When `require_signed_urls` is enabled, the caller cannot override the TTL
   "expires_at": "2026-06-21T11:00:00Z"
 }
 ```
+
+## Tags
+
+See [Metadata & Tags API](/docs/api/metadata) for the full reference. Quick summary:
+
+```
+PUT  /v1/projects/{project_id}/files/{file_id}/tags   # replace full tag set
+POST /v1/projects/{project_id}/files/{file_id}/tags   # add tags (union)
+```
+
+Both require scope `files:update_metadata`.
+
+## Metadata
+
+```
+PUT  /v1/projects/{project_id}/files/{file_id}/metadata   # replace metadata object
+POST /v1/projects/{project_id}/files/{file_id}/metadata   # merge metadata (shallow)
+```
+
+Both require scope `files:update_metadata`. If the project has `enforce_schema = true` and an
+active metadata schema, the payload is validated and a `422` is returned on mismatch.
+
+See [Metadata & Tags API](/docs/api/metadata) for schema management and filtering.
+
+## Move to folder
+
+```
+POST /v1/projects/{project_id}/files/{file_id}/move
+```
+
+**Required scope:** `files:update_metadata`
+
+```json
+{ "folder_id": "fld_01j..." }
+```
+
+Set `folder_id` to `null` to move the file back to the project root. See [Folders API](/docs/api/folders).
 
 ## Delete a file
 

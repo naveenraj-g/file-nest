@@ -41,9 +41,27 @@ upload  →  uploading  →  processing  →  ready
 | `version_count` | `number` | Number of versions (Phase 2) |
 | `created_at` | `string` | ISO 8601 timestamp |
 
+## Tags
+
+Every file carries a `tags` string array (e.g. `["invoice", "q1-2026", "paid"]`). Tags are set by your server code using the API or SDK — the console lets you view and edit them in the metadata side panel.
+
+Use `PUT /files/{id}/tags` to replace the full set or `POST /files/{id}/tags` to add tags without removing existing ones. Filter files by tag with `?tags=invoice&tags=q1-2026` on the list endpoint (array containment — all specified tags must be present).
+
+## Metadata
+
+Every file has a `metadata` JSON object for structured per-file data (e.g. `{ "patientId": "P-001", "invoiceTotal": 1200 }`). Metadata is stored as JSONB and can be queried with containment filters.
+
+If the project has `enforce_schema = true` and an active [metadata schema](/docs/api/metadata), all metadata updates are validated against it. A mismatch returns `422 METADATA_VALIDATION_ERROR` with per-field error paths.
+
+## Folders
+
+Files can be organised into a folder hierarchy within a project. Folders use a **materialized path** model — the full path string (e.g. `/invoices/2026/q1`) is stored at creation time. Move a file between folders with `POST /files/{id}/move`.
+
+See [Folders API](/docs/api/folders) for CRUD endpoints and soft-delete rules.
+
 ## Versioning
 
-Uploading to an existing `storage_key` path creates a new version row and bumps `version_count`. All versions are independently downloadable. (Available in Phase 2.)
+Uploading to an existing `storage_key` path creates a new version row and bumps `version_count`. All versions are independently downloadable.
 
 ## Soft delete
 
