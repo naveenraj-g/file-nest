@@ -38,7 +38,7 @@ from app.repositories.file_version import FileVersionRepository
 from app.repositories.project_config import ProjectConfigRepository
 from app.repositories.storage_config import StorageConfigRepository
 from app.services.upload_validation import validate_upload_request
-from app.errors import NotFoundError
+from app.errors import NotFoundError, ValidationError
 
 from app.schemas.file import (
     ConfirmUploadResponse,
@@ -127,7 +127,8 @@ class FileService:
 
         Raises:
             FileTooLargeError: size_bytes exceeds max_file_size_bytes.
-            ValidationError:   content_type or extension not in allowed lists.
+            ValidationError:   content_type or extension not in allowed lists, or
+                               concurrent in-flight uploads exceed max_files_per_request.
         """
         config = await self._config_repo.get_for_project(
             self._project_id, self._ctx.organization_id
@@ -138,6 +139,19 @@ class FileService:
             content_type=req.content_type,
             size_bytes=req.size_bytes,
         )
+        if config.max_files_per_request:
+            in_flight = await self._repo.count_in_flight(
+                self._ctx.organization_id, self._project_id
+            )
+            if in_flight >= config.max_files_per_request:
+                raise ValidationError(
+                    f"Too many concurrent uploads ({in_flight}). "
+                    f"Project limit is {config.max_files_per_request} simultaneous upload(s).",
+                    detail={
+                        "in_flight": in_flight,
+                        "max_files_per_request": config.max_files_per_request,
+                    },
+                )
 
         record = await self._repo.create(
             organization_id=self._ctx.organization_id,

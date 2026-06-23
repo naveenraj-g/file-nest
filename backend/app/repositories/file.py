@@ -145,6 +145,23 @@ class FileRepository:
         result = await self._session.execute(stmt)
         return result.scalar_one()
 
+    async def count_in_flight(self, organization_id: str, project_id: str) -> int:
+        """
+        Count files currently in-flight (pending presigned PUT or active multipart upload).
+
+        Used to enforce max_files_per_request before issuing a new presigned URL.
+        Statuses counted: 'pending' (URL issued, awaiting PUT) and 'uploading' (multipart in progress).
+        """
+        result = await self._session.execute(
+            select(func.count(File.id)).where(
+                File.organization_id == organization_id,
+                File.project_id == project_id,
+                File.status.in_(["pending", "uploading"]),
+                File.deleted_at.is_(None),
+            )
+        )
+        return result.scalar_one()
+
     async def list(
         self,
         organization_id: str,

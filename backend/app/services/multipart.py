@@ -31,7 +31,7 @@ from app.repositories.project_config import ProjectConfigRepository
 from app.repositories.storage_config import StorageConfigRepository
 from app.repositories.upload_session import UploadSessionRepository
 from app.services.upload_validation import validate_upload_request
-from app.errors import NotFoundError
+from app.errors import NotFoundError, ValidationError
 from app.schemas.file import (
     MultipartAbortResponse,
     MultipartCompleteRequest,
@@ -108,6 +108,7 @@ class MultipartUploadService:
 
         Raises:
             FileTooLargeError: If total_size_bytes exceeds the project limit.
+            ValidationError:   If concurrent in-flight uploads exceed max_files_per_request.
         """
         config = await self._config_repo.get_for_project(
             self._project_id, self._ctx.organization_id
@@ -118,6 +119,19 @@ class MultipartUploadService:
             content_type=req.content_type,
             size_bytes=req.total_size_bytes,
         )
+        if config.max_files_per_request:
+            in_flight = await self._file_repo.count_in_flight(
+                self._ctx.organization_id, self._project_id
+            )
+            if in_flight >= config.max_files_per_request:
+                raise ValidationError(
+                    f"Too many concurrent uploads ({in_flight}). "
+                    f"Project limit is {config.max_files_per_request} simultaneous upload(s).",
+                    detail={
+                        "in_flight": in_flight,
+                        "max_files_per_request": config.max_files_per_request,
+                    },
+                )
 
         file_record = await self._file_repo.create(
             organization_id=self._ctx.organization_id,
