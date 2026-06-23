@@ -54,9 +54,9 @@ export function ServerActionUploadForm() {
               {[
                 ["ID", result.file.id],
                 ["Filename", result.file.filename],
-                ["Size", `${(result.file.size / 1024).toFixed(1)} KB`],
+                ["Size", `${(result.file.sizeBytes / 1024).toFixed(1)} KB`],
                 ["Status", result.file.status],
-                ["MIME", result.file.mimeType],
+                ["MIME", result.file.contentType],
               ].map(([k, v]) => (
                 <>
                   <dt key={`k-${k}`} className="text-sm text-muted">{k}</dt>

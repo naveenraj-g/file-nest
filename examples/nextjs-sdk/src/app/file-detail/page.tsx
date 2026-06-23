@@ -34,14 +34,14 @@ export function FileDetail({ fileId }: { fileId: string }) {
       <h2>{file.filename}</h2>
       <dl>
         <dt>Status</dt><dd>{file.status}</dd>
-        <dt>Size</dt>  <dd>{file.size} bytes</dd>
-        <dt>MIME</dt>  <dd>{file.mimeType}</dd>
+        <dt>Size</dt>  <dd>{file.sizeBytes} bytes</dd>
+        <dt>MIME</dt>  <dd>{file.contentType}</dd>
         <dt>Tags</dt>  <dd>{file.tags.join(", ") || "none"}</dd>
       </dl>
       {file.versions && (
         <ul>
           {file.versions.map(v => (
-            <li key={v.versionNumber}>v{v.versionNumber} — {v.size} bytes</li>
+            <li key={v.versionNumber}>v{v.versionNumber} — {v.sizeBytes} bytes</li>
           ))}
         </ul>
       )}
@@ -103,8 +103,8 @@ function FileDetailCard({ fileId }: { fileId: string }) {
             {file.status}
           </span>
         } />
-        <DetailRow label="Size" value={formatBytes(file.size)} />
-        <DetailRow label="MIME type" value={file.mimeType} />
+        <DetailRow label="Size" value={formatBytes(file.sizeBytes)} />
+        <DetailRow label="MIME type" value={file.contentType} />
         <DetailRow label="Folder" value={file.folderId ?? "root"} />
         <DetailRow label="Tags" value={file.tags.length ? file.tags.join(", ") : "—"} />
         <DetailRow label="Created" value={new Date(file.createdAt).toLocaleString()} />
@@ -136,7 +136,7 @@ function FileDetailCard({ fileId }: { fileId: string }) {
               {file.versions.map((v) => (
                 <tr key={v.versionNumber}>
                   <td>v{v.versionNumber}</td>
-                  <td className="text-muted">{formatBytes(v.size)}</td>
+                  <td className="text-muted">{formatBytes(v.sizeBytes)}</td>
                   <td className="text-muted">{new Date(v.createdAt).toLocaleDateString()}</td>
                   <td className="text-muted">{v.changeNote ?? "—"}</td>
                 </tr>

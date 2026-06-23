@@ -85,7 +85,7 @@ function FolderCard({ folder, allIds }: { folder: Folder; allIds: string[] }) {
 function FileCard({ file, allIds }: { file: FileRecord; allIds: string[] }) {
   const { selectedIds, toggleSelect, onFileClick, showInfoPanel } = useExplorer();
   const selected = selectedIds.has(file.id);
-  const group = getMimeGroup(file.mimeType);
+  const group = getMimeGroup(file.contentType);
   const color = MIME_COLOR[group];
   const isImage = group === "image";
 
@@ -152,7 +152,7 @@ function FileCard({ file, allIds }: { file: FileRecord; allIds: string[] }) {
           </div>
         </div>
         <div style={{ padding: "0 10px 8px", fontSize: 11, color: "#5f6368" }}>
-          {relativeDate(file.createdAt)} · {formatBytes(file.size)}
+          {relativeDate(file.createdAt)} · {formatBytes(file.sizeBytes)}
         </div>
       </div>
     </ExplorerContextMenu>

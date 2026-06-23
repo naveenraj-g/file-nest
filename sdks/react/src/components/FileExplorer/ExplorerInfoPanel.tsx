@@ -24,7 +24,7 @@ export function ExplorerInfoPanel() {
   const folder = folders.find((f) => f.id === infoPanelItemId);
   const item   = file ?? folder;
 
-  const isImage = file && getMimeGroup(file.mimeType) === "image";
+  const isImage = file && getMimeGroup(file.contentType) === "image";
   const starred = infoPanelItemId ? starredIds.has(infoPanelItemId) : false;
 
   return (
@@ -56,7 +56,7 @@ export function ExplorerInfoPanel() {
             {isImage && file?.metadata?.thumbnailUrl ? (
               <img src={file.metadata.thumbnailUrl as string} alt={file.filename} />
             ) : file ? (
-              <FileTypeIcon mimeType={file.mimeType} size={64} />
+              <FileTypeIcon mimeType={file.contentType} size={64} />
             ) : (
               <span style={{ fontSize: 64 }}>📁</span>
             )}
@@ -72,8 +72,8 @@ export function ExplorerInfoPanel() {
           {/* Details rows */}
           {file && (
             <>
-              <Row label="Type" value={MIME_LABEL[getMimeGroup(file.mimeType)]} />
-              <Row label="Size" value={formatBytes(file.size)} />
+              <Row label="Type" value={MIME_LABEL[getMimeGroup(file.contentType)]} />
+              <Row label="Size" value={formatBytes(file.sizeBytes)} />
               <Row label="Status" value={file.status} />
             </>
           )}

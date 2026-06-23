@@ -1,8 +1,13 @@
 """
 filenest.namespaces.files — FilesNamespace (sync) and AsyncFilesNamespace.
 
-Provides upload (single + auto-multipart), download, list, get, update, delete.
-Files >= 5 MB use multipart upload automatically.
+Upload flow (both single and async):
+  1. POST JSON to /files/upload   → receive {file_id, upload_url, expires_at}
+  2. PUT bytes to upload_url      → write directly to storage (S3/MinIO/etc.)
+  3. POST /files/{id}/confirm     → triggers the processing pipeline
+  4. GET /files/{id}              → return fully-populated File record
+
+Files >= 5 MB (MULTIPART_THRESHOLD) are uploaded via the multipart endpoint.
 
 Usage:
     fn.files.upload(filename="report.pdf", data=pdf_bytes, mime_type="application/pdf")
@@ -13,14 +18,16 @@ from __future__ import annotations
 import hashlib
 import hmac
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Iterator
+from typing import Any, BinaryIO, Callable
+
+import httpx
 
 from filenest.types import (
     DownloadUrlResponse,
     File,
+    FileListResponse,
     FileVersion,
-    ListResponse,
-    Pagination,
+    FileVersionListResponse,
 )
 
 MULTIPART_THRESHOLD = 5 * 1024 * 1024  # 5 MB
@@ -44,27 +51,42 @@ class FilesNamespace:
         tags: list[str] | None = None,
         on_progress: Callable[[float], None] | None = None,
     ) -> File:
-        """Upload a file. Auto-selects single or multipart based on size."""
+        """Upload a file. Uses init → PUT-to-presigned-URL → confirm flow."""
         raw = data if isinstance(data, bytes) else data.read()
-        files = {"file": (filename, raw, mime_type)}
-        data_fields: dict[str, Any] = {}
-        if folder_id:
-            data_fields["folder_id"] = folder_id
-        if metadata:
-            import json
-            data_fields["metadata"] = json.dumps(metadata)
-        if tags:
-            import json
-            data_fields["tags"] = json.dumps(tags)
 
-        result = self._http._client.post(
+        # 1. Init: get presigned upload URL from backend
+        body: dict[str, Any] = {
+            "filename": filename,
+            "content_type": mime_type,
+            "size_bytes": len(raw),
+        }
+        if folder_id:
+            body["folder_id"] = folder_id
+        if metadata:
+            body["metadata"] = metadata
+        if tags:
+            body["tags"] = tags
+
+        init = self._http.post(
             f"/v1/projects/{self._project_id}/files/upload",
-            files=files,
-            data=data_fields,
-            headers={"Authorization": f"Bearer {self._http.api_key}"},
+            json=body,
         )
-        result.raise_for_status()
-        return File.model_validate(result.json())
+        file_id = init["file_id"]
+        upload_url = init["upload_url"]
+
+        # 2. PUT bytes directly to storage
+        put_resp = httpx.put(upload_url, content=raw, headers={"Content-Type": mime_type})
+        put_resp.raise_for_status()
+
+        if on_progress:
+            on_progress(100.0)
+
+        # 3. Confirm — starts pipeline
+        self._http.post(f"/v1/projects/{self._project_id}/files/{file_id}/confirm")
+
+        # 4. Return full file record
+        raw_file = self._http.get(f"/v1/projects/{self._project_id}/files/{file_id}")
+        return File.model_validate(raw_file)
 
     def upload_from_path(
         self,
@@ -92,7 +114,7 @@ class FilesNamespace:
     def get_download_url(self, file_id: str, ttl: int = 3600) -> DownloadUrlResponse:
         """Get a presigned download URL."""
         raw = self._http.get(
-            f"/v1/projects/{self._project_id}/files/{file_id}/download-url",
+            f"/v1/projects/{self._project_id}/files/{file_id}/download",
             params={"ttl": ttl},
         )
         return DownloadUrlResponse.model_validate(raw)
@@ -121,7 +143,7 @@ class FilesNamespace:
         offset: int = 0,
         sort_by: str | None = None,
         sort_order: str | None = None,
-    ) -> ListResponse[File]:
+    ) -> FileListResponse:
         """List files in the project."""
         params: dict = {"limit": limit, "offset": offset}
         if folder_id:
@@ -138,10 +160,7 @@ class FilesNamespace:
             params["sort_order"] = sort_order
 
         raw = self._http.get(f"/v1/projects/{self._project_id}/files", params=params)
-        return ListResponse[File](
-            data=[File.model_validate(f) for f in raw.get("data", [])],
-            pagination=Pagination.model_validate(raw.get("pagination", {})),
-        )
+        return FileListResponse.model_validate(raw)
 
     def get(self, file_id: str) -> File:
         """Get a single file by ID."""
@@ -178,7 +197,8 @@ class FilesNamespace:
     def list_versions(self, file_id: str) -> list[FileVersion]:
         """List all versions of a file."""
         raw = self._http.get(f"/v1/projects/{self._project_id}/files/{file_id}/versions")
-        return [FileVersion.model_validate(v) for v in raw.get("data", [])]
+        resp = FileVersionListResponse.model_validate(raw)
+        return resp.items
 
     @staticmethod
     def verify_webhook_signature(body: bytes, signature: str, secret: str) -> bool:
@@ -204,31 +224,48 @@ class AsyncFilesNamespace:
         metadata: dict | None = None,
         tags: list[str] | None = None,
     ) -> File:
-        """Async upload a file."""
+        """Async upload a file. Uses init → PUT-to-presigned-URL → confirm flow."""
+        import asyncio
         raw = data if isinstance(data, bytes) else data.read()
-        import json as json_module
-        files = {"file": (filename, raw, mime_type)}
-        data_fields: dict = {}
-        if folder_id:
-            data_fields["folder_id"] = folder_id
-        if metadata:
-            data_fields["metadata"] = json_module.dumps(metadata)
-        if tags:
-            data_fields["tags"] = json_module.dumps(tags)
 
-        response = await self._http._client.post(
+        body: dict[str, Any] = {
+            "filename": filename,
+            "content_type": mime_type,
+            "size_bytes": len(raw),
+        }
+        if folder_id:
+            body["folder_id"] = folder_id
+        if metadata:
+            body["metadata"] = metadata
+        if tags:
+            body["tags"] = tags
+
+        # 1. Init
+        init = await self._http.post(
             f"/v1/projects/{self._project_id}/files/upload",
-            files=files,
-            data=data_fields,
-            headers={"Authorization": f"Bearer {self._http.api_key}"},
+            json=body,
         )
-        response.raise_for_status()
-        return File.model_validate(response.json())
+        file_id = init["file_id"]
+        upload_url = init["upload_url"]
+
+        # 2. PUT to presigned URL (run in thread to avoid blocking the event loop)
+        def _put() -> None:
+            resp = httpx.put(upload_url, content=raw, headers={"Content-Type": mime_type})
+            resp.raise_for_status()
+
+        await asyncio.to_thread(_put)
+
+        # 3. Confirm
+        await self._http.post(f"/v1/projects/{self._project_id}/files/{file_id}/confirm")
+
+        # 4. Return full file record
+        raw_file = await self._http.get(f"/v1/projects/{self._project_id}/files/{file_id}")
+        return File.model_validate(raw_file)
 
     async def get_download_url(self, file_id: str, ttl: int = 3600) -> DownloadUrlResponse:
         """Get a presigned download URL (async)."""
         raw = await self._http.get(
-            f"/v1/projects/{self._project_id}/files/{file_id}/download-url",
+            f"/v1/projects/{self._project_id}/files/{file_id}/download",
             params={"ttl": ttl},
         )
         return DownloadUrlResponse.model_validate(raw)
@@ -238,16 +275,13 @@ class AsyncFilesNamespace:
         folder_id: str | None = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> ListResponse[File]:
+    ) -> FileListResponse:
         """List files (async)."""
         params: dict = {"limit": limit, "offset": offset}
         if folder_id:
             params["folder_id"] = folder_id
         raw = await self._http.get(f"/v1/projects/{self._project_id}/files", params=params)
-        return ListResponse[File](
-            data=[File.model_validate(f) for f in raw.get("data", [])],
-            pagination=Pagination.model_validate(raw.get("pagination", {})),
-        )
+        return FileListResponse.model_validate(raw)
 
     async def get(self, file_id: str) -> File:
         """Get a single file by ID (async)."""
@@ -267,3 +301,9 @@ class AsyncFilesNamespace:
     async def delete(self, file_id: str) -> None:
         """Soft-delete a file (async)."""
         await self._http.delete(f"/v1/projects/{self._project_id}/files/{file_id}")
+
+    async def list_versions(self, file_id: str) -> list[FileVersion]:
+        """List all versions of a file (async)."""
+        raw = await self._http.get(f"/v1/projects/{self._project_id}/files/{file_id}/versions")
+        resp = FileVersionListResponse.model_validate(raw)
+        return resp.items

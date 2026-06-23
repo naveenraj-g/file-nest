@@ -5,7 +5,7 @@
 
 import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { FileRecord, Folder } from "@filenest/core";
+import type { FileRecord, Folder, ListResponse } from "@filenest/core";
 import { useFileNest } from "../context/FileNestContext.js";
 
 export interface Breadcrumb {
@@ -22,7 +22,7 @@ export interface UseFolderResult {
 }
 
 export function useFolder(folderId: string | null): UseFolderResult {
-  const { projectId, getToken } = useFileNest();
+  const { projectId, baseUrl, getToken } = useFileNest();
 
   const fetcher = useCallback(async () => {
     const token = await getToken();
@@ -30,22 +30,22 @@ export function useFolder(folderId: string | null): UseFolderResult {
 
     const [folderRes, filesRes, subfoldersRes] = await Promise.all([
       folderId
-        ? fetch(`/v1/projects/${projectId}/folders/${folderId}`, { headers }).then((r) => r.json() as Promise<Folder>)
+        ? fetch(`${baseUrl}/v1/projects/${projectId}/folders/${folderId}`, { headers }).then((r) => r.json() as Promise<Folder>)
         : Promise.resolve(null),
-      fetch(`/v1/projects/${projectId}/files?folder_id=${folderId ?? "root"}&limit=100`, { headers }).then(
-        (r) => r.json() as Promise<{ data: FileRecord[] }>
+      fetch(`${baseUrl}/v1/projects/${projectId}/files?folder_id=${folderId ?? "root"}&limit=100`, { headers }).then(
+        (r) => r.json() as Promise<ListResponse<FileRecord>>
       ),
-      fetch(`/v1/projects/${projectId}/folders?parent_folder_id=${folderId ?? ""}`, { headers }).then(
-        (r) => r.json() as Promise<{ data: Folder[] }>
+      fetch(`${baseUrl}/v1/projects/${projectId}/folders?parent_folder_id=${folderId ?? ""}`, { headers }).then(
+        (r) => r.json() as Promise<{ items: Folder[] }>
       ),
     ]);
 
     return {
       folder: folderRes,
-      files: filesRes.data,
-      subfolders: subfoldersRes.data,
+      files: filesRes.items,
+      subfolders: subfoldersRes.items,
     };
-  }, [projectId, getToken, folderId]);
+  }, [projectId, baseUrl, getToken, folderId]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["filenest", "folder", projectId, folderId],
@@ -55,7 +55,6 @@ export function useFolder(folderId: string | null): UseFolderResult {
   const buildBreadcrumbs = (): Breadcrumb[] => {
     const crumbs: Breadcrumb[] = [{ id: null, name: "Root" }];
     if (data?.folder) {
-      // Parse materialized path: "parent/current" → ["parent", "current"]
       const parts = data.folder.path.split("/").filter(Boolean);
       parts.forEach((name, i) => {
         crumbs.push({ id: i < parts.length - 1 ? `path-${i}` : data.folder!.id, name });

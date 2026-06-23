@@ -19,7 +19,7 @@ export interface UseFilesOptions {
 }
 
 export function useFiles(options: UseFilesOptions = {}) {
-  const { projectId, getToken } = useFileNest();
+  const { projectId, baseUrl, getToken } = useFileNest();
   const [offset, setOffset] = useState(0);
   const limit = options.limit ?? 20;
 
@@ -34,12 +34,12 @@ export function useFiles(options: UseFilesOptions = {}) {
     if (options.tags?.length) params.set("tags", options.tags.join(","));
     if (options.filters?.metadata) params.set("metadata", JSON.stringify(options.filters.metadata));
 
-    const res = await fetch(`/v1/projects/${projectId}/files?${params}`, {
+    const res = await fetch(`${baseUrl}/v1/projects/${projectId}/files?${params}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error(`Failed to fetch files: ${res.statusText}`);
     return res.json() as Promise<ListResponse<FileRecord>>;
-  }, [projectId, getToken, options, offset, limit]);
+  }, [projectId, baseUrl, getToken, options, offset, limit]);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["filenest", "files", projectId, options, offset],
@@ -48,9 +48,9 @@ export function useFiles(options: UseFilesOptions = {}) {
   });
 
   return {
-    files: data?.data ?? [],
-    totalCount: data?.pagination.total ?? 0,
-    hasMore: data?.pagination.hasMore ?? false,
+    files: data?.items ?? [],
+    totalCount: data?.total ?? 0,
+    hasMore: data?.hasMore ?? false,
     isLoading,
     isError,
     error: error as Error | null,

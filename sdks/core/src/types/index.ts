@@ -1,8 +1,9 @@
 /**
  * @filenest/core types — shared TypeScript types for all FileNest SDKs.
  *
- * These types mirror the Pydantic models in the FastAPI backend. All SDK
- * responses are typed with these interfaces.
+ * These types mirror the FastAPI backend Pydantic models after the HTTP client
+ * applies its snake_case → camelCase response transformer. All SDK response
+ * objects are typed with these interfaces.
  *
  * @module
  */
@@ -10,6 +11,7 @@
 // ─── Files ───────────────────────────────────────────────────────────────────
 
 export type FileStatus =
+  | "pending"
   | "uploading"
   | "processing"
   | "ready"
@@ -22,15 +24,17 @@ export interface FileRecord {
   projectId: string;
   organizationId: string;
   filename: string;
-  mimeType: string;
-  size: number;
+  /** MIME type — maps from backend field `content_type`. */
+  contentType: string;
+  /** File size in bytes — maps from backend field `size_bytes`. */
+  sizeBytes: number;
   status: FileStatus;
   storageKey: string;
   folderId: string | null;
+  category: string | null;
+  versionCount: number;
   tags: string[];
   metadata: Record<string, unknown>;
-  versionCount: number;
-  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,9 +43,9 @@ export interface FileVersion {
   id: string;
   fileId: string;
   versionNumber: number;
-  size: number;
   storageKey: string;
-  changeNote: string | null;
+  sizeBytes: number;
+  contentType: string;
   createdAt: string;
 }
 
@@ -121,15 +125,10 @@ export interface UploadProgress {
   totalChunks: number;
 }
 
-export interface UploadSession {
-  sessionId: string;
+/** Response from `POST /files/upload/multipart/start`. */
+export interface MultipartSession {
+  uploadId: string;
   fileId: string;
-  filename: string;
-  size: number;
-  mimeType: string;
-  uploadedParts: number;
-  totalParts: number;
-  expiresAt: string;
 }
 
 export interface UploadToken {
@@ -147,7 +146,6 @@ export interface UploadToken {
 export interface DownloadUrlResponse {
   url: string;
   expiresAt: string;
-  filename: string;
 }
 
 // ─── Search ──────────────────────────────────────────────────────────────────
@@ -199,14 +197,15 @@ export interface AuditLog {
 
 // ─── Pagination ──────────────────────────────────────────────────────────────
 
-export interface Pagination {
+/**
+ * Standard list response from the backend.
+ * `items` is the record list; pagination fields are at the top level (flat).
+ */
+export interface ListResponse<T> {
+  items: T[];
   total: number;
   limit: number;
   offset: number;
   hasMore: boolean;
-}
-
-export interface ListResponse<T> {
-  data: T[];
-  pagination: Pagination;
+  nextCursor: string | null;
 }

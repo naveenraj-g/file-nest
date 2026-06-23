@@ -122,7 +122,7 @@ export default async function SearchPage({
                           <tr key={hit.fileId}>
                             <td>{hit.filename}</td>
                             <td className="text-muted">{hit.score.toFixed(3)}</td>
-                            <td className="text-sm text-muted">{hit.file.mimeType}</td>
+                            <td className="text-sm text-muted">{hit.file.contentType}</td>
                           </tr>
                         ))}
                       </tbody>

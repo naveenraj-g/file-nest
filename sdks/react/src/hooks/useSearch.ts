@@ -23,7 +23,7 @@ export interface UseSearchOptions {
 }
 
 export function useSearch(options: UseSearchOptions = {}) {
-  const { projectId, getToken } = useFileNest();
+  const { projectId, baseUrl, getToken } = useFileNest();
   const queryClient = useQueryClient();
   const debounceMs = options.debounceMs ?? 300;
   const [currentQuery, setCurrentQuery] = useState<SearchQuery>({});
@@ -38,7 +38,7 @@ export function useSearch(options: UseSearchOptions = {}) {
     }
     const token = await getToken();
     const t0 = Date.now();
-    const res = await fetch(`/v1/projects/${projectId}/search`, {
+    const res = await fetch(`${baseUrl}/v1/projects/${projectId}/search`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ ...currentQuery, facets: options.facets, limit: options.limit ?? 20 }),
@@ -48,7 +48,7 @@ export function useSearch(options: UseSearchOptions = {}) {
     const elapsed = Date.now() - t0;
     setQueryTimeMs(elapsed);
     return { ...data, queryTimeMs: elapsed };
-  }, [projectId, getToken, currentQuery, options.facets, options.limit]);
+  }, [projectId, baseUrl, getToken, currentQuery, options.facets, options.limit]);
 
   const { data, isLoading } = useQuery({ queryKey, queryFn: fetcher, enabled: true });
 

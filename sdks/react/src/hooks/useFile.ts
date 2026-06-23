@@ -15,7 +15,7 @@ export interface UseFileOptions {
 }
 
 export function useFile(fileId: string, options: UseFileOptions = {}) {
-  const { projectId, getToken } = useFileNest();
+  const { projectId, baseUrl, getToken } = useFileNest();
   const queryClient = useQueryClient();
   const queryKey = ["filenest", "file", projectId, fileId, options];
 
@@ -25,7 +25,7 @@ export function useFile(fileId: string, options: UseFileOptions = {}) {
     if (options.includeVersions) params.set("include_versions", "true");
     if (options.includeProcessing) params.set("include_processing", "true");
 
-    const res = await fetch(`/v1/projects/${projectId}/files/${fileId}?${params}`, {
+    const res = await fetch(`${baseUrl}/v1/projects/${projectId}/files/${fileId}?${params}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error(`Failed to fetch file ${fileId}: ${res.statusText}`);

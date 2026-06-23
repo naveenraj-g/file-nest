@@ -5,6 +5,11 @@
  * and makes them available to all hooks and components. Tokens are cached and
  * refreshed 60 seconds before expiry.
  *
+ * Upload flow (three-step presigned URL pattern):
+ *   1. POST JSON to backend init endpoint → receive presigned storage URL + file_id
+ *   2. PUT file bytes to presigned URL (XHR for progress, fetch otherwise)
+ *   3. POST /confirm → triggers the processing pipeline
+ *
  * @module
  */
 
@@ -21,6 +26,7 @@ import type { FileRecord, UploadProgress } from "@filenest/core";
 
 export interface FileNestContextValue {
   projectId: string;
+  baseUrl: string;
   tokenEndpoint: string;
   getToken: () => Promise<string>;
   upload: (
@@ -35,6 +41,11 @@ const FileNestContext = createContext<FileNestContextValue | null>(null);
 export interface FileNestProviderProps {
   tokenEndpoint: string;
   projectId: string;
+  /**
+   * Base URL of the FileNest backend, e.g. "https://api.filenest.io".
+   * Defaults to "" (same origin). Set this when the backend is at a different origin.
+   */
+  baseUrl?: string;
   options?: {
     environment?: "production" | "test";
     debug?: boolean;
@@ -46,10 +57,11 @@ const internalQueryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 2 } },
 });
 
-export function FileNestProvider({ tokenEndpoint, projectId, options, children }: FileNestProviderProps) {
+export function FileNestProvider({ tokenEndpoint, projectId, baseUrl = "", options, children }: FileNestProviderProps) {
   const [isReady, setIsReady] = useState(false);
   const tokenRef = useRef<{ token: string; expiresAt: number } | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const api = baseUrl.replace(/\/$/, "");
 
   const fetchToken = useCallback(async (): Promise<string> => {
     const res = await fetch(tokenEndpoint, {
@@ -61,7 +73,6 @@ export function FileNestProvider({ tokenEndpoint, projectId, options, children }
     const data = (await res.json()) as { token: string; expiresAt: string };
     const expiresAt = new Date(data.expiresAt).getTime();
     tokenRef.current = { token: data.token, expiresAt };
-    // Schedule refresh 60 s before expiry
     const ttl = expiresAt - Date.now() - 60_000;
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     if (ttl > 0) {
@@ -94,56 +105,68 @@ export function FileNestProvider({ tokenEndpoint, projectId, options, children }
       opts: { folderId?: string; metadata?: Record<string, unknown>; tags?: string[]; onProgress?: (p: UploadProgress) => void } = {}
     ): Promise<FileRecord> => {
       const token = await getToken();
-      const form = new FormData();
-      form.append("file", file, file.name);
-      if (opts.folderId) form.append("folder_id", opts.folderId);
-      if (opts.metadata) form.append("metadata", JSON.stringify(opts.metadata));
-      if (opts.tags) form.append("tags", JSON.stringify(opts.tags));
+      const authHeader = { Authorization: `Bearer ${token}` };
 
-      // Prefer XHR for progress reporting; fall back to fetch
-      if (opts.onProgress) {
-        return new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              opts.onProgress!({
-                bytesUploaded: e.loaded,
-                totalBytes: e.total,
-                percentage: Math.round((e.loaded / e.total) * 100),
-                chunkNumber: 1,
-                totalChunks: 1,
-              });
-            }
-          };
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve(JSON.parse(xhr.responseText) as FileRecord);
-            } else {
-              reject(new Error(`Upload failed with status ${xhr.status}`));
-            }
-          };
-          xhr.onerror = () => reject(new Error("Network error during upload"));
-          const apiUrl = `/v1/projects/${projectId}/files/upload`;
-          xhr.open("POST", apiUrl);
-          xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-          xhr.send(form);
-        });
-      }
-
-      const res = await fetch(`/v1/projects/${projectId}/files/upload`, {
+      // 1. Init: tell backend about the file, get a presigned PUT URL
+      const initRes = await fetch(`${api}/v1/projects/${projectId}/files/upload`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: form,
+        headers: { ...authHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          content_type: file.type || "application/octet-stream",
+          size_bytes: file.size,
+          folder_id: opts.folderId ?? null,
+          metadata: opts.metadata ?? {},
+          tags: opts.tags ?? [],
+        }),
       });
-      if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-      return res.json() as Promise<FileRecord>;
+      if (!initRes.ok) throw new Error(`Upload init failed: ${initRes.statusText}`);
+      const initData = (await initRes.json()) as { file_id: string; upload_url: string };
+
+      // 2. PUT file bytes to presigned storage URL (XHR enables upload progress events)
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable && opts.onProgress) {
+            opts.onProgress({
+              bytesUploaded: e.loaded,
+              totalBytes: e.total,
+              percentage: Math.round((e.loaded / e.total) * 100),
+              chunkNumber: 1,
+              totalChunks: 1,
+            });
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error(`Storage upload failed with status ${xhr.status}`));
+        };
+        xhr.onerror = () => reject(new Error("Network error during storage upload"));
+        xhr.open("PUT", initData.upload_url);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.send(file);
+      });
+
+      // 3. Confirm — triggers the virus scan + processing pipeline
+      const confirmRes = await fetch(`${api}/v1/projects/${projectId}/files/${initData.file_id}/confirm`, {
+        method: "POST",
+        headers: authHeader,
+      });
+      if (!confirmRes.ok) throw new Error(`Upload confirm failed: ${confirmRes.statusText}`);
+
+      // 4. Return full file record
+      const fileRes = await fetch(`${api}/v1/projects/${projectId}/files/${initData.file_id}`, {
+        headers: authHeader,
+      });
+      if (!fileRes.ok) throw new Error(`Failed to fetch file record: ${fileRes.statusText}`);
+      return fileRes.json() as Promise<FileRecord>;
     },
-    [getToken, projectId]
+    [getToken, projectId, api]
   );
 
   return (
     <QueryClientProvider client={internalQueryClient}>
-      <FileNestContext.Provider value={{ projectId, tokenEndpoint, getToken, upload, isReady }}>
+      <FileNestContext.Provider value={{ projectId, baseUrl: api, tokenEndpoint, getToken, upload, isReady }}>
         {children}
       </FileNestContext.Provider>
     </QueryClientProvider>

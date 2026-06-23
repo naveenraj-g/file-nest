@@ -36,11 +36,11 @@ export function FilePreview({
   onDownload,
 }: FilePreviewProps) {
   const { file, isLoading } = useFile(fileId, { includeVersions: showVersionHistory });
-  const { projectId, getToken } = useFileNest();
+  const { projectId, baseUrl, getToken } = useFileNest();
 
   const handleDownload = async () => {
     const token = await getToken();
-    const res = await fetch(`/v1/projects/${projectId}/files/${fileId}/download-url`, {
+    const res = await fetch(`${baseUrl}/v1/projects/${projectId}/files/${fileId}/download`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const { url } = (await res.json()) as { url: string };
@@ -75,7 +75,7 @@ export function FilePreview({
       </div>
 
       {/* Preview area */}
-      <PreviewContent file={file} height={typeof height === "number" ? height - 44 : 360} projectId={projectId} getToken={getToken} />
+      <PreviewContent file={file} height={typeof height === "number" ? height - 44 : 360} projectId={projectId} baseUrl={baseUrl} getToken={getToken} />
 
       {/* Metadata */}
       {showMetadata && Object.keys(file.metadata ?? {}).length > 0 && (
@@ -104,6 +104,7 @@ function PreviewContent({
   file: FileRecord;
   height: number;
   projectId: string;
+  baseUrl: string;
   getToken: () => Promise<string>;
 }) {
   const [downloadUrl, setDownloadUrl] = React.useState<string | null>(null);
@@ -111,7 +112,7 @@ function PreviewContent({
   React.useEffect(() => {
     getToken()
       .then((token) =>
-        fetch(`/v1/projects/${projectId}/files/${file.id}/download-url`, {
+        fetch(`${baseUrl}/v1/projects/${projectId}/files/${file.id}/download`, {
           headers: { Authorization: `Bearer ${token}` },
         })
       )
@@ -128,7 +129,7 @@ function PreviewContent({
     );
   }
 
-  if (file.mimeType.startsWith("image/")) {
+  if (file.contentType.startsWith("image/")) {
     return (
       <div style={{ height, display: "flex", alignItems: "center", justifyContent: "center", background: "#f3f4f6" }}>
         <img src={downloadUrl} alt={file.filename} style={{ maxWidth: "100%", maxHeight: height, objectFit: "contain" }} />
@@ -136,14 +137,14 @@ function PreviewContent({
     );
   }
 
-  if (file.mimeType === "application/pdf") {
+  if (file.contentType === "application/pdf") {
     return <iframe src={downloadUrl} title={file.filename} style={{ width: "100%", height, border: "none" }} />;
   }
 
   return (
     <div style={{ height, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8 }}>
       <span style={{ fontSize: 32 }}>📄</span>
-      <span style={{ color: "#6b7280", fontSize: 13 }}>{file.mimeType} — no preview available</span>
+      <span style={{ color: "#6b7280", fontSize: 13 }}>{file.contentType} — no preview available</span>
     </div>
   );
 }

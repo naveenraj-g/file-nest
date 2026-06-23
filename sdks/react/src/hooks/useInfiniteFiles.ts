@@ -23,7 +23,7 @@ export interface UseInfiniteFilesOptions {
 }
 
 export function useInfiniteFiles(opts: UseInfiniteFilesOptions = {}) {
-  const { projectId, getToken } = useFileNest();
+  const { projectId, baseUrl, getToken } = useFileNest();
   const limit = opts.limit ?? 50;
 
   const fetcher = useCallback(
@@ -37,13 +37,13 @@ export function useInfiniteFiles(opts: UseInfiniteFilesOptions = {}) {
       if (opts.sortOrder) params.set("sort_order", opts.sortOrder);
       if (opts.searchQuery) params.set("q", opts.searchQuery);
 
-      const res = await fetch(`/v1/projects/${projectId}/files?${params}`, {
+      const res = await fetch(`${baseUrl}/v1/projects/${projectId}/files?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(`Failed to fetch files: ${res.statusText}`);
       return res.json() as Promise<ListResponse<FileRecord>>;
     },
-    [projectId, getToken, opts.folderId, opts.sortBy, opts.sortOrder, opts.searchQuery, limit]
+    [projectId, baseUrl, getToken, opts.folderId, opts.sortBy, opts.sortOrder, opts.searchQuery, limit]
   );
 
   const query = useInfiniteQuery({
@@ -59,16 +59,15 @@ export function useInfiniteFiles(opts: UseInfiniteFilesOptions = {}) {
     queryFn: fetcher,
     initialPageParam: 0,
     getNextPageParam: (lastPage) => {
-      const { offset, limit: lim, total } = lastPage.pagination;
-      const next = offset + lim;
-      return next < total ? next : undefined;
+      const next = lastPage.offset + lastPage.limit;
+      return next < lastPage.total ? next : undefined;
     },
     enabled: opts.enabled !== false,
   });
 
   return {
-    files: query.data?.pages.flatMap((p) => p.data) ?? [],
-    totalCount: query.data?.pages[0]?.pagination.total ?? 0,
+    files: query.data?.pages.flatMap((p) => p.items) ?? [],
+    totalCount: query.data?.pages[0]?.total ?? 0,
     hasMore: query.hasNextPage,
     isLoading: query.isLoading,
     isFetchingMore: query.isFetchingNextPage,

@@ -117,7 +117,7 @@ function FileRow({ file, allIds }: { file: FileRecord; allIds: string[] }) {
   const { selectedIds, toggleSelect, onFileClick, onFileDownload, starredIds, toggleStar, openModal } = useExplorer();
   const selected = selectedIds.has(file.id);
   const starred  = starredIds.has(file.id);
-  const group    = getMimeGroup(file.mimeType);
+  const group    = getMimeGroup(file.contentType);
   const color    = MIME_COLOR[group];
 
   const handleRowClick = useCallback((e: React.MouseEvent) => {
@@ -156,7 +156,7 @@ function FileRow({ file, allIds }: { file: FileRecord; allIds: string[] }) {
         </td>
         <td style={{ color: "#5f6368", fontSize: 13 }}>me</td>
         <td style={{ color: "#5f6368", fontSize: 13 }}>{relativeDate(file.updatedAt ?? file.createdAt)}</td>
-        <td style={{ color: "#5f6368", fontSize: 13 }}>{formatBytes(file.size)}</td>
+        <td style={{ color: "#5f6368", fontSize: 13 }}>{formatBytes(file.sizeBytes)}</td>
         <td style={{ width: 120 }}>
           <div className="fn-ex-row-actions">
             <button

@@ -2,7 +2,12 @@
  * @filenest/node namespaces/files — FilesNamespace implementation.
  *
  * Provides all file operations: upload (single + auto-multipart), download,
- * list, get, update metadata/tags, soft delete, restore, and version management.
+ * list, get, update metadata/tags, soft delete, and version management.
+ *
+ * Upload flow (both single and multipart):
+ *   1. POST JSON to init endpoint → receive presigned storage URL + file_id
+ *   2. PUT bytes directly to presigned storage URL (bypasses backend)
+ *   3. POST /confirm → triggers processing pipeline
  *
  * @module
  */
@@ -15,6 +20,7 @@ import type {
   FileRecord,
   FileVersion,
   ListResponse,
+  MultipartSession,
   UploadProgress,
 } from "@filenest/core";
 
@@ -49,46 +55,9 @@ export interface FileUpdateOptions {
   filename?: string;
 }
 
-export interface VersionCreateOptions {
-  data: Buffer | Readable;
-  size?: number;
-  mimeType?: string;
-  changeNote?: string;
-}
-
 export interface GetDownloadUrlOptions {
   ttl?: number;
   disposition?: "inline" | "attachment";
-}
-
-class FileVersionsNamespace {
-  constructor(
-    private readonly http: FileNestHttpClient,
-    private readonly projectId: string
-  ) {}
-
-  async list(fileId: string): Promise<ListResponse<FileVersion>> {
-    return this.http.get(`/v1/projects/${this.projectId}/files/${fileId}/versions`);
-  }
-
-  async create(fileId: string, options: VersionCreateOptions): Promise<FileRecord> {
-    const body = Buffer.isBuffer(options.data)
-      ? options.data
-      : await streamToBuffer(options.data as Readable);
-
-    const form = new FormData();
-    form.append("file", new Blob([body], { type: options.mimeType ?? "application/octet-stream" }), options.mimeType);
-    if (options.changeNote) form.append("change_note", options.changeNote);
-
-    return this.http.rawFetch(`/v1/projects/${this.projectId}/files/${fileId}/versions`, {
-      method: "POST",
-      body: form,
-    }).then((r) => r.json() as Promise<FileRecord>);
-  }
-
-  async rollback(fileId: string, versionNumber: number, options?: { changeNote?: string }): Promise<FileRecord> {
-    return this.http.post(`/v1/projects/${this.projectId}/files/${fileId}/versions/${versionNumber}/restore`, options);
-  }
 }
 
 async function streamToBuffer(stream: Readable): Promise<Buffer> {
@@ -97,6 +66,21 @@ async function streamToBuffer(stream: Readable): Promise<Buffer> {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
   }
   return Buffer.concat(chunks);
+}
+
+class FileVersionsNamespace {
+  constructor(
+    private readonly http: FileNestHttpClient,
+    private readonly projectId: string
+  ) {}
+
+  async list(fileId: string): Promise<{ items: FileVersion[]; total: number }> {
+    return this.http.get(`/v1/projects/${this.projectId}/files/${fileId}/versions`);
+  }
+
+  async restore(fileId: string, versionId: string): Promise<{ fileId: string; versionNumber: number }> {
+    return this.http.post(`/v1/projects/${this.projectId}/files/${fileId}/versions/${versionId}/restore`);
+  }
 }
 
 export class FilesNamespace {
@@ -124,40 +108,57 @@ export class FilesNamespace {
   }
 
   private async _singleUpload(data: Buffer, options: UploadOptions): Promise<FileRecord> {
-    const form = new FormData();
-    form.append(
-      "file",
-      new Blob([data], { type: options.mimeType ?? "application/octet-stream" }),
-      options.filename
-    );
-    if (options.folderId) form.append("folder_id", options.folderId);
-    if (options.metadata) form.append("metadata", JSON.stringify(options.metadata));
-    if (options.tags) form.append("tags", JSON.stringify(options.tags));
+    const contentType = options.mimeType ?? "application/octet-stream";
 
-    const res = await this.http.rawFetch(`/v1/projects/${this.projectId}/files/upload`, {
-      method: "POST",
-      body: form,
+    // 1. Init: tell the backend about the file, receive presigned PUT URL
+    const init = await this.http.post<{ fileId: string; uploadUrl: string; expiresAt: string }>(
+      `/v1/projects/${this.projectId}/files/upload`,
+      {
+        filename: options.filename,
+        content_type: contentType,
+        size_bytes: data.length,
+        folder_id: options.folderId ?? null,
+        metadata: options.metadata ?? {},
+        tags: options.tags ?? [],
+      }
+    );
+
+    options.onProgress?.({ bytesUploaded: 0, totalBytes: data.length, percentage: 0, chunkNumber: 1, totalChunks: 1 });
+
+    // 2. PUT bytes directly to storage via the presigned URL
+    await fetch(init.uploadUrl, {
+      method: "PUT",
+      body: data,
+      headers: { "Content-Type": contentType },
     });
-    return res.json() as Promise<FileRecord>;
+
+    options.onProgress?.({ bytesUploaded: data.length, totalBytes: data.length, percentage: 100, chunkNumber: 1, totalChunks: 1 });
+
+    // 3. Confirm upload — triggers the processing pipeline
+    await this.http.post(`/v1/projects/${this.projectId}/files/${init.fileId}/confirm`);
+
+    return this.http.get(`/v1/projects/${this.projectId}/files/${init.fileId}`);
   }
 
   private async _multipartUpload(data: Buffer, options: UploadOptions): Promise<FileRecord> {
-    // Start multipart session
-    const session = await this.http.post<{ upload_id: string; file_id: string }>(
+    const contentType = options.mimeType ?? "application/octet-stream";
+
+    // 1. Start multipart session
+    const session = await this.http.post<MultipartSession>(
       `/v1/projects/${this.projectId}/files/upload/multipart/start`,
       {
         filename: options.filename,
-        size: data.length,
-        mime_type: options.mimeType ?? "application/octet-stream",
-        folder_id: options.folderId,
-        metadata: options.metadata,
-        tags: options.tags,
+        content_type: contentType,
+        total_size_bytes: data.length,
+        folder_id: options.folderId ?? null,
+        metadata: options.metadata ?? {},
+        tags: options.tags ?? [],
       }
     );
 
     const CHUNK_SIZE = 5 * 1024 * 1024;
     const totalChunks = Math.ceil(data.length / CHUNK_SIZE);
-    const etags: { partNumber: number; etag: string }[] = [];
+    const parts: { part_number: number; etag: string }[] = [];
 
     for (let i = 0; i < totalChunks; i++) {
       const start = i * CHUNK_SIZE;
@@ -165,14 +166,14 @@ export class FilesNamespace {
 
       // Get presigned URL for this part
       const { url } = await this.http.get<{ url: string }>(
-        `/v1/projects/${this.projectId}/files/upload/multipart/${session.upload_id}/part-url`,
+        `/v1/projects/${this.projectId}/files/upload/multipart/${session.uploadId}/part-url`,
         { part: i + 1 }
       );
 
       // Upload part directly to storage
       const partRes = await fetch(url, { method: "PUT", body: chunk });
       const etag = partRes.headers.get("etag") ?? "";
-      etags.push({ partNumber: i + 1, etag });
+      parts.push({ part_number: i + 1, etag });
 
       options.onProgress?.({
         bytesUploaded: Math.min((i + 1) * CHUNK_SIZE, data.length),
@@ -183,31 +184,36 @@ export class FilesNamespace {
       });
     }
 
-    // Complete multipart upload
-    return this.http.post(`/v1/projects/${this.projectId}/files/upload/multipart/${session.upload_id}/complete`, {
-      parts: etags,
+    // 2. Complete — assemble all parts
+    const result = await this.http.post<{ fileId: string; status: string }>(
+      `/v1/projects/${this.projectId}/files/upload/multipart/${session.uploadId}/complete`,
+      { parts }
+    );
+
+    return this.http.get(`/v1/projects/${this.projectId}/files/${result.fileId}`);
+  }
+
+  /** Get a presigned download URL. The URL can be used to download the file directly from storage. */
+  async getDownloadUrl(fileId: string, options: GetDownloadUrlOptions = {}): Promise<DownloadUrlResponse> {
+    return this.http.get(`/v1/projects/${this.projectId}/files/${fileId}/download`, {
+      ttl: options.ttl,
+      disposition: options.disposition,
     });
   }
 
+  /** Stream the file bytes via the presigned download URL. */
   async download(fileId: string): Promise<Readable> {
-    const res = await this.http.rawFetch(`/v1/projects/${this.projectId}/files/${fileId}/download`, {
-      method: "GET",
-    });
-    // In Node 18+ ReadableStream is available; convert to Node Readable
+    const { url } = await this.getDownloadUrl(fileId);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Storage download failed: ${res.status}`);
     const { Readable } = await import("stream");
     return Readable.fromWeb(res.body as unknown as ReadableStream<Uint8Array>);
   }
 
+  /** Download and buffer the full file in memory. */
   async downloadToBuffer(fileId: string): Promise<Buffer> {
     const stream = await this.download(fileId);
     return streamToBuffer(stream);
-  }
-
-  async getDownloadUrl(fileId: string, options: GetDownloadUrlOptions = {}): Promise<DownloadUrlResponse> {
-    return this.http.get(`/v1/projects/${this.projectId}/files/${fileId}/download-url`, {
-      ttl: options.ttl,
-      disposition: options.disposition,
-    });
   }
 
   async list(filters: FileListFilters = {}): Promise<ListResponse<FileRecord>> {

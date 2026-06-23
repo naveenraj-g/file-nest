@@ -22,7 +22,7 @@ const fn = filenestServer({
 
 // This is a pure async Server Component — no "use client".
 export default async function ServerComponentPage() {
-  const { data: files } = await fn.files.list({
+  const { items: files } = await fn.files.list({
     limit: 10,
     sortBy: "created_at",
     sortOrder: "desc",
@@ -66,7 +66,7 @@ export default async function ServerComponentPage() {
 
   try {
     const result = await fn.files.list({ limit: 10, sortBy: "created_at", sortOrder: "desc" });
-    files = result.data;
+    files = result.items;
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : "Failed to fetch files";
   }
@@ -113,7 +113,7 @@ export default async function ServerComponentPage() {
                   {files.map((file) => (
                     <tr key={file.id}>
                       <td className="truncate" style={{ maxWidth: 200 }}>{file.filename}</td>
-                      <td className="text-muted">{formatBytes(file.size)}</td>
+                      <td className="text-muted">{formatBytes(file.sizeBytes)}</td>
                       <td><span className={`badge ${statusBadge(file.status)}`}>{file.status}</span></td>
                     </tr>
                   ))}

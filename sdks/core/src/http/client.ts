@@ -21,6 +21,25 @@ import {
   WORMViolationError,
 } from "../errors/index.js";
 
+// The backend always returns snake_case JSON. Transform all API responses to camelCase
+// so SDK consumers use standard JS naming (e.g. file.contentType, not file.content_type).
+function snakeToCamel(s: string): string {
+  return s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+}
+
+function camelizeKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(camelizeKeys);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [
+        snakeToCamel(k),
+        camelizeKeys(v),
+      ])
+    );
+  }
+  return value;
+}
+
 export interface FileNestHttpClientConfig {
   apiKey: string;
   projectId?: string;
@@ -141,7 +160,7 @@ export class FileNestHttpClient {
     }
     const res = await this.fetchWithRetry(url.toString(), { method: "GET", headers: this.headers });
     if (!res.ok) await mapResponseError(res.status, res);
-    return res.json() as Promise<T>;
+    return camelizeKeys(await res.json()) as T;
   }
 
   async post<T>(path: string, body?: unknown): Promise<T> {
@@ -151,7 +170,10 @@ export class FileNestHttpClient {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) await mapResponseError(res.status, res);
-    return res.json() as Promise<T>;
+    if (res.status === 204 || res.headers.get("content-length") === "0") {
+      return undefined as T;
+    }
+    return camelizeKeys(await res.json()) as T;
   }
 
   async patch<T>(path: string, body?: unknown): Promise<T> {
@@ -161,7 +183,7 @@ export class FileNestHttpClient {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) await mapResponseError(res.status, res);
-    return res.json() as Promise<T>;
+    return camelizeKeys(await res.json()) as T;
   }
 
   async delete<T = void>(path: string): Promise<T> {
@@ -173,7 +195,7 @@ export class FileNestHttpClient {
     if (res.status === 204 || res.headers.get("content-length") === "0") {
       return undefined as T;
     }
-    return res.json() as Promise<T>;
+    return camelizeKeys(await res.json()) as T;
   }
 
   /** Raw fetch for binary/multipart use cases (upload, streaming download). */
