@@ -23,7 +23,7 @@ dependencies = [
     "opentelemetry-exporter-otlp>=1.29",
     "dependency-injector>=4.49.1",
     "clamd>=1.0",
-    "python-magic>=0.4",
+    "python-magic-bin>=0.4",
     "jsonschema>=4.23",
 ]
 

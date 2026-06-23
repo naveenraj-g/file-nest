@@ -156,15 +156,13 @@ async def lifespan(app: FastAPI):
     # Connect NATS and ensure the FILENEST_EVENTS stream exists
     await nats_core.connect()
 
-    # Start the outbox worker — polls outbox_messages and publishes to NATS JetStream
+    # Start workers first so they are ready to consume as soon as recovery enqueues.
     outbox_worker = OutboxWorker(AsyncSessionLocal)
     worker_task = outbox_worker.start()
 
-    # Start the processing worker — pull consumer for file.uploaded events
     processing_worker = ProcessingWorker()
     processing_task = processing_worker.start()
 
-    # Start the webhook worker — pull consumer for file.* events, delivers to customer URLs
     webhook_worker = WebhookWorker()
     webhook_task = webhook_worker.start()
 

@@ -83,6 +83,18 @@ class PipelineExecutor:
             outbox = TransactionalOutboxPublisher(session)
 
             file = await repo.get(file_id, organization_id, project_id)
+
+            # Skip if a concurrent pipeline already completed this file.
+            # This guards against duplicate delivery when the recovery function
+            # re-queues a file whose NATS message was also still in the stream.
+            if file.status != "processing":
+                logger.info(
+                    "pipeline.skip_already_processed",
+                    file_id=file_id,
+                    status=file.status,
+                )
+                return
+
             config = await config_repo.get_for_project(project_id, organization_id)
 
             # Resolve storage provider the same way FileService does — read the

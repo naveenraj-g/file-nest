@@ -32,7 +32,6 @@ logger = get_logger(__name__)
 _CONSUMER_DURABLE = "processing-workers"
 _FETCH_BATCH = 10
 _FETCH_TIMEOUT = 5.0   # seconds to wait for NATS to return a batch
-_ACK_WAIT = 60         # seconds clamd gets to scan before NATS re-delivers
 
 
 class ProcessingWorker:
@@ -56,10 +55,10 @@ class ProcessingWorker:
         js = get_js()
         logger.info("processing_worker.starting", consumer=_CONSUMER_DURABLE)
 
-        # Create (or reuse) durable pull consumer scoped to file.uploaded events.
+        _filter = "filenest.*.*.file.uploaded"
         try:
             psub = await js.pull_subscribe(
-                subject="filenest.*.*.file.uploaded",
+                subject=_filter,
                 durable=_CONSUMER_DURABLE,
                 stream=settings.nats_stream_name,
             )
