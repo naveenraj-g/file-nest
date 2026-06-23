@@ -75,6 +75,8 @@ body {
 .card-body { padding: 24px; }
 .card-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
 .card-desc { font-size: 13px; color: var(--text-muted); }
+.card-link { cursor: pointer; transition: box-shadow .12s; }
+.card-link:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
 
 /* Page header */
 .page-header { margin-bottom: 28px; }

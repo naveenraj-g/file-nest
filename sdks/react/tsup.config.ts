@@ -7,6 +7,9 @@ export default defineConfig({
   splitting: false,
   sourcemap: true,
   clean: true,
+  banner: {
+    js: '"use client";',
+  },
   external: [
     "react", "react-dom", "@filenest/core", "@tanstack/react-query",
     "@radix-ui/react-context-menu", "@radix-ui/react-dialog",

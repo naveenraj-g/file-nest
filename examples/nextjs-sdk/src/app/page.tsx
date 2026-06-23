@@ -89,12 +89,7 @@ pnpm dev       # runs on http://localhost:3001`}</pre>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
               {group.items.map((item) => (
                 <Link key={item.href} href={item.href} style={{ textDecoration: "none" }}>
-                  <div
-                    className="card"
-                    style={{ cursor: "pointer", transition: "box-shadow .12s" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,.1)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "")}
-                  >
+                  <div className="card card-link">
                     <div className="card-body">
                       <div className="card-title" style={{ color: group.color }}>{item.title}</div>
                       <p className="card-desc mt-2">{item.desc}</p>
