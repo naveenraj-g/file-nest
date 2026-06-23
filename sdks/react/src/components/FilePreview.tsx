@@ -99,6 +99,7 @@ function PreviewContent({
   file,
   height,
   projectId,
+  baseUrl,
   getToken,
 }: {
   file: FileRecord;

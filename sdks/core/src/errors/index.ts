@@ -92,9 +92,10 @@ export class ValidationError extends FileNestError {
 
   constructor(
     message = "Validation failed",
-    validationErrors: { field: string; message: string; value?: unknown }[] = []
+    validationErrors: { field: string; message: string; value?: unknown }[] = [],
+    code = "validation_error"
   ) {
-    super(message, "validation_error", 422);
+    super(message, code, 422);
     this.name = "ValidationError";
     this.validationErrors = validationErrors;
   }
@@ -105,9 +106,8 @@ export class MetadataValidationError extends ValidationError {
   constructor(
     validationErrors: { field: string; message: string; value?: unknown }[] = []
   ) {
-    super("Metadata validation failed", validationErrors);
+    super("Metadata validation failed", validationErrors, "metadata_validation_error");
     this.name = "MetadataValidationError";
-    this.code = "metadata_validation_error";
   }
 }
 
@@ -124,10 +124,12 @@ export class RateLimitError extends FileNestError {
 
 /** Network-level failure (fetch/connect error, timeout). */
 export class NetworkError extends FileNestError {
+  readonly cause?: unknown;
+
   constructor(message = "Network error", cause?: unknown) {
     super(message, "network_error", 0);
     this.name = "NetworkError";
-    if (cause) this.cause = cause;
+    this.cause = cause;
   }
 }
 

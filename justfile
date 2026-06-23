@@ -94,6 +94,19 @@ fmt:
 types:
     cd backend && uv run pyright .
 
+# ── SDKs ───────────────────────────────────────────────────────────────────────
+
+# Build all SDK packages (required before running examples)
+build-sdks:
+    pnpm --filter @filenest/core build
+    pnpm --filter @filenest/node build
+    pnpm --filter @filenest/react build
+    pnpm --filter @filenest/nextjs build
+
+# Run the Next.js SDK example (port 3001)
+example-nextjs:
+    cd examples/nextjs-sdk && pnpm dev
+
 # ── Frontend ───────────────────────────────────────────────────────────────────
 
 # Run the console app (hot-reload)
