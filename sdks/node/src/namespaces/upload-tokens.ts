@@ -26,6 +26,13 @@ export class UploadTokensNamespace {
   ) {}
 
   async create(options: CreateUploadTokenOptions = {}): Promise<UploadToken> {
-    return this.http.post(`/v1/projects/${this.projectId}/upload-tokens`, options);
+    return this.http.post(`/v1/projects/${this.projectId}/upload-tokens`, {
+      max_size: options.maxSize,
+      allowed_mime_types: options.allowedMimeTypes,
+      max_files: options.maxFiles,
+      folder_id: options.folderId,
+      metadata: options.metadata,
+      expires_in: options.expiresIn,
+    });
   }
 }

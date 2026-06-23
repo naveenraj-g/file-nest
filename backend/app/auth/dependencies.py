@@ -6,8 +6,9 @@ Provides:
   - require_scope         — asserts a scope is present on the current context
 
 Token dispatch:
-  - fn_live_* / fn_test_* → POST {IAM_URL}/api/internal/verify-api-key (httpx)
-  - JWT (anything else)   → JWKS verification via PyJWT + IAM's /api/auth/jwks
+  - fn_live_* / fn_test_*    → POST {IAM_URL}/api/auth/api-key/verify (httpx)
+  - fn_upload_token_*         → DB lookup in upload_tokens table
+  - JWT (anything else)       → JWKS verification via PyJWT + IAM's /api/auth/jwks
 
 Usage:
     from app.auth.dependencies import authenticate_request, require_scope
@@ -23,9 +24,11 @@ import httpx
 import jwt
 from jwt import PyJWKClient
 from fastapi import Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import TenantContext, set_tenant_context
 from app.core.config import settings
+from app.core.database import get_db
 
 # Module-level singleton — caches JWKS response across requests, re-fetches on key rotation.
 # Lazy-initialised on first use so import-time doesn't require the IAM to be running.
@@ -133,7 +136,42 @@ def _verify_jwt(token: str) -> TenantContext:
     )
 
 
-async def authenticate_request(request: Request) -> TenantContext:
+async def _verify_upload_token(token: str, session: AsyncSession) -> TenantContext:
+    """
+    Validate a short-lived browser upload token against the upload_tokens table.
+
+    Upload tokens grant only the files:upload scope and are scoped to the
+    specific project they were issued for. Expired tokens are rejected.
+
+    Args:
+        token:   The raw bearer token string starting with fn_upload_token_.
+        session: Active DB session (provided by the authenticate_request dependency).
+
+    Raises:
+        HTTPException 401: Token not found or expired.
+    """
+    from app.repositories.upload_token import UploadTokenRepository
+
+    repo = UploadTokenRepository(session)
+    record = await repo.get_by_token(token)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_UPLOAD_TOKEN"},
+        )
+    return TenantContext(
+        organization_id=record.organization_id,
+        project_id=record.project_id,
+        actor_id=f"upload_token:{record.id}",
+        scopes=frozenset({"files:upload", "files:read"}),
+        is_test_mode=False,
+    )
+
+
+async def authenticate_request(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+) -> TenantContext:
     """
     FastAPI dependency that resolves a TenantContext from the Authorization header.
 
@@ -156,6 +194,8 @@ async def authenticate_request(request: Request) -> TenantContext:
 
     if token.startswith(("fn_live_", "fn_test_")):
         ctx = await _verify_api_key(token)
+    elif token.startswith("fn_upload_token_"):
+        ctx = await _verify_upload_token(token, session)
     else:
         ctx = _verify_jwt(token)
 
