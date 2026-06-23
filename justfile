@@ -35,7 +35,7 @@ install:
 
 # Run the FastAPI backend (hot-reload)
 backend:
-    cd backend && uv run uvicorn app.main:app --reload --port 8000 --log-level debug
+    cd backend && uv run uvicorn app.main:app --reload --port 8000 --log-level debug --reload-exclude ".venv"
 
 # ── Database ───────────────────────────────────────────────────────────────────
 

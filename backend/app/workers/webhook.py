@@ -1,8 +1,8 @@
 """
-app.workers.webhook — NATS pull consumer that delivers events to customer webhook endpoints.
+app.workers.webhook — NATS push consumer that delivers events to customer webhook endpoints.
 
 Subscribes to the FILENEST_EVENTS stream on `filenest.*.*.file.*` using a durable
-pull consumer named "webhook-workers". For every event:
+push consumer named "webhook-workers". For every event:
 
   1. Parses org_id and project_id from the NATS subject.
   2. Loads all active webhooks for that project.
@@ -32,7 +32,6 @@ import json
 import time
 
 import httpx
-import nats.js.errors
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
@@ -43,8 +42,6 @@ from app.repositories.webhook import WebhookRepository
 logger = get_logger(__name__)
 
 _CONSUMER_DURABLE = "webhook-workers"
-_FETCH_BATCH = 20
-_FETCH_TIMEOUT = 5.0
 # Backoff delays in seconds for attempts 1, 2, 3
 _RETRY_DELAYS = [30, 60, 120]
 _MAX_ATTEMPTS = 3
@@ -85,7 +82,7 @@ def _event_matches(webhook_events_str: str, event_type: str) -> bool:
 
 class WebhookWorker:
     """
-    Durable pull consumer that delivers NATS events to customer webhook URLs.
+    Durable push consumer that delivers NATS events to customer webhook URLs.
 
     Each NATS message triggers a delivery attempt to all matching active webhooks
     in the project. Failures are retried with exponential backoff up to max attempts.
@@ -102,11 +99,16 @@ class WebhookWorker:
         js = get_js()
         logger.info("webhook_worker.starting", consumer=_CONSUMER_DURABLE)
 
+        async def _on_message(msg) -> None:
+            asyncio.create_task(self._handle(msg))
+
         try:
-            psub = await js.pull_subscribe(
+            sub = await js.subscribe(
                 subject="filenest.*.*.file.*",
                 durable=_CONSUMER_DURABLE,
                 stream=settings.nats_stream_name,
+                cb=_on_message,
+                manual_ack=True,
             )
         except Exception as exc:
             logger.error("webhook_worker.subscribe_failed", error=str(exc))
@@ -114,22 +116,13 @@ class WebhookWorker:
 
         logger.info("webhook_worker.started", consumer=_CONSUMER_DURABLE)
 
-        while True:
-            try:
-                msgs = await psub.fetch(_FETCH_BATCH, timeout=_FETCH_TIMEOUT)
-            except nats.js.errors.TimeoutError:
-                continue
-            except asyncio.CancelledError:
-                logger.info("webhook_worker.stopping")
-                await self._http.aclose()
-                return
-            except Exception as exc:
-                logger.error("webhook_worker.fetch_error", error=str(exc))
-                await asyncio.sleep(2)
-                continue
-
-            for msg in msgs:
-                asyncio.create_task(self._handle(msg))
+        try:
+            while True:
+                await asyncio.sleep(5)
+        except asyncio.CancelledError:
+            logger.info("webhook_worker.stopping")
+            await sub.unsubscribe()
+            await self._http.aclose()
 
     async def _handle(self, msg) -> None:
         """Dispatch a single NATS message to all matching active webhooks."""
