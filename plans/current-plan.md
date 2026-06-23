@@ -400,13 +400,27 @@ Review all Phase 5 features and update the docs route.
 
 ---
 
-## Backend fix (done during Phase 5)
+## Backend fixes (done during Phase 5)
 
 **Startup CORS restoration** — `backend/app/main.py`
 
 `_apply_startup_cors` previously only restored CORS on the default platform bucket. Per-project managed buckets (`fn-{project_id}`) only got CORS set at project creation time. After a Docker restart or volume wipe, those bucket CORS policies were lost, blocking browser presigned URL uploads.
 
 Fix: added a second pass that queries all active managed `storage_configs`, joins `project_configs` for each project's `allowed_origins`, and calls `set_bucket_cors` on every per-project bucket concurrently via `asyncio.gather`. Individual failures are logged but do not block startup.
+
+---
+
+**NATS consumer delivery + pipeline crash fixes** — `backend/app/workers/`, `backend/app/processing/`
+
+Three bugs prevented files from reaching `status=ready` after upload:
+
+1. **Pull consumers only delivered the first message per session** — `pull_subscribe` + `fetch()` loop stopped registering fetch requests with NATS after the first delivery (`num_waiting` stuck at 0). Switched both `ProcessingWorker` and `WebhookWorker` to durable push consumers (`js.subscribe(cb=...)`) which deliver messages via callback as they arrive.
+
+2. **`python-magic` crashed the worker process on Windows** — the unbundled `python-magic` package requires a separately installed `libmagic.dll`; without it, `magic.from_buffer()` terminates the process with exit code 9 (uncatchable native crash), leaving the file stuck in `processing`. Replaced with `python-magic-bin` which bundles the DLL.
+
+3. **`ConsumerConfig` passed to `pull_subscribe` broke the subscription** — the installed python-nats version silently fails the subscription when `config=` is passed, leaving `num_pending > 0` and `num_waiting = 0` permanently. Removed the `config=` parameter.
+
+Additional: removed startup recovery logic that was blocking HTTP requests; added idempotency guard in `PipelineExecutor` (`if file.status != "processing": return`) to handle duplicate NATS delivery; added `--reload-exclude .venv` to the backend dev command to prevent spurious reloads when packages are installed.
 
 ---
 
