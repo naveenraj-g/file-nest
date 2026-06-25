@@ -162,6 +162,8 @@ class FileService:
             folder_id=req.folder_id,
             tags=list(dict.fromkeys(req.tags)),
             metadata_json=json.dumps(req.metadata),
+            owner_user_id=self._ctx.owner_user_id,
+            owner_org_id=self._ctx.owner_org_id,
         )
 
         key = _storage_key(self._ctx.organization_id, self._project_id, record.id)

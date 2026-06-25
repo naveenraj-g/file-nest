@@ -29,6 +29,7 @@ from app.repositories.folder import FolderRepository
 from app.schemas.file import FileListResponse
 from app.schemas.folder import (
     DeleteFolderResponse,
+    EnsurePathRequest,
     FolderCreateRequest,
     FolderListResponse,
     FolderResponse,
@@ -90,11 +91,88 @@ class FolderService:
         await self._session.commit()
         return self._to_response(record)
 
-    async def list_folders(self) -> FolderListResponse:
-        """Return all active folders in the project, ordered by path."""
-        records = await self._repo.list(self._ctx.organization_id, self._project_id)
+    async def get_folder(self, folder_id: str) -> FolderResponse:
+        """
+        Fetch a single folder by ID within the caller's tenant scope.
+
+        Raises:
+            NotFoundError: If the folder does not exist or is deleted.
+        """
+        record = await self._repo.get(folder_id, self._ctx.organization_id, self._project_id)
+        return self._to_response(record)
+
+    async def get_by_path(self, path: str) -> FolderResponse:
+        """
+        Fetch a folder by its slash-separated path string.
+
+        Normalises the path to the DB format (leading slash, no trailing slash)
+        before querying.
+
+        Args:
+            path: Path as supplied by the caller, e.g. "john_doe/uploads" or "/john_doe/uploads".
+
+        Raises:
+            NotFoundError: If no folder exists at the given path.
+        """
+        normalised = "/" + path.strip("/")
+        record = await self._repo.get_by_path(normalised, self._ctx.organization_id, self._project_id)
+        if record is None:
+            raise NotFoundError(f"Folder at path '{path}' not found")
+        return self._to_response(record)
+
+    async def list_folders(self, *, name: str | None = None) -> FolderListResponse:
+        """
+        Return all active folders in the project, ordered by path.
+
+        Args:
+            name: Optional exact-match filter on folder name.
+        """
+        records = await self._repo.list(self._ctx.organization_id, self._project_id, name=name)
         items = [self._to_response(r) for r in records]
         return FolderListResponse(items=items, total=len(items))
+
+    async def ensure_path(self, req: EnsurePathRequest) -> FolderResponse:
+        """
+        Idempotently create every missing segment in a slash-separated path and
+        return the leaf folder.
+
+        Walks the path left to right. For each segment it checks whether a folder
+        with that path already exists; if not, it creates one. This means the
+        operation is safe to call multiple times with the same path — on
+        subsequent calls every segment already exists and nothing is inserted.
+
+        Args:
+            req: EnsurePathRequest containing the normalised path string.
+
+        Returns:
+            FolderResponse for the deepest (leaf) folder in the path.
+        """
+        segments = req.path.strip("/").split("/")
+        current_parent_id: str | None = None
+        current_path = ""
+        last_folder: Folder | None = None
+
+        for segment in segments:
+            current_path = f"{current_path}/{segment}"
+            existing = await self._repo.get_by_path(
+                current_path, self._ctx.organization_id, self._project_id
+            )
+            if existing is not None:
+                current_parent_id = existing.id
+                last_folder = existing
+            else:
+                record = await self._repo.create(
+                    organization_id=self._ctx.organization_id,
+                    project_id=self._project_id,
+                    name=segment,
+                    path=current_path,
+                    parent_folder_id=current_parent_id,
+                )
+                current_parent_id = record.id
+                last_folder = record
+
+        await self._session.commit()
+        return self._to_response(last_folder)  # type: ignore[arg-type]
 
     async def list_folder_files(
         self,

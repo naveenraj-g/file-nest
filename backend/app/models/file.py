@@ -35,6 +35,10 @@ class File(Base):
     metadata_json = Column(Text, nullable=False, default="{}")
     # Searchable string labels. Stored as a PostgreSQL text array.
     tags = Column(ARRAY(String), nullable=False, server_default="{}")
+    # Optional owner scoping — copied from the upload token at upload time; never set by the browser.
+    owner_user_id = Column(String, nullable=True, index=True)
+    owner_org_id = Column(String, nullable=True, index=True)
+
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at = Column(

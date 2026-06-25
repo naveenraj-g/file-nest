@@ -17,6 +17,10 @@ export interface CreateUploadTokenOptions {
   folderId?: string;
   metadata?: Record<string, unknown>;
   expiresIn?: number;
+  /** End-user ID to embed in the token. Copied to every file uploaded with it. */
+  ownerUserId?: string;
+  /** End-user's org ID to embed in the token. Copied to every file uploaded with it. */
+  ownerOrgId?: string;
 }
 
 export class UploadTokensNamespace {
@@ -33,6 +37,8 @@ export class UploadTokensNamespace {
       folder_id: options.folderId,
       metadata: options.metadata,
       expires_in: options.expiresIn,
+      owner_user_id: options.ownerUserId,
+      owner_org_id: options.ownerOrgId,
     });
   }
 }

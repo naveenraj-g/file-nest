@@ -16,7 +16,9 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import TenantContext
+from app.errors import ValidationError
 from app.models.upload_token import UploadToken
+from app.repositories.folder import FolderRepository
 from app.repositories.upload_token import UploadTokenRepository
 from app.schemas.upload_token import (
     CreateUploadTokenRequest,
@@ -33,10 +35,17 @@ _DEFAULT_MIME_TYPES = ["*/*"]
 class UploadTokenService:
     """Creates and validates browser upload tokens."""
 
-    def __init__(self, session: AsyncSession, repo: UploadTokenRepository, ctx: TenantContext) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        repo: UploadTokenRepository,
+        ctx: TenantContext,
+        folder_repo: FolderRepository | None = None,
+    ) -> None:
         self._session = session
         self._repo = repo
         self._ctx = ctx
+        self._folder_repo = folder_repo
 
     async def create(self, project_id: str, req: CreateUploadTokenRequest) -> UploadTokenResponse:
         """
@@ -53,6 +62,33 @@ class UploadTokenService:
         Returns:
             UploadTokenResponse with the token string, expiry, and constraints.
         """
+        # Resolve folder_path → folder_id before creating the token.
+        # folder_path takes precedence over folder_id when both are supplied.
+        folder_id = req.folder_id
+        if req.folder_path is not None:
+            if self._folder_repo is None:
+                raise ValidationError("folder_path resolution requires a folder repository")
+            segments = req.folder_path.strip("/").split("/")
+            current_parent_id: str | None = None
+            current_path = ""
+            for segment in segments:
+                current_path = f"{current_path}/{segment}"
+                existing = await self._folder_repo.get_by_path(
+                    current_path, self._ctx.organization_id, project_id
+                )
+                if existing is not None:
+                    current_parent_id = existing.id
+                else:
+                    created = await self._folder_repo.create(
+                        organization_id=self._ctx.organization_id,
+                        project_id=project_id,
+                        name=segment,
+                        path=current_path,
+                        parent_folder_id=current_parent_id,
+                    )
+                    current_parent_id = created.id
+            folder_id = current_parent_id
+
         expires_at = datetime.now(UTC) + timedelta(seconds=req.expires_in)
 
         max_size = req.max_size if req.max_size is not None else _DEFAULT_MAX_SIZE
@@ -68,9 +104,11 @@ class UploadTokenService:
             max_size=max_size,
             allowed_mime_types=allowed_mime_types,
             max_files=max_files,
-            folder_id=req.folder_id,
+            folder_id=folder_id,
             default_metadata=req.metadata,
             expires_at=expires_at,
+            owner_user_id=req.owner_user_id,
+            owner_org_id=req.owner_org_id,
         )
 
         # Prune stale tokens opportunistically — failure is non-fatal

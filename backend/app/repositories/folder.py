@@ -69,18 +69,54 @@ class FolderRepository:
             raise NotFoundError(f"Folder {folder_id} not found")
         return record
 
-    async def list(self, organization_id: str, project_id: str) -> list[Folder]:
+    async def list(
+        self,
+        organization_id: str,
+        project_id: str,
+        *,
+        name: str | None = None,
+    ) -> list[Folder]:
         """
         Return all active folders in the project, ordered by path (breadth-first).
+
+        Args:
+            name: Optional exact-match filter on folder name.
         """
-        result = await self._session.execute(
-            select(Folder).where(
+        stmt = (
+            select(Folder)
+            .where(
                 Folder.organization_id == organization_id,
                 Folder.project_id == project_id,
                 Folder.deleted_at.is_(None),
-            ).order_by(Folder.path)
+            )
+            .order_by(Folder.path)
         )
+        if name is not None:
+            stmt = stmt.where(Folder.name == name)
+        result = await self._session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_by_path(
+        self, path: str, organization_id: str, project_id: str
+    ) -> Folder | None:
+        """
+        Fetch an active folder by its materialised path string (e.g. "/john_doe/uploads").
+
+        Returns None instead of raising so callers can use this in existence checks
+        (e.g. ensure_path walks the path and creates missing segments).
+
+        Args:
+            path: Normalised path with a leading slash, e.g. "/john_doe/uploads".
+        """
+        result = await self._session.execute(
+            select(Folder).where(
+                Folder.path == path,
+                Folder.organization_id == organization_id,
+                Folder.project_id == project_id,
+                Folder.deleted_at.is_(None),
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def has_subfolders(
         self, folder_id: str, organization_id: str, project_id: str

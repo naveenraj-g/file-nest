@@ -27,9 +27,8 @@ const sections = [
     ],
   },
   {
-    title: "Browse & Preview",
+    title: "Preview",
     links: [
-      { href: "/file-explorer", label: "FileExplorer" },
       { href: "/file-preview", label: "FilePreview" },
       { href: "/file-viewer", label: "FileViewer" },
     ],

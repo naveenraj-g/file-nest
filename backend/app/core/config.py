@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # ── IAM ───────────────────────────────────────────────────────────────────
     # URL of the BetterAuth IAM. Used to verify fn_ API keys and JWKS endpoint.
     iam_url: str = Field("http://localhost:3000", alias="IAM_URL")
+    # Shared secret for the internal /api/internal/* endpoints.
+    # Must match INTERNAL_API_SECRET in the IAM .env.
+    internal_api_secret: str | None = Field(None, alias="INTERNAL_API_SECRET")
 
     # ── Storage ───────────────────────────────────────────────────────────────
     default_storage_provider: str = "s3"

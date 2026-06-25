@@ -22,6 +22,16 @@ class CreateUploadTokenRequest(BaseModel):
     folder_id: str | None = Field(None, description="Default target folder for uploads using this token.")
     metadata: dict | None = Field(None, description="Default metadata applied to every upload.")
     expires_in: int = Field(3600, ge=60, le=86400, description="Token TTL in seconds (60–86400).")
+    owner_user_id: str | None = Field(None, description="End-user ID to embed in the token. Copied to every file uploaded with it.")
+    owner_org_id: str | None = Field(None, description="End-user's org ID to embed in the token. Copied to every file uploaded with it.")
+    folder_path: str | None = Field(
+        None,
+        description=(
+            "Slash-separated path resolved to a folder ID at token creation time "
+            "(e.g. 'john_doe/uploads'). Missing segments are created automatically. "
+            "Takes precedence over folder_id when both are provided."
+        ),
+    )
 
 
 class UploadTokenConstraints(BaseModel):

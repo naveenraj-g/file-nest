@@ -34,8 +34,8 @@ async def create_webhook(
     body: WebhookCreateRequest,
     svc: WebhookService = Depends(get_webhook_service),
 ) -> WebhookResponse:
-    """Create a webhook endpoint. Returns signing_secret once — store it safely. Scope: projects:update."""
-    require_scope(svc._ctx, "projects:update")
+    """Create a webhook endpoint. Returns signing_secret once — store it safely. Scope: webhooks:write."""
+    require_scope(svc._ctx, "webhooks:write")
     return await svc.create(body)
 
 
@@ -47,8 +47,8 @@ async def list_webhooks(
     project_id: str,
     svc: WebhookService = Depends(get_webhook_service),
 ) -> WebhookListResponse:
-    """List all webhook endpoints for the project. Scope: projects:read."""
-    require_scope(svc._ctx, "projects:read")
+    """List all webhook endpoints for the project. Scope: webhooks:read."""
+    require_scope(svc._ctx, "webhooks:read")
     return await svc.list()
 
 
@@ -62,8 +62,8 @@ async def update_webhook(
     body: WebhookUpdateRequest,
     svc: WebhookService = Depends(get_webhook_service),
 ) -> WebhookResponse:
-    """Update url, events, or is_active on a webhook. Scope: projects:update."""
-    require_scope(svc._ctx, "projects:update")
+    """Update url, events, or is_active on a webhook. Scope: webhooks:write."""
+    require_scope(svc._ctx, "webhooks:write")
     return await svc.update(webhook_id, body)
 
 
@@ -76,8 +76,8 @@ async def delete_webhook(
     webhook_id: str,
     svc: WebhookService = Depends(get_webhook_service),
 ) -> None:
-    """Permanently delete a webhook endpoint. Scope: projects:update."""
-    require_scope(svc._ctx, "projects:update")
+    """Permanently delete a webhook endpoint. Scope: webhooks:write."""
+    require_scope(svc._ctx, "webhooks:write")
     await svc.delete(webhook_id)
 
 
@@ -91,6 +91,6 @@ async def list_deliveries(
     limit: int = Query(50, ge=1, le=200, description="Maximum number of delivery records to return"),
     svc: WebhookService = Depends(get_webhook_service),
 ) -> WebhookDeliveryListResponse:
-    """List recent delivery attempts for a webhook, newest first. Scope: projects:read."""
-    require_scope(svc._ctx, "projects:read")
+    """List recent delivery attempts for a webhook, newest first. Scope: webhooks:read."""
+    require_scope(svc._ctx, "webhooks:read")
     return await svc.list_deliveries(webhook_id, limit=limit)

@@ -162,8 +162,8 @@ async def set_tags(
     body: TagsReplaceRequest,
     svc: FileService = Depends(get_file_service),
 ) -> TagsResponse:
-    """Replace the full tag list on a file. Scope: files:update_metadata."""
-    require_scope(svc._ctx, "files:update_metadata")
+    """Replace the full tag list on a file. Scope: files:metadata."""
+    require_scope(svc._ctx, "files:metadata")
     return await svc.set_tags(file_id, body.tags)
 
 
@@ -174,8 +174,8 @@ async def add_tags(
     body: TagsAddRequest,
     svc: FileService = Depends(get_file_service),
 ) -> TagsResponse:
-    """Append tags not already present on the file (union, no duplicates). Scope: files:update_metadata."""
-    require_scope(svc._ctx, "files:update_metadata")
+    """Append tags not already present on the file (union, no duplicates). Scope: files:metadata."""
+    require_scope(svc._ctx, "files:metadata")
     return await svc.add_tags(file_id, body.tags)
 
 
@@ -186,8 +186,8 @@ async def rename_file(
     body: RenameFileRequest,
     svc: FileService = Depends(get_file_service),
 ) -> FileResponse:
-    """Rename a file's display filename. Scope: files:update_metadata."""
-    require_scope(svc._ctx, "files:update_metadata")
+    """Rename a file's display filename. Scope: files:metadata."""
+    require_scope(svc._ctx, "files:metadata")
     return await svc.rename_file(file_id, body)
 
 
@@ -242,8 +242,8 @@ async def restore_version(
     version_id: str,
     svc: FileService = Depends(get_file_service),
 ) -> RestoreVersionResponse:
-    """Restore a past version as the current file state. Scope: files:update_metadata."""
-    require_scope(svc._ctx, "files:update_metadata")
+    """Restore a past version as the current file state. Scope: files:metadata."""
+    require_scope(svc._ctx, "files:metadata")
     return await svc.restore_version(file_id, version_id)
 
 

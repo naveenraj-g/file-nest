@@ -29,6 +29,9 @@ class TenantContext:
         actor_id:        User or API key ID from the IAM.
         scopes:          Frozenset of granted scopes (e.g. "files:upload").
         is_test_mode:    True for fn_test_ API keys; uses a sandbox environment.
+        owner_user_id:   End-user ID embedded in an upload token server-side. When set,
+                         FileService stamps every uploaded file with this value.
+        owner_org_id:    End-user's org ID embedded in an upload token server-side.
     """
 
     organization_id: str
@@ -36,6 +39,8 @@ class TenantContext:
     actor_id: str
     scopes: frozenset[str]
     is_test_mode: bool = False
+    owner_user_id: str | None = None
+    owner_org_id: str | None = None
 
 
 # Per-request context variable — set by authenticate_request, read by services

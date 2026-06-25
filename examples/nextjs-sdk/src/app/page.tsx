@@ -20,10 +20,9 @@ const demos = [
     ],
   },
   {
-    group: "Browse & Preview Components (@filenest/react)",
+    group: "Preview Components (@filenest/react)",
     color: "#059669",
     items: [
-      { href: "/file-explorer", title: "FileExplorer", desc: "Full-featured browser: folder sidebar, search, upload, download, delete" },
       { href: "/file-preview", title: "FilePreview", desc: "Inline preview panel — images render directly, PDFs via iframe" },
       { href: "/file-viewer", title: "FileViewer", desc: "Full-page viewer wrapper with toolbar and download button" },
     ],

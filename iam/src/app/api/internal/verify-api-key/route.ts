@@ -13,7 +13,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/modules/server/auth-provider/auth";
 
+const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET;
+
 export async function POST(req: NextRequest) {
+  if (INTERNAL_SECRET) {
+    const secret = req.headers.get("x-internal-secret");
+    if (secret !== INTERNAL_SECRET) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   const body = await req.json().catch(() => null);
 
   if (!body?.key || typeof body.key !== "string") {

@@ -19,6 +19,7 @@ from filenest.http.client import FileNestHttpClient
 from filenest.http.async_client import AsyncFileNestHttpClient
 from filenest.namespaces.files import FilesNamespace, AsyncFilesNamespace
 from filenest.namespaces.search import SearchNamespace, AsyncSearchNamespace
+from filenest.namespaces.upload_tokens import UploadTokensNamespace, AsyncUploadTokensNamespace
 
 
 class FileNest:
@@ -41,6 +42,7 @@ class FileNest:
         )
         self.files = FilesNamespace(self._http, project_id)
         self.search = SearchNamespace(self._http, project_id)
+        self.upload_tokens = UploadTokensNamespace(self._http, project_id)
 
     def close(self) -> None:
         """Close the underlying HTTP client."""
@@ -73,6 +75,7 @@ class AsyncFileNest:
         )
         self.files = AsyncFilesNamespace(self._http, project_id)
         self.search = AsyncSearchNamespace(self._http, project_id)
+        self.upload_tokens = AsyncUploadTokensNamespace(self._http, project_id)
 
     async def aclose(self) -> None:
         """Close the underlying async HTTP client."""

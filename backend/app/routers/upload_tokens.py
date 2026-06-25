@@ -31,7 +31,7 @@ async def create_upload_token(
     svc: UploadTokenService = Depends(get_upload_token_service),
 ) -> UploadTokenResponse:
     """
-    Issue a short-lived upload token for browser clients. Scope: files:upload.
+    Issue a short-lived upload token for browser clients. Scope: upload_tokens:create.
 
     The token is returned to the browser via the host app's token endpoint
     (e.g. /api/filenest-token) and used as a Bearer token for file upload
@@ -44,5 +44,5 @@ async def create_upload_token(
     Returns:
         UploadTokenResponse with the token string, expiry, and constraints.
     """
-    require_scope(svc._ctx, "files:upload")
+    require_scope(svc._ctx, "upload_tokens:create")
     return await svc.create(project_id, body)

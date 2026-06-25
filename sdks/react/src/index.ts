@@ -1,7 +1,7 @@
 /**
  * @filenest/react — FileNest SDK for React.
  *
- * Provides the FileNestProvider context, upload/browse/preview components,
+ * Provides the FileNestProvider context, upload and preview components,
  * and TanStack Query-backed data hooks for file operations.
  *
  * Usage:
@@ -17,9 +17,6 @@ export type { FileNestProviderProps, FileNestContextValue } from "./context/File
 // Components
 export { FileUpload } from "./components/FileUpload.js";
 export type { FileUploadProps, MetadataFormField } from "./components/FileUpload.js";
-
-export { FileExplorer } from "./components/FileExplorer/index.js";
-export type { FileExplorerProps, ViewMode, SortField } from "./components/FileExplorer/index.js";
 
 export { FilePreview } from "./components/FilePreview.js";
 export type { FilePreviewProps } from "./components/FilePreview.js";

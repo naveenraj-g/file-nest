@@ -47,3 +47,31 @@ class DeleteFolderResponse(BaseModel):
     """Returned after a successful folder soft-delete."""
     id: str
     deleted: bool = True
+
+
+class EnsurePathRequest(BaseModel):
+    """
+    Body for POST /v1/projects/{project_id}/folders/ensure-path.
+
+    Creates every missing segment in the path and returns the leaf folder.
+    Idempotent — if the full path already exists, it is returned unchanged.
+
+    path must be a slash-separated string of folder names, e.g. "john_doe/uploads".
+    Leading and trailing slashes are stripped automatically.
+    Individual segment names must not be empty.
+    """
+
+    path: str
+
+    @field_validator("path")
+    @classmethod
+    def validate_path(cls, v: str) -> str:
+        v = v.strip().strip("/")
+        if not v:
+            raise ValueError("path must not be empty")
+        segments = v.split("/")
+        for seg in segments:
+            seg = seg.strip()
+            if not seg:
+                raise ValueError("path segments must not be empty")
+        return v

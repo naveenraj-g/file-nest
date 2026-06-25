@@ -46,6 +46,11 @@ class UploadToken(Base):
     folder_id = Column(String, nullable=True)
     default_metadata = Column(JSON, nullable=True)
 
+    # Optional owner scoping — set server-side at token creation; browser cannot override.
+    # When present, FileService copies these onto every File uploaded with this token.
+    owner_user_id = Column(String, nullable=True, index=True)
+    owner_org_id = Column(String, nullable=True, index=True)
+
     expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 

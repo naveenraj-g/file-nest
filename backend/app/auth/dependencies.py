@@ -6,8 +6,8 @@ Provides:
   - require_scope         — asserts a scope is present on the current context
 
 Token dispatch:
-  - fn_live_* / fn_test_*    → POST {IAM_URL}/api/auth/api-key/verify (httpx)
   - fn_upload_token_*         → DB lookup in upload_tokens table
+  - fn_* (any other fn_ key)  → POST {IAM_URL}/api/internal/verify-api-key (x-internal-secret)
   - JWT (anything else)       → JWKS verification via PyJWT + IAM's /api/auth/jwks
 
 Usage:
@@ -44,21 +44,26 @@ def _get_jwks_client() -> PyJWKClient:
 
 async def _verify_api_key(raw_key: str) -> TenantContext:
     """
-    Validate an API key via BetterAuth's built-in verify endpoint on the IAM.
+    Validate an API key via the IAM's internal verify endpoint.
 
-    The IAM returns the full api_key record. organizationId is stored as
-    referenceId (because the plugin is configured with references="organization").
-    projectId and scopes are in metadata, embedded when the key was created.
+    Calls POST {IAM_URL}/api/internal/verify-api-key with the shared
+    INTERNAL_API_SECRET header. The IAM wraps auth.api.verifyApiKey()
+    and returns a flat tenant context payload.
 
     Raises:
         HTTPException 401: Key invalid, revoked, or expired.
-        HTTPException 503: IAM unreachable.
+        HTTPException 503: IAM unreachable or misconfigured.
     """
+    headers: dict[str, str] = {}
+    if settings.internal_api_secret:
+        headers["x-internal-secret"] = settings.internal_api_secret
+
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(
-                f"{settings.iam_url}/api/auth/api-key/verify",
+                f"{settings.iam_url}/api/internal/verify-api-key",
                 json={"key": raw_key},
+                headers=headers,
             )
     except httpx.RequestError:
         raise HTTPException(
@@ -78,13 +83,11 @@ async def _verify_api_key(raw_key: str) -> TenantContext:
         )
 
     data = resp.json()
-    key = data.get("key") or {}
-    metadata = key.get("metadata") or {}
     return TenantContext(
-        organization_id=key.get("referenceId") or metadata.get("organizationId") or "",
-        project_id=metadata.get("projectId"),
-        actor_id=key.get("userId") or "",
-        scopes=frozenset(metadata.get("scopes", [])),
+        organization_id=data.get("organizationId") or "",
+        project_id=data.get("projectId"),
+        actor_id=data.get("userId") or "",
+        scopes=frozenset(data.get("scopes", [])),
         is_test_mode=raw_key.startswith("fn_test_"),
     )
 
@@ -165,6 +168,8 @@ async def _verify_upload_token(token: str, session: AsyncSession) -> TenantConte
         actor_id=f"upload_token:{record.id}",
         scopes=frozenset({"files:upload", "files:read"}),
         is_test_mode=False,
+        owner_user_id=record.owner_user_id,
+        owner_org_id=record.owner_org_id,
     )
 
 
@@ -192,10 +197,10 @@ async def authenticate_request(
 
     token = auth_header.removeprefix("Bearer ")
 
-    if token.startswith(("fn_live_", "fn_test_")):
-        ctx = await _verify_api_key(token)
-    elif token.startswith("fn_upload_token_"):
+    if token.startswith("fn_upload_token_"):
         ctx = await _verify_upload_token(token, session)
+    elif token.startswith("fn_"):
+        ctx = await _verify_api_key(token)
     else:
         ctx = _verify_jwt(token)
 
