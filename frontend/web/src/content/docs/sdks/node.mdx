@@ -5,9 +5,7 @@ description: "Install and use the @filenest/node SDK for server-side file operat
 
 # Node.js SDK
 
-<Callout type="warning" title="Coming soon">
-The `@filenest/node` SDK is planned for Phase 5. Use the REST API directly in the meantime.
-</Callout>
+The `@filenest/node` SDK provides a typed client for all FileNest REST API operations. Use it in any Node.js runtime — Next.js server components, Express, Fastify, serverless functions, scripts.
 
 ## Installation
 
@@ -18,61 +16,189 @@ The `@filenest/node` SDK is planned for Phase 5. Use the REST API directly in th
 ```typescript
 import { FileNest } from "@filenest/node";
 
-const client = new FileNest({
+const fn = new FileNest({
   apiKey: process.env.FILENEST_API_KEY!,
   projectId: process.env.FILENEST_PROJECT_ID!,
+  // baseUrl: "http://localhost:8000"  // defaults to https://api.filenest.io
 });
 ```
 
-## Upload a file
+---
+
+## Files
+
+### Upload
 
 ```typescript
 import { createReadStream } from "fs";
 
-const file = await client.files.upload(createReadStream("./report.pdf"), {
+// From a Buffer or stream
+const file = await fn.files.upload({
   filename: "report.pdf",
-  contentType: "application/pdf",
-  metadata: { category: "report", year: "2026" },
+  data: createReadStream("./report.pdf"),
+  mimeType: "application/pdf",
+  folderId: "fld_01j...",       // optional
+  tags: ["finance", "2026"],    // optional
+  metadata: { year: "2026" },   // optional
 });
 
 console.log(file.id);     // file_01j...
 console.log(file.status); // "ready"
 ```
 
-Files under 5 MB are uploaded directly. Files over 5 MB are automatically split into multipart upload parts.
+Files under 5 MB are uploaded in a single request. Files over 5 MB are automatically split into multipart upload parts — no configuration needed.
 
-## Download a file
+### Download
 
 ```typescript
-// Get a presigned URL (15 min default TTL)
-const url = await client.files.getDownloadUrl(file.id);
+// Get a presigned URL (default 1 hour TTL)
+const { url } = await fn.files.getDownloadUrl(file.id, { ttl: 3600 });
 
-// Or stream directly
-const stream = await client.files.download(file.id);
+// Stream bytes directly
+const stream = await fn.files.download(file.id);
 stream.pipe(fs.createWriteStream("./output.pdf"));
+
+// Buffer entire file into memory
+const buffer = await fn.files.downloadToBuffer(file.id);
 ```
 
-## List files
+### List
 
 ```typescript
-const { items, total } = await client.files.list({
+const { items, total } = await fn.files.list({
   status: "ready",
-  mimeType: "application/pdf",
-  page: 1,
-  pageSize: 50,
+  limit: 50,
+  cursor: lastSeenId,    // for infinite scroll pagination
+  tags: ["finance"],
+  folderId: "fld_01j...",
 });
 ```
 
-## Delete a file
+### Get, update, delete
 
 ```typescript
-await client.files.delete(file.id);
+const file = await fn.files.get(fileId);
+
+await fn.files.update(fileId, {
+  tags: ["archived"],
+  filename: "report-2026-final.pdf",
+});
+
+await fn.files.delete(fileId);
 ```
 
-## Verify webhook signatures
+### Versions
 
 ```typescript
-import { verifyWebhookSignature } from "@filenest/node";
+const { items } = await fn.files.versions.list(fileId);
+await fn.files.versions.restore(fileId, versionId);
+```
 
-const isValid = verifyWebhookSignature(rawBody, signatureHeader, secret);
+---
+
+## Folders
+
+### Create and ensure paths
+
+```typescript
+// Create a single folder
+const folder = await fn.folders.create({ name: "invoices" });
+
+// Idempotent: create every missing path segment, return the leaf folder
+const folder = await fn.folders.ensurePath("users/alice/uploads");
+```
+
+### Resolve paths
+
+```typescript
+// Resolve a path to a folder record (returns null if not found)
+const folder = await fn.folders.getByPath("users/alice/uploads");
+
+// Get by ID
+const folder = await fn.folders.get(folderId);
+```
+
+### List and browse
+
+```typescript
+// List all folders in the project
+const { items } = await fn.folders.list();
+
+// Filter by name
+const { items } = await fn.folders.list({ name: "uploads" });
+
+// List files inside a specific folder
+const { items: files } = await fn.folders.listFiles(folderId, {
+  limit: 20,
+  status: "ready",
+});
+```
+
+### Delete
+
+```typescript
+// Fails with 409 if the folder contains files or subfolders
+await fn.folders.delete(folderId);
+```
+
+---
+
+## Upload Tokens
+
+Issue short-lived tokens for browser-side uploads. The token is returned to the client through your own token endpoint — the API key never reaches the browser.
+
+```typescript
+const token = await fn.uploadTokens.create({
+  folderId: folder.id,          // lock uploads to a specific folder
+  ownerUserId: session.userId,  // stamped on every uploaded file
+  ownerOrgId: session.orgId,
+  maxSize: 50 * 1024 * 1024,   // 50 MB per file
+  allowedMimeTypes: ["image/*", "application/pdf"],
+  expiresIn: 3600,              // seconds
+});
+
+// token.token → "fn_upload_token_..."  — return this to the browser
+```
+
+---
+
+## Webhooks
+
+```typescript
+// Create an endpoint
+const webhook = await fn.webhooks.create({
+  name: "prod-receiver",
+  url: "https://app.example.com/webhooks/filenest",
+  events: ["file.uploaded", "file.ready", "file.failed"],
+});
+// webhook.signingSecret — store safely, shown only once
+
+// List, get, update, delete
+const { items } = await fn.webhooks.list();
+const wh = await fn.webhooks.get(webhookId);
+await fn.webhooks.update(webhookId, { isActive: false });
+await fn.webhooks.delete(webhookId);
+
+// Delivery history
+const { items: deliveries } = await fn.webhooks.listDeliveries(webhookId);
+
+// Verify an incoming signature
+const isValid = fn.webhooks.verify(rawBody, req.headers["x-filenest-signature"], secret);
+```
+
+---
+
+## Search
+
+```typescript
+const { items, total, facets } = await fn.search.query({
+  q: "invoice",
+  filters: { status: "ready", tags: ["finance"] },
+  limit: 20,
+});
+
+// Paginate with an async generator
+for await (const file of fn.search.iterate({ q: "invoice" })) {
+  console.log(file.filename);
+}
 ```

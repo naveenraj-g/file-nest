@@ -20,21 +20,24 @@ API keys are long-lived credentials. Never commit them to source control or expo
 
 ## Scopes
 
-Every API key carries a set of scopes that restrict what it can do:
+Every API key carries a set of scopes that restrict what it can do. Scopes are grouped by resource so you can create purpose-specific keys with the minimum permissions needed.
 
 | Scope | Description |
 |-------|-------------|
-| `files:upload` | Upload files |
-| `files:download` | Generate download URLs |
-| `files:read` | List and get file metadata |
+| `files:upload` | Upload files (single and multipart) |
+| `files:download` | Generate presigned download URLs |
+| `files:read` | List and get file metadata and version history |
 | `files:delete` | Delete files |
-| `files:update_metadata` | Update file metadata |
-| `projects:read` | Read project configuration |
-| `projects:update` | Update project settings |
-| `api_keys:create` | Create new API keys |
-| `api_keys:revoke` | Revoke API keys |
-| `audit:read` | Read audit logs |
-| `compliance:manage` | Manage WORM, legal hold, retention (Phase 8) |
+| `files:metadata` | Update file metadata, tags, and filename |
+| `folders:read` | List folders, resolve paths, list files in folder |
+| `folders:write` | Create folders, ensure paths, move files, delete folders |
+| `upload_tokens:create` | Issue short-lived browser upload tokens |
+| `webhooks:read` | List webhook endpoints and delivery history |
+| `webhooks:write` | Create, update, and delete webhook endpoints |
+| `projects:read` | Read project configuration, usage, and dashboard |
+| `projects:update` | Update project settings and storage configuration |
+| `audit:read` | Read audit log entries |
+| `compliance:manage` | Configure WORM, legal hold, and retention policies |
 
 ## Generating a key
 

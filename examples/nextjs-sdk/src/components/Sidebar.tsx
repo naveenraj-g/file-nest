@@ -16,6 +16,7 @@ const sections = [
       { href: "/server-component", label: "Server Component" },
       { href: "/server-action", label: "Server Action" },
       { href: "/search", label: "Server Search" },
+      { href: "/folders", label: "Folder Management" },
     ],
   },
   {

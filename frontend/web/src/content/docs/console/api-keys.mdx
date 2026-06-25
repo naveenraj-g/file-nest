@@ -27,19 +27,51 @@ The full API key is shown exactly once on creation. Copy it immediately to a sec
 
 ## Available scopes
 
+Scopes are grouped by resource in the creation form. Only check the scopes the key actually needs.
+
+**Files**
+
 | Scope | Grants access to |
 |-------|-----------------|
-| `files:upload` | Upload files |
-| `files:download` | Generate download URLs |
-| `files:read` | List and inspect files |
+| `files:upload` | Upload files (single and multipart) |
+| `files:download` | Generate presigned download URLs |
+| `files:read` | List and inspect files and version history |
 | `files:delete` | Delete files |
-| `files:update_metadata` | Update file metadata and tags |
-| `projects:read` | Read project and webhook details |
-| `projects:update` | Update project settings and webhooks |
-| `api_keys:create` | Create new API keys programmatically |
-| `api_keys:revoke` | Revoke API keys |
+| `files:metadata` | Update file tags, metadata, and filename |
+
+**Folders**
+
+| Scope | Grants access to |
+|-------|-----------------|
+| `folders:read` | List folders, resolve paths, list files in folder |
+| `folders:write` | Create folders, ensure paths, move files, delete folders |
+
+**Upload Tokens**
+
+| Scope | Grants access to |
+|-------|-----------------|
+| `upload_tokens:create` | Issue short-lived browser upload tokens |
+
+**Webhooks**
+
+| Scope | Grants access to |
+|-------|-----------------|
+| `webhooks:read` | List webhook endpoints and delivery history |
+| `webhooks:write` | Create, update, and delete webhook endpoints |
+
+**Projects**
+
+| Scope | Grants access to |
+|-------|-----------------|
+| `projects:read` | Read project configuration, usage, and dashboard |
+| `projects:update` | Update project settings and storage configuration |
+
+**Audit & Compliance**
+
+| Scope | Grants access to |
+|-------|-----------------|
 | `audit:read` | Read audit log entries |
-| `compliance:manage` | Configure WORM, legal hold, and retention |
+| `compliance:manage` | Configure WORM, legal hold, and retention policies |
 
 ## Revoking a key
 

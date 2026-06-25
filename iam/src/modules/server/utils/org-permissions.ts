@@ -18,9 +18,16 @@ export const DEFAULT_ORG_ROLE_PERMISSIONS: Record<string, string[]> = {
     "files:download",
     "files:read",
     "files:delete",
-    "files:update_metadata",
+    "files:metadata",
+    "folders:read",
+    "folders:write",
+    "upload_tokens:create",
+    "webhooks:read",
+    "webhooks:write",
     "projects:read",
     "projects:update",
+    "audit:read",
+    "compliance:manage",
   ],
 };
 

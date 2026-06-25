@@ -6,13 +6,26 @@
 import { z } from "zod";
 
 export const AVAILABLE_SCOPES = [
+  // Files
   "files:upload",
   "files:download",
   "files:read",
   "files:delete",
-  "files:update_metadata",
+  "files:metadata",
+  // Folders
+  "folders:read",
+  "folders:write",
+  // Upload tokens
+  "upload_tokens:create",
+  // Webhooks
+  "webhooks:read",
+  "webhooks:write",
+  // Projects
   "projects:read",
   "projects:update",
+  // Audit & compliance
+  "audit:read",
+  "compliance:manage",
 ] as const;
 
 export type TScope = (typeof AVAILABLE_SCOPES)[number];

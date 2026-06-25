@@ -18,8 +18,10 @@ from __future__ import annotations
 from filenest.http.client import FileNestHttpClient
 from filenest.http.async_client import AsyncFileNestHttpClient
 from filenest.namespaces.files import FilesNamespace, AsyncFilesNamespace
+from filenest.namespaces.folders import FoldersNamespace, AsyncFoldersNamespace
 from filenest.namespaces.search import SearchNamespace, AsyncSearchNamespace
 from filenest.namespaces.upload_tokens import UploadTokensNamespace, AsyncUploadTokensNamespace
+from filenest.namespaces.webhooks import WebhooksNamespace, AsyncWebhooksNamespace
 
 
 class FileNest:
@@ -41,8 +43,10 @@ class FileNest:
             max_retries=max_retries,
         )
         self.files = FilesNamespace(self._http, project_id)
+        self.folders = FoldersNamespace(self._http, project_id)
         self.search = SearchNamespace(self._http, project_id)
         self.upload_tokens = UploadTokensNamespace(self._http, project_id)
+        self.webhooks = WebhooksNamespace(self._http, project_id)
 
     def close(self) -> None:
         """Close the underlying HTTP client."""
@@ -74,8 +78,10 @@ class AsyncFileNest:
             max_retries=max_retries,
         )
         self.files = AsyncFilesNamespace(self._http, project_id)
+        self.folders = AsyncFoldersNamespace(self._http, project_id)
         self.search = AsyncSearchNamespace(self._http, project_id)
         self.upload_tokens = AsyncUploadTokensNamespace(self._http, project_id)
+        self.webhooks = AsyncWebhooksNamespace(self._http, project_id)
 
     async def aclose(self) -> None:
         """Close the underlying async HTTP client."""

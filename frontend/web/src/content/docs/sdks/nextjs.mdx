@@ -5,50 +5,73 @@ description: "Server-side FileNest utilities for Next.js App Router."
 
 # Next.js SDK
 
-<Callout type="warning" title="Coming soon">
-The `@filenest/nextjs` SDK is planned for Phase 5. The patterns described here reflect the planned API.
-</Callout>
+The `@filenest/nextjs` SDK provides server-side utilities for Next.js App Router — a pre-configured `FileNest` client, an upload token helper, and a webhook verification utility.
 
 ## Installation
 
 <PackageTabs pkg="@filenest/nextjs" />
 
+---
+
 ## Server-side client
 
-Use `filenestServer()` in server components and server actions to fetch files and metadata without exposing the API key to the browser.
+`filenestServer()` creates a `FileNest` Node.js SDK instance pre-configured from environment variables. Use it inside async server components, server actions, and route handlers.
 
 ```typescript
 import { filenestServer } from "@filenest/nextjs/server";
 
-const client = filenestServer({
+const fn = filenestServer({
   apiKey: process.env.FILENEST_API_KEY!,
   projectId: process.env.FILENEST_PROJECT_ID!,
+  baseUrl: process.env.FILENEST_API_URL,  // optional, defaults to https://api.filenest.io
 });
 
-// In a server component:
-const { items } = await client.files.list({ status: "ready" });
+// Inside an async server component
+const { items } = await fn.files.list({ status: "ready", limit: 10 });
+
+// Ensure a per-user folder exists before returning an upload token
+const folder = await fn.folders.ensurePath(`users/${session.userId}/uploads`);
 ```
+
+`filenestServer()` has the same namespace API as `@filenest/node` — see the [Node.js SDK](/docs/sdks/node) for full method docs.
+
+---
 
 ## Upload token endpoint
 
+Your app must expose a token endpoint that the `<FileNestProvider>` will call before each upload. The endpoint authenticates the user and issues a short-lived `fn_upload_token_...` — the API key stays server-side.
+
 ```typescript
 // app/api/filenest-token/route.ts
-import { createUploadToken } from "@filenest/nextjs/server";
+import { filenestServer } from "@filenest/nextjs/server";
 import { getServerSession } from "@/modules/server/auth/get-session";
 
-export async function POST() {
+export async function POST(req: Request) {
   const session = await getServerSession();
   if (!session) return new Response("Unauthorized", { status: 401 });
 
-  const token = await createUploadToken({
+  const fn = filenestServer({
     apiKey: process.env.FILENEST_API_KEY!,
     projectId: process.env.FILENEST_PROJECT_ID!,
+  });
+
+  // Ensure the user's folder hierarchy exists
+  const folder = await fn.folders.ensurePath(`users/${session.user.id}/uploads`);
+
+  const token = await fn.uploadTokens.create({
+    folderId: folder.id,
+    ownerUserId: session.user.id,
+    maxSize: 50 * 1024 * 1024,
     expiresIn: 3600,
   });
 
-  return Response.json(token);
+  return Response.json({ token: token.token });
 }
 ```
+
+Point `<FileNestProvider tokenEndpoint="/api/filenest-token">` at this route — it will be called automatically before each upload.
+
+---
 
 ## Webhook verification
 
@@ -67,10 +90,29 @@ export async function POST(req: Request) {
 
   const event = parseWebhookEvent(body);
 
-  if (event.type === "file.ready") {
-    console.log("File ready:", event.data.file_id);
+  switch (event.type) {
+    case "file.ready":
+      console.log("File ready:", event.data.file_id);
+      break;
+    case "file.failed":
+      console.error("Processing failed:", event.data.file_id);
+      break;
   }
 
   return new Response("OK");
 }
 ```
+
+The signing secret is the `signing_secret` returned when you create a webhook endpoint. It is shown only once — store it in an environment variable.
+
+---
+
+## Environment variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `FILENEST_API_KEY` | Yes | Server-side API key (`fn_live_...` or `fn_test_...`) |
+| `FILENEST_PROJECT_ID` | Yes | Project ID |
+| `FILENEST_API_URL` | No | Override API base URL (default: `https://api.filenest.io`) |
+| `NEXT_PUBLIC_FILENEST_PROJECT_ID` | Yes | Project ID exposed to the browser for `<FileNestProvider>` |
+| `FILENEST_WEBHOOK_SECRET` | Webhooks only | Signing secret for verifying webhook payloads |

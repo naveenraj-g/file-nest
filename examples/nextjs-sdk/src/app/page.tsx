@@ -8,6 +8,7 @@ const demos = [
       { href: "/server-component", title: "Server Component", desc: "RSC fetching a file list with filenestServer().files.list()" },
       { href: "/server-action", title: "Server Action", desc: "Form that uploads a file via a Next.js server action" },
       { href: "/search", title: "Server Search", desc: "RSC calling filenestServer().search.query() and rendering results" },
+      { href: "/folders", title: "Folder Management", desc: "ensurePath, getByPath, list, and listFiles — all server-side in an async RSC" },
     ],
   },
   {

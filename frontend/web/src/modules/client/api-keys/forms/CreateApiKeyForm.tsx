@@ -32,14 +32,40 @@ import {
 } from "@/modules/entities/schemas/api-key";
 import { handleZSAError } from "@/modules/client/shared/error/handle-zsa-error";
 
-const SCOPE_GROUPS: { label: string; scopes: (typeof AVAILABLE_SCOPES)[number][] }[] = [
+const SCOPE_GROUPS: {
+  label: string;
+  description: string;
+  scopes: (typeof AVAILABLE_SCOPES)[number][];
+}[] = [
   {
     label: "Files",
-    scopes: ["files:upload", "files:download", "files:read", "files:delete", "files:update_metadata"],
+    description: "Upload, download, read, delete, and update file metadata.",
+    scopes: ["files:upload", "files:download", "files:read", "files:delete", "files:metadata"],
+  },
+  {
+    label: "Folders",
+    description: "Create folders, resolve paths, and move files.",
+    scopes: ["folders:read", "folders:write"],
+  },
+  {
+    label: "Upload Tokens",
+    description: "Issue short-lived browser upload tokens for client-side uploads.",
+    scopes: ["upload_tokens:create"],
+  },
+  {
+    label: "Webhooks",
+    description: "Manage webhook endpoints and view delivery history.",
+    scopes: ["webhooks:read", "webhooks:write"],
   },
   {
     label: "Projects",
+    description: "Read and update project settings and storage configuration.",
     scopes: ["projects:read", "projects:update"],
+  },
+  {
+    label: "Audit & Compliance",
+    description: "Access audit logs and manage WORM, legal hold, and retention policies.",
+    scopes: ["audit:read", "compliance:manage"],
   },
 ];
 
@@ -54,7 +80,7 @@ export function CreateApiKeyForm({ organizationId, projectId, onSuccess }: Creat
     resolver: zodResolver(CreateApiKeyFormSchema),
     defaultValues: {
       name: "",
-      scopes: [...AVAILABLE_SCOPES],
+      scopes: ["files:upload", "files:download", "files:read", "files:delete", "files:metadata"],
     },
   });
 
@@ -117,9 +143,10 @@ export function CreateApiKeyForm({ organizationId, projectId, onSuccess }: Creat
           <div className="space-y-3 mt-1">
             {SCOPE_GROUPS.map((group) => (
               <div key={group.label}>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">
                   {group.label}
                 </p>
+                <p className="text-xs text-muted-foreground mb-1.5">{group.description}</p>
                 <div className="grid grid-cols-1 gap-1.5">
                   {group.scopes.map((scope) => (
                     <label

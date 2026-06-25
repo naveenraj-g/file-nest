@@ -1,13 +1,11 @@
 ---
 title: "Python SDK"
-description: "Install and use the filenest Python SDK for async file operations."
+description: "Install and use the filenest Python SDK for sync and async file operations."
 ---
 
 # Python SDK
 
-<Callout type="warning" title="Coming soon">
-The `filenest` Python SDK is planned for Phase 5. Use the REST API directly in the meantime.
-</Callout>
+The `filenest` Python SDK provides both synchronous (`FileNest`) and asynchronous (`AsyncFileNest`) clients. All namespaces — files, folders, upload tokens, webhooks, and search — are available on both.
 
 ## Installation
 
@@ -16,78 +14,212 @@ The `filenest` Python SDK is planned for Phase 5. Use the REST API directly in t
 ## Setup
 
 ```python
-from filenest import AsyncFileNestClient
+from filenest import FileNest, AsyncFileNest
 
-client = AsyncFileNestClient(
+# Synchronous
+fn = FileNest(
     api_key="fn_live_...",
     project_id="proj_01j...",
 )
+
+# Asynchronous (context manager recommended)
+async with AsyncFileNest(api_key="fn_live_...", project_id="proj_01j...") as fn:
+    ...
 ```
 
-## Upload a file
+---
+
+## Files
+
+### Upload
 
 ```python
-async with open("report.pdf", "rb") as f:
-    file = await client.files.upload(
-        f,
+# From bytes
+with open("report.pdf", "rb") as f:
+    file = fn.files.upload(
         filename="report.pdf",
-        content_type="application/pdf",
-        metadata={"category": "report"},
+        data=f.read(),
+        mime_type="application/pdf",
+        folder_id="fld_01j...",     # optional
+        tags=["finance", "2026"],   # optional
+        metadata={"year": "2026"},  # optional
     )
 
-print(file.id)      # file_01j...
-print(file.status)  # "ready"
+# From a filesystem path
+file = fn.files.upload_from_path(
+    path="./report.pdf",
+    mime_type="application/pdf",
+)
 ```
 
-## Download a file
+### Download
 
 ```python
 # Get a presigned URL
-url = await client.files.get_download_url(file.id, ttl=3600)
+url_info = fn.files.get_download_url(file.id, ttl=3600)
+print(url_info["url"])
 
-# Or stream bytes
-content = await client.files.download(file.id)
-with open("output.pdf", "wb") as f:
-    f.write(content)
+# Save to disk
+fn.files.download_to_path(file.id, dest="./output.pdf")
+
+# Load into memory
+content = fn.files.download_to_bytes(file.id)
 ```
 
-## List files
+### List, get, update, delete
 
 ```python
-result = await client.files.list(
-    status="ready",
-    mime_type="application/pdf",
-    page=1,
-    page_size=50,
-)
+result = fn.files.list(status="ready", limit=50)
+for f in result["items"]:
+    print(f["filename"])
 
-for file in result.items:
-    print(file.filename, file.size)
+file = fn.files.get(file_id)
+
+fn.files.update(file_id, tags=["archived"], filename="report-final.pdf")
+
+fn.files.delete(file_id)
+
+# Versions
+versions = fn.files.list_versions(file_id)
 ```
+
+---
+
+## Folders
+
+### Create and ensure paths
+
+```python
+# Create a single folder
+folder = fn.folders.create("invoices")
+folder = fn.folders.create("q1", parent_folder_id=folder["id"])
+
+# Idempotent: create every missing path segment, return the leaf folder
+folder = fn.folders.ensure_path("users/alice/uploads")
+```
+
+### Resolve paths
+
+```python
+# Returns None if the path does not exist
+folder = fn.folders.get_by_path("users/alice/uploads")
+
+folder = fn.folders.get(folder_id)
+```
+
+### List and browse
+
+```python
+result = fn.folders.list()
+result = fn.folders.list(name="uploads")   # name filter
+
+files = fn.folders.list_files(folder_id, limit=20, status="ready")
+```
+
+### Delete
+
+```python
+# Fails with an error if the folder contains files or subfolders
+fn.folders.delete(folder_id)
+```
+
+---
+
+## Upload Tokens
+
+```python
+token = fn.upload_tokens.create(
+    folder_id=folder["id"],
+    owner_user_id="user_abc",
+    owner_org_id="org_xyz",
+    max_size=50 * 1024 * 1024,
+    allowed_mime_types=["image/*", "application/pdf"],
+    expires_in=3600,
+)
+print(token.token)  # fn_upload_token_...  — return this to the browser
+```
+
+---
+
+## Webhooks
+
+```python
+# Create an endpoint
+wh = fn.webhooks.create(
+    name="prod-receiver",
+    url="https://app.example.com/webhooks/filenest",
+    events=["file.uploaded", "file.ready", "file.failed"],
+)
+# wh["signing_secret"] — shown only once, store safely
+
+result = fn.webhooks.list()
+wh = fn.webhooks.get(webhook_id)
+fn.webhooks.update(webhook_id, is_active=False)
+fn.webhooks.delete(webhook_id)
+
+deliveries = fn.webhooks.list_deliveries(webhook_id, limit=20)
+
+# Verify a payload
+is_valid = fn.webhooks.verify(raw_body, signature_header, secret)
+```
+
+Standalone import (no client instance needed):
+
+```python
+from filenest.namespaces.webhooks import verify_webhook_signature
+
+is_valid = verify_webhook_signature(raw_body, signature_header, secret)
+```
+
+---
 
 ## FastAPI integration
 
 ```python
-from fastapi import FastAPI, UploadFile
-from filenest import AsyncFileNestClient
+from fastapi import FastAPI, UploadFile, Request, HTTPException
+from filenest import AsyncFileNest
+from filenest.namespaces.webhooks import verify_webhook_signature
 
 app = FastAPI()
-client = AsyncFileNestClient(api_key="fn_live_...", project_id="proj_01j...")
+fn = AsyncFileNest(api_key="fn_live_...", project_id="proj_01j...")
+
 
 @app.post("/upload")
-async def upload(file: UploadFile):
-    result = await client.files.upload(
-        await file.read(),
+async def upload(file: UploadFile, user_id: str):
+    folder = await fn.folders.ensure_path(f"users/{user_id}/uploads")
+    result = await fn.files.upload(
         filename=file.filename,
-        content_type=file.content_type,
+        data=await file.read(),
+        mime_type=file.content_type,
+        folder_id=folder["id"],
     )
-    return {"file_id": result.id, "status": result.status}
+    return {"file_id": result["id"], "status": result["status"]}
+
+
+@app.post("/webhooks/filenest")
+async def webhook(request: Request):
+    body = await request.body()
+    sig = request.headers.get("x-filenest-signature", "")
+    if not verify_webhook_signature(body, sig, secret="..."):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+    event = await request.json()
+    print(event["type"], event["data"])
+    return {"ok": True}
 ```
 
-## Verify webhook signatures
+---
+
+## Async client
+
+Every method on `AsyncFileNest` is the async counterpart — same signatures, just `await` them:
 
 ```python
-from filenest import verify_webhook_signature
-
-is_valid = verify_webhook_signature(raw_body, signature_header, secret)
+async with AsyncFileNest(api_key="fn_live_...", project_id="proj_...") as fn:
+    folder = await fn.folders.ensure_path("users/alice/uploads")
+    token = await fn.upload_tokens.create(
+        folder_id=folder["id"],
+        owner_user_id="alice",
+        expires_in=3600,
+    )
+    files = await fn.folders.list_files(folder["id"])
 ```

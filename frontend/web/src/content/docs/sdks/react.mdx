@@ -5,9 +5,7 @@ description: "Add file upload and browser UI to your React app with @filenest/re
 
 # React SDK
 
-<Callout type="warning" title="Coming soon">
-The `@filenest/react` SDK is planned for Phase 5. The components described here reflect the planned API.
-</Callout>
+The `@filenest/react` SDK provides ready-made upload components and data hooks that work with any React application. The API key never reaches the browser — the SDK exchanges short-lived upload tokens through your own token endpoint.
 
 ## Installation
 
@@ -15,7 +13,7 @@ The `@filenest/react` SDK is planned for Phase 5. The components described here 
 
 ## Provider setup
 
-Wrap your app with `FileNestProvider`. The provider exchanges a short-lived upload token with your server — the API key never reaches the browser.
+Wrap your app (or subtree) with `FileNestProvider`. It fetches and caches upload tokens automatically.
 
 ```tsx
 import { FileNestProvider } from "@filenest/react";
@@ -32,64 +30,151 @@ export default function RootLayout({ children }) {
 }
 ```
 
-## Token endpoint
+You must implement `tokenEndpoint` on your server. See the [Next.js SDK](/docs/sdks/nextjs#upload-token-endpoint) for a reference implementation.
 
-Your server must implement `/api/filenest-token` to issue short-lived upload tokens. In Next.js:
+---
 
-```typescript
-// app/api/filenest-token/route.ts
-import { createUploadToken } from "@filenest/nextjs/server";
-import { getServerSession } from "@/modules/server/auth/get-session";
+## Upload components
 
-export async function POST(req: Request) {
-  const session = await getServerSession();
-  if (!session) return new Response("Unauthorized", { status: 401 });
-
-  const token = await createUploadToken({
-    apiKey: process.env.FILENEST_API_KEY!,
-    projectId: process.env.FILENEST_PROJECT_ID!,
-    expiresIn: 3600,
-  });
-
-  return Response.json(token);
-}
-```
-
-## FileUpload component
+### FileUpload
 
 ```tsx
 import { FileUpload } from "@filenest/react";
 
-export function UploadArea() {
-  return (
-    <FileUpload
-      accept={["application/pdf", "image/*"]}
-      maxSize={50 * 1024 * 1024}
-      variant="dropzone"
-      onComplete={(files) => console.log("Uploaded", files)}
-      onError={(error) => console.error(error.message)}
-    />
-  );
-}
+// Drag-and-drop zone
+<FileUpload
+  variant="dropzone"
+  accept={["image/*", "application/pdf"]}
+  maxSize={50 * 1024 * 1024}
+  onComplete={(files) => console.log("Uploaded:", files)}
+  onError={(err) => console.error(err.message)}
+/>
+
+// Click-to-upload button
+<FileUpload
+  variant="button"
+  accept={["image/*"]}
+  onComplete={(files) => console.log("Uploaded:", files)}
+/>
 ```
 
-## useUpload hook
+### FilePreview
+
+Inline preview — images render directly, PDFs via iframe.
+
+```tsx
+import { FilePreview } from "@filenest/react";
+
+<FilePreview fileId="file_01j..." />
+```
+
+### FileViewer
+
+Full-page viewer with toolbar and download button.
+
+```tsx
+import { FileViewer } from "@filenest/react";
+
+<FileViewer fileId="file_01j..." />
+```
+
+---
+
+## Upload hooks
+
+### useUpload
+
+Programmatic upload — trigger via code, track per-file progress.
 
 ```tsx
 import { useUpload } from "@filenest/react";
 
 function UploadButton() {
-  const { upload, uploads, isUploading } = useUpload({
+  const { upload, uploads, isUploading, cancel, retry, clear } = useUpload({
     onComplete: (file) => console.log("Done:", file.id),
+    onError: (err) => console.error(err.message),
   });
 
   return (
     <>
-      <input type="file" onChange={(e) => upload(Array.from(e.target.files ?? []))} />
+      <input
+        type="file"
+        multiple
+        onChange={(e) => upload(Array.from(e.target.files ?? []))}
+      />
       {uploads.map((u) => (
-        <div key={u.id}>{u.filename}: {u.progress}%</div>
+        <div key={u.id}>
+          {u.filename}: {u.progress}%
+          {u.status === "failed" && <button onClick={() => retry(u.id)}>Retry</button>}
+        </div>
       ))}
     </>
   );
 }
+```
+
+---
+
+## Data hooks
+
+### useFiles
+
+Paginated file list backed by TanStack Query.
+
+```tsx
+import { useFiles } from "@filenest/react";
+
+const { files, totalCount, hasMore, isLoading, loadMore, refresh } = useFiles({
+  status: "ready",
+  tags: ["finance"],
+  limit: 20,
+});
+```
+
+### useInfiniteFiles
+
+Infinite-scroll variant.
+
+```tsx
+import { useInfiniteFiles } from "@filenest/react";
+
+const { files, hasMore, fetchMore, refresh } = useInfiniteFiles({ status: "ready" });
+```
+
+### useFile
+
+Single file detail with automatic revalidation.
+
+```tsx
+import { useFile } from "@filenest/react";
+
+const { file, isLoading, isError, mutate } = useFile("file_01j...");
+```
+
+### useFolder
+
+Folder navigation with breadcrumb trail and subfolder listing.
+
+```tsx
+import { useFolder } from "@filenest/react";
+
+const { folder, files, subfolders, isLoading, breadcrumbs } = useFolder(folderId);
+```
+
+`folderId` can be `null` to show the project root. Update it to navigate into a subfolder — breadcrumbs update automatically.
+
+### useSearch
+
+Debounced full-text search.
+
+```tsx
+import { useSearch } from "@filenest/react";
+
+const { results, facets, isLoading, totalCount, search, hasMore } = useSearch({
+  debounceMs: 300,
+  limit: 20,
+});
+
+// Trigger a search
+search("invoice Q1 2026");
 ```
