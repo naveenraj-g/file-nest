@@ -8,7 +8,7 @@ export default defineConfig([
     splitting: false,
     sourcemap: true,
     clean: true,
-    external: ["@filenest/core", "@filenest/node", "next"],
+    external: ["next"],
     platform: "node",
   },
   {
@@ -17,7 +17,7 @@ export default defineConfig([
     dts: true,
     splitting: false,
     sourcemap: true,
-    external: ["@filenest/core", "@filenest/node", "next", "server-only"],
+    external: ["next", "server-only"],
     platform: "node",
   },
 ]);

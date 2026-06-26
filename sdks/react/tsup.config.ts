@@ -11,7 +11,7 @@ export default defineConfig({
     js: '"use client";',
   },
   external: [
-    "react", "react-dom", "@filenest/core", "@tanstack/react-query",
+    "react", "react-dom", "@tanstack/react-query",
     "@radix-ui/react-context-menu", "@radix-ui/react-dialog",
     "@radix-ui/react-dropdown-menu", "@radix-ui/react-tooltip",
     "@radix-ui/react-scroll-area", "@radix-ui/react-checkbox",
