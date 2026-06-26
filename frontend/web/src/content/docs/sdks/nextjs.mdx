@@ -71,6 +71,27 @@ export async function POST(req: Request) {
 
 Point `<FileNestProvider tokenEndpoint="/api/filenest-token">` at this route — it will be called automatically before each upload.
 
+### Custom token fetcher
+
+If you need to pass extra headers or a custom body, use `tokenFetcher` instead of `tokenEndpoint`:
+
+```tsx
+// layout.tsx
+<FileNestProvider
+  projectId={process.env.NEXT_PUBLIC_FILENEST_PROJECT_ID!}
+  tokenFetcher={async () => {
+    const res = await fetch("/api/filenest-token", {
+      method: "POST",
+      headers: { "x-org-id": currentOrgId },
+      body: JSON.stringify({ folderId: "uploads" }),
+    });
+    return res.json(); // { token, expiresAt }
+  }}
+>
+  {children}
+</FileNestProvider>
+```
+
 ---
 
 ## Webhook verification

@@ -232,7 +232,7 @@ Check `sdks/react/dist/index.d.ts` — must not contain `from '@filenest/core'`.
 
 ---
 
-## Step 9 — Docs audit
+## Step 9 — Docs audit ✅ COMPLETED
 
 **9a — SDK docs (`sdks/`):**
 - Update `sdks/README.md` (or equivalent) to document `fetchInitialToken`, `tokenFetcher`, `tokenRefreshBuffer`, `tokenRetry`, `queryClient` props
