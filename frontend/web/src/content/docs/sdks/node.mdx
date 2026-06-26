@@ -179,11 +179,39 @@ const wh = await fn.webhooks.get(webhookId);
 await fn.webhooks.update(webhookId, { isActive: false });
 await fn.webhooks.delete(webhookId);
 
-// Delivery history
-const { items: deliveries } = await fn.webhooks.listDeliveries(webhookId);
+// Delivery history (limit/offset pagination)
+const { items: deliveries } = await fn.webhooks.listDeliveries(webhookId, { limit: 20 });
 
 // Verify an incoming signature
 const isValid = fn.webhooks.verify(rawBody, req.headers["x-filenest-signature"], secret);
+```
+
+---
+
+## Resumable Uploads
+
+`fn.uploads` gives you manual control over the multipart session lifecycle. Use this when you need to resume an interrupted upload — for example, a large file upload that failed mid-way.
+
+For most cases, `fn.files.upload()` handles multipart automatically and you don't need this namespace.
+
+```typescript
+// 1. Create a session and store the uploadId somewhere durable
+const session = await fn.uploads.create({
+  filename: "large-video.mp4",
+  sizeBytes: fileBuffer.length,
+  mimeType: "video/mp4",
+  folderId: "fld_01j...",
+});
+// session.uploadId → persist this to resume later
+
+// 2. Upload all parts (or resume from where you left off)
+const file = await fn.uploads.resume(session.uploadId, {
+  data: fileBuffer,
+  onProgress: ({ percentage }) => console.log(`${percentage}%`),
+});
+
+// 3. If you need to cancel
+await fn.uploads.abort(session.uploadId);
 ```
 
 ---

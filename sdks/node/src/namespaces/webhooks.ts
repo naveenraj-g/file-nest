@@ -19,6 +19,21 @@ export interface WebhookUpdateOptions {
   status?: "active" | "disabled";
 }
 
+export interface WebhookDelivery {
+  id: string;
+  webhookId: string;
+  event: string;
+  status: "success" | "failed" | "pending";
+  responseStatus?: number;
+  attemptedAt: string;
+  nextRetryAt?: string;
+}
+
+export interface WebhookDeliveryListOptions {
+  limit?: number;
+  offset?: number;
+}
+
 export class WebhooksNamespace {
   constructor(
     private readonly http: FileNestHttpClient,
@@ -43,6 +58,16 @@ export class WebhooksNamespace {
 
   async delete(webhookId: string): Promise<void> {
     return this.http.delete(`/v1/projects/${this.projectId}/webhooks/${webhookId}`);
+  }
+
+  async listDeliveries(
+    webhookId: string,
+    options: WebhookDeliveryListOptions = {}
+  ): Promise<ListResponse<WebhookDelivery>> {
+    return this.http.get(`/v1/projects/${this.projectId}/webhooks/${webhookId}/deliveries`, {
+      limit: options.limit,
+      offset: options.offset,
+    });
   }
 
   /**
