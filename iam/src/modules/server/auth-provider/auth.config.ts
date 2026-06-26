@@ -278,25 +278,25 @@ export const authConfig = {
     provider: "postgresql",
   }),
 
-  rateLimit: {
-    window: 60,
-    max: 50,
-    customRules: {
-      "/sign-in/email": { window: 60, max: 5 },
-      "/sign-up/email": { window: 60, max: 3 },
-      "/forget-password": { window: 300, max: 3 },
-      "/reset-password": { window: 300, max: 5 },
-      "/two-factor/verify-otp": { window: 60, max: 5 },
-      "/magic-link/send-magic-link": { window: 60, max: 3 },
-      "/oauth2/authorize": { window: 60, max: 20 },
-      "/oauth2/token": { window: 60, max: 30 },
-      "/agent/register": { window: 300, max: 10 },
-      "/host/enroll": { window: 300, max: 10 },
-      "/capability/execute": { window: 60, max: 60 },
-      "/admin/list-users": { window: 60, max: 30 },
-      "/admin/create-user": { window: 60, max: 10 },
-    },
-  },
+  // rateLimit: {
+  //   window: 60,
+  //   max: 50,
+  //   customRules: {
+  //     "/sign-in/email": { window: 60, max: 5 },
+  //     "/sign-up/email": { window: 60, max: 3 },
+  //     "/forget-password": { window: 300, max: 3 },
+  //     "/reset-password": { window: 300, max: 5 },
+  //     "/two-factor/verify-otp": { window: 60, max: 5 },
+  //     "/magic-link/send-magic-link": { window: 60, max: 3 },
+  //     "/oauth2/authorize": { window: 60, max: 20 },
+  //     "/oauth2/token": { window: 60, max: 30 },
+  //     "/agent/register": { window: 300, max: 10 },
+  //     "/host/enroll": { window: 300, max: 10 },
+  //     "/capability/execute": { window: 60, max: 60 },
+  //     "/admin/list-users": { window: 60, max: 30 },
+  //     "/admin/create-user": { window: 60, max: 10 },
+  //   },
+  // },
 
   session: {
     storeSessionInDatabase: true,
@@ -710,6 +710,9 @@ export const authConfig = {
       // Allow callers to embed { organizationId, projectId, scopes } in the
       // key record so verify-api-key can return the full tenant context.
       enableMetadata: true,
+      rateLimit: {
+        enabled: false,
+      },
     }),
 
     agentAuth({

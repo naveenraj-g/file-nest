@@ -22,7 +22,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import TenantContext
-from app.errors import ConflictError
+from app.errors import ConflictError, NotFoundError
 from app.models.folder import Folder
 from app.repositories.file import FileRepository
 from app.repositories.folder import FolderRepository
