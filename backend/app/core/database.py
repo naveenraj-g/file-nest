@@ -99,7 +99,12 @@ AsyncReadSessionLocal = async_sessionmaker(_replica_engine, expire_on_commit=Fal
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Yield a primary-database session. Commits on clean exit, rolls back on exception."""
     async with AsyncSessionLocal() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 async def get_read_db() -> AsyncGenerator[AsyncSession, None]:
