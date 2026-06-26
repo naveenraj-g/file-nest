@@ -208,21 +208,23 @@ async def authenticate_request(
     return ctx
 
 
-def require_scope(ctx: TenantContext, scope: str) -> None:
+def require_scope(ctx: TenantContext, scope: str | list[str]) -> None:
     """
-    Assert that the TenantContext includes `scope`. Raises 403 if not.
+    Assert that the TenantContext includes all required scopes. Raises 403 on first missing.
 
     Call at the top of each route handler after injecting the context.
 
     Args:
         ctx:   The resolved TenantContext from authenticate_request.
-        scope: Required scope string, e.g. "files:upload".
+        scope: A single scope string or a list of scope strings — ALL must be present.
 
     Raises:
-        HTTPException 403: Scope not present on the token.
+        HTTPException 403: One or more required scopes are not present on the token.
     """
-    if scope not in ctx.scopes:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={"code": "FORBIDDEN", "required_scope": scope},
-        )
+    scopes = [scope] if isinstance(scope, str) else scope
+    for s in scopes:
+        if s not in ctx.scopes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"code": "FORBIDDEN", "required_scope": s},
+            )

@@ -44,5 +44,5 @@ async def create_upload_token(
     Returns:
         UploadTokenResponse with the token string, expiry, and constraints.
     """
-    require_scope(svc._ctx, "upload_tokens:create")
+    require_scope(svc._ctx, ["upload_tokens:create", "files:upload", "files:read"])
     return await svc.create(project_id, body)
