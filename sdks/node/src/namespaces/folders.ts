@@ -75,7 +75,7 @@ export class FoldersNamespace {
   async listFiles(folderId: string, options: FolderListFilesOptions = {}): Promise<ListResponse<FileRecord>> {
     return this.http.get(`/v1/projects/${this.projectId}/folders/${folderId}/files`, {
       q: options.q,
-      tags: options.tags,
+      tags: options.tags?.join(","),
       category: options.category,
       status: options.status,
       limit: options.limit,

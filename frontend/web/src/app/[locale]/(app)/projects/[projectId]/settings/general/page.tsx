@@ -9,6 +9,7 @@
 import { getProjectAction } from "@/modules/server/presentation/actions/project.actions";
 import { UpdateProjectForm } from "@/modules/client/projects/forms/UpdateProjectForm";
 import { ConfigUnavailable } from "@/modules/client/projects/components/settings/ConfigUnavailable";
+import { ProjectIdCard } from "@/modules/client/projects/components/settings/ProjectIdCard";
 
 interface Props {
   params: Promise<{ projectId: string }>;
@@ -31,7 +32,12 @@ export default async function ProjectSettingsGeneralPage({ params }: Props) {
       {err || !project ? (
         <ConfigUnavailable />
       ) : (
-        <UpdateProjectForm project={project} />
+        <>
+          <UpdateProjectForm project={project} />
+          <div className="pt-2">
+            <ProjectIdCard projectId={project.id} />
+          </div>
+        </>
       )}
     </div>
   );

@@ -9,7 +9,7 @@
 import { create } from "zustand";
 import type { TApiKey, TCreatedApiKey } from "@/modules/entities/schemas/api-key";
 
-export type ApiKeyModalType = "createApiKey" | "revokeApiKey" | "showCreatedKey";
+export type ApiKeyModalType = "createApiKey" | "revokeApiKey" | "showCreatedKey" | "viewApiKey";
 
 interface ApiKeyStoreState {
   modalType: ApiKeyModalType | null;

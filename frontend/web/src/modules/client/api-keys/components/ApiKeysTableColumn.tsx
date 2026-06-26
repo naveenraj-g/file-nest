@@ -4,7 +4,7 @@
  * @module
  */
 import type { ColumnDef } from "@tanstack/react-table";
-import { Trash2 } from "lucide-react";
+import { Eye, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   DataTableColumnHeader,
@@ -96,9 +96,16 @@ export function apiKeysTableColumns(): ColumnDef<TApiKey>[] {
           row={row}
           actions={[
             {
+              label: "View",
+              icon: Eye,
+              onClick: (r) =>
+                apiKeyStore.getState().onOpen("viewApiKey", r.original),
+            },
+            {
               label: "Revoke key",
               icon: Trash2,
               destructive: true,
+              separator: true,
               onClick: (r) =>
                 apiKeyStore.getState().onOpen("revokeApiKey", r.original),
             },

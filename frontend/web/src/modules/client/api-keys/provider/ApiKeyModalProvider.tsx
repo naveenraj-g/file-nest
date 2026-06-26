@@ -11,6 +11,7 @@
 import { useState, useEffect } from "react";
 import { CreateApiKeyModal } from "../modals/CreateApiKeyModal";
 import { RevokeApiKeyModal } from "../modals/RevokeApiKeyModal";
+import { ViewApiKeyDrawer } from "../modals/ViewApiKeyDrawer";
 
 interface ApiKeyModalProviderProps {
   organizationId: string;
@@ -26,6 +27,7 @@ export function ApiKeyModalProvider({ organizationId, projectId }: ApiKeyModalPr
     <>
       <CreateApiKeyModal organizationId={organizationId} projectId={projectId} />
       <RevokeApiKeyModal projectId={projectId} />
+      <ViewApiKeyDrawer />
     </>
   );
 }
