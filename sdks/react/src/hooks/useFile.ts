@@ -15,32 +15,19 @@ export interface UseFileOptions {
 }
 
 export function useFile(fileId: string, options: UseFileOptions = {}) {
-  const { projectId, baseUrl, getToken } = useFileNest();
+  const { projectId, getFile } = useFileNest();
   const queryClient = useQueryClient();
   const queryKey = ["filenest", "file", projectId, fileId, options];
 
-  const fetcher = useCallback(async (): Promise<FileRecord> => {
-    const token = await getToken();
-    const params = new URLSearchParams();
-    if (options.includeVersions) params.set("include_versions", "true");
-    if (options.includeProcessing) params.set("include_processing", "true");
-
-    const res = await fetch(`${baseUrl}/v1/projects/${projectId}/files/${fileId}?${params}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error(`Failed to fetch file ${fileId}: ${res.statusText}`);
-    return res.json() as Promise<FileRecord>;
-  }, [projectId, fileId, getToken, options]);
-
   const { data, isLoading, isError, error } = useQuery({
     queryKey,
-    queryFn: fetcher,
+    queryFn: () => getFile(fileId),
     enabled: !!fileId && options.enabled !== false,
   });
 
   const mutate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey });
-  }, [queryClient, queryKey]);
+  }, [queryClient, queryKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     file: data ?? null,

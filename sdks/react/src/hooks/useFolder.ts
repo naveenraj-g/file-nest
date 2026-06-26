@@ -3,9 +3,8 @@
  * @module
  */
 
-import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { FileRecord, Folder, ListResponse } from "@filenest/core";
+import type { FileRecord, Folder } from "@filenest/core";
 import { useFileNest } from "../context/FileNestContext.js";
 
 export interface Breadcrumb {
@@ -22,34 +21,22 @@ export interface UseFolderResult {
 }
 
 export function useFolder(folderId: string | null): UseFolderResult {
-  const { projectId, baseUrl, getToken } = useFileNest();
-
-  const fetcher = useCallback(async () => {
-    const token = await getToken();
-    const headers = { Authorization: `Bearer ${token}` };
-
-    const [folderRes, filesRes, subfoldersRes] = await Promise.all([
-      folderId
-        ? fetch(`${baseUrl}/v1/projects/${projectId}/folders/${folderId}`, { headers }).then((r) => r.json() as Promise<Folder>)
-        : Promise.resolve(null),
-      fetch(`${baseUrl}/v1/projects/${projectId}/files?folder_id=${folderId ?? "root"}&limit=100`, { headers }).then(
-        (r) => r.json() as Promise<ListResponse<FileRecord>>
-      ),
-      fetch(`${baseUrl}/v1/projects/${projectId}/folders?parent_folder_id=${folderId ?? ""}`, { headers }).then(
-        (r) => r.json() as Promise<{ items: Folder[] }>
-      ),
-    ]);
-
-    return {
-      folder: folderRes,
-      files: filesRes.items,
-      subfolders: subfoldersRes.items,
-    };
-  }, [projectId, baseUrl, getToken, folderId]);
+  const { projectId, getFolder, listFiles, listFolders } = useFileNest();
 
   const { data, isLoading } = useQuery({
     queryKey: ["filenest", "folder", projectId, folderId],
-    queryFn: fetcher,
+    queryFn: async () => {
+      const [folderData, filesData, subfoldersData] = await Promise.all([
+        folderId ? getFolder(folderId) : Promise.resolve(null),
+        listFiles({ folderId: folderId ?? null, limit: 100 }),
+        listFolders({ parentFolderId: folderId ?? null }),
+      ]);
+      return {
+        folder: folderData,
+        files: filesData.items,
+        subfolders: subfoldersData.items,
+      };
+    },
   });
 
   const buildBreadcrumbs = (): Breadcrumb[] => {

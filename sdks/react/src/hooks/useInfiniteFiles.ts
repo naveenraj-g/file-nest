@@ -8,7 +8,6 @@
  * @module
  */
 
-import { useCallback } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { FileRecord, ListResponse } from "@filenest/core";
 import { useFileNest } from "../context/FileNestContext.js";
@@ -23,28 +22,8 @@ export interface UseInfiniteFilesOptions {
 }
 
 export function useInfiniteFiles(opts: UseInfiniteFilesOptions = {}) {
-  const { projectId, baseUrl, getToken } = useFileNest();
+  const { projectId, listFiles } = useFileNest();
   const limit = opts.limit ?? 50;
-
-  const fetcher = useCallback(
-    async ({ pageParam = 0 }: { pageParam?: number }): Promise<ListResponse<FileRecord>> => {
-      const token = await getToken();
-      const params = new URLSearchParams();
-      params.set("limit", String(limit));
-      params.set("offset", String(pageParam));
-      if (opts.folderId) params.set("folder_id", opts.folderId);
-      if (opts.sortBy) params.set("sort_by", opts.sortBy);
-      if (opts.sortOrder) params.set("sort_order", opts.sortOrder);
-      if (opts.searchQuery) params.set("q", opts.searchQuery);
-
-      const res = await fetch(`${baseUrl}/v1/projects/${projectId}/files?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`Failed to fetch files: ${res.statusText}`);
-      return res.json() as Promise<ListResponse<FileRecord>>;
-    },
-    [projectId, baseUrl, getToken, opts.folderId, opts.sortBy, opts.sortOrder, opts.searchQuery, limit]
-  );
 
   const query = useInfiniteQuery({
     queryKey: [
@@ -56,7 +35,14 @@ export function useInfiniteFiles(opts: UseInfiniteFilesOptions = {}) {
       opts.sortOrder,
       opts.searchQuery,
     ],
-    queryFn: fetcher,
+    queryFn: ({ pageParam = 0 }: { pageParam?: number }): Promise<ListResponse<FileRecord>> =>
+      listFiles({
+        folderId: opts.folderId,
+        sortBy: opts.sortBy,
+        sortOrder: opts.sortOrder,
+        limit,
+        offset: pageParam,
+      }),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => {
       const next = lastPage.offset + lastPage.limit;
