@@ -58,6 +58,7 @@ export const docsNav: NavSection[] = [
       { title: "Projects", href: "/docs/api/projects" },
       { title: "Files", href: "/docs/api/files" },
       { title: "Folders", href: "/docs/api/folders" },
+      { title: "Upload Tokens", href: "/docs/api/upload-tokens" },
       { title: "Metadata & Tags", href: "/docs/api/metadata" },
       { title: "Webhooks", href: "/docs/api/webhooks" },
       { title: "Storage Config", href: "/docs/api/storage" },
