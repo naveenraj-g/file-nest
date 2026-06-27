@@ -37,6 +37,7 @@ class UploadTokensNamespace:
         max_files: int | None = None,
         folder_id: str | None = None,
         metadata: dict | None = None,
+        tags: list[str] | None = None,
         expires_in: int = 3600,
         owner_user_id: str | None = None,
         owner_org_id: str | None = None,
@@ -50,6 +51,7 @@ class UploadTokensNamespace:
             max_files:          Maximum concurrent files per token use.
             folder_id:          Default folder for uploads made with this token.
             metadata:           Default metadata applied to every uploaded file.
+            tags:               Default tags merged onto every uploaded file.
             expires_in:         Token TTL in seconds (60–86400). Default: 3600.
             owner_user_id:      End-user ID embedded server-side. Copied to every
                                 file uploaded with this token.
@@ -64,6 +66,7 @@ class UploadTokensNamespace:
             "max_files": max_files,
             "folder_id": folder_id,
             "metadata": metadata,
+            "tags": tags,
             "expires_in": expires_in,
             "owner_user_id": owner_user_id,
             "owner_org_id": owner_org_id,
@@ -87,6 +90,7 @@ class AsyncUploadTokensNamespace:
         max_files: int | None = None,
         folder_id: str | None = None,
         metadata: dict | None = None,
+        tags: list[str] | None = None,
         expires_in: int = 3600,
         owner_user_id: str | None = None,
         owner_org_id: str | None = None,
@@ -100,6 +104,7 @@ class AsyncUploadTokensNamespace:
             max_files:          Maximum concurrent files per token use.
             folder_id:          Default folder for uploads made with this token.
             metadata:           Default metadata applied to every uploaded file.
+            tags:               Default tags merged onto every uploaded file.
             expires_in:         Token TTL in seconds (60–86400). Default: 3600.
             owner_user_id:      End-user ID embedded server-side. Copied to every
                                 file uploaded with this token.
@@ -114,6 +119,7 @@ class AsyncUploadTokensNamespace:
             "max_files": max_files,
             "folder_id": folder_id,
             "metadata": metadata,
+            "tags": tags,
             "expires_in": expires_in,
             "owner_user_id": owner_user_id,
             "owner_org_id": owner_org_id,

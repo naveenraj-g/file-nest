@@ -8,6 +8,10 @@ Usage:
     fn = FileNest(api_key="fn_live_...", project_id="proj_...")
     file = fn.files.upload(filename="report.pdf", data=pdf_bytes)
 
+    # Resumable multipart
+    session = fn.uploads.create(filename="video.mp4", size_bytes=len(data))
+    fn.uploads.resume(session["upload_id"], data=data)
+
     # Async (context manager recommended)
     async with AsyncFileNest(api_key="fn_live_...", project_id="proj_...") as fn:
         file = await fn.files.upload(filename="report.pdf", data=pdf_bytes)
@@ -21,6 +25,7 @@ from filenest.namespaces.files import FilesNamespace, AsyncFilesNamespace
 from filenest.namespaces.folders import FoldersNamespace, AsyncFoldersNamespace
 from filenest.namespaces.search import SearchNamespace, AsyncSearchNamespace
 from filenest.namespaces.upload_tokens import UploadTokensNamespace, AsyncUploadTokensNamespace
+from filenest.namespaces.uploads import UploadsNamespace, AsyncUploadsNamespace
 from filenest.namespaces.webhooks import WebhooksNamespace, AsyncWebhooksNamespace
 
 
@@ -44,6 +49,7 @@ class FileNest:
         )
         self.files = FilesNamespace(self._http, project_id)
         self.folders = FoldersNamespace(self._http, project_id)
+        self.uploads = UploadsNamespace(self._http, project_id)
         self.search = SearchNamespace(self._http, project_id)
         self.upload_tokens = UploadTokensNamespace(self._http, project_id)
         self.webhooks = WebhooksNamespace(self._http, project_id)
@@ -79,6 +85,7 @@ class AsyncFileNest:
         )
         self.files = AsyncFilesNamespace(self._http, project_id)
         self.folders = AsyncFoldersNamespace(self._http, project_id)
+        self.uploads = AsyncUploadsNamespace(self._http, project_id)
         self.search = AsyncSearchNamespace(self._http, project_id)
         self.upload_tokens = AsyncUploadTokensNamespace(self._http, project_id)
         self.webhooks = AsyncWebhooksNamespace(self._http, project_id)

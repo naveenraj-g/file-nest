@@ -67,24 +67,32 @@ const buffer = await fn.files.downloadToBuffer(file.id);
 ```typescript
 const { items, total } = await fn.files.list({
   status: "ready",
-  limit: 50,
-  cursor: lastSeenId,    // for infinite scroll pagination
-  tags: ["finance"],
   folderId: "fld_01j...",
+  mimeType: "application/pdf",
+  tags: ["finance"],
+  metadata: { year: "2026" },  // server-side metadata filter
+  sortBy: "created_at",
+  sortOrder: "desc",
+  limit: 50,
+  offset: 0,
 });
 ```
 
-### Get, update, delete
+### Get, update, delete, restore
 
 ```typescript
 const file = await fn.files.get(fileId);
 
 await fn.files.update(fileId, {
-  tags: ["archived"],
   filename: "report-2026-final.pdf",
+  tags: ["archived"],
+  metadata: { reviewed: true },
 });
 
-await fn.files.delete(fileId);
+await fn.files.delete(fileId);   // soft delete — file is recoverable
+
+// Restore a soft-deleted file
+const restored = await fn.files.restore(fileId);
 ```
 
 ### Versions
@@ -101,8 +109,12 @@ await fn.files.versions.restore(fileId, versionId);
 ### Create and ensure paths
 
 ```typescript
-// Create a single folder
-const folder = await fn.folders.create({ name: "invoices" });
+// Create a single folder (parentFolderId=null → project root)
+const folder = await fn.folders.create({
+  name: "invoices",
+  parentFolderId: "fld_01j...",  // optional — omit for root-level folder
+  metadata: { department: "finance" },
+});
 
 // Idempotent: create every missing path segment, return the leaf folder
 const folder = await fn.folders.ensurePath("users/alice/uploads");
@@ -129,8 +141,13 @@ const { items } = await fn.folders.list({ name: "uploads" });
 
 // List files inside a specific folder
 const { items: files } = await fn.folders.listFiles(folderId, {
-  limit: 20,
+  q: "invoice",          // full-text search within the folder
+  tags: ["finance"],
+  category: "document",
   status: "ready",
+  limit: 20,
+  offset: 0,
+  cursor: lastCursor,    // cursor-based pagination (use items' last id)
 });
 ```
 
@@ -182,7 +199,7 @@ const webhook = await fn.webhooks.create({
 // List, get, update, delete
 const { items } = await fn.webhooks.list();
 const wh = await fn.webhooks.get(webhookId);
-await fn.webhooks.update(webhookId, { isActive: false });
+await fn.webhooks.update(webhookId, { status: "disabled" });
 await fn.webhooks.delete(webhookId);
 
 // Delivery history (limit/offset pagination)
@@ -207,6 +224,8 @@ const session = await fn.uploads.create({
   sizeBytes: fileBuffer.length,
   mimeType: "video/mp4",
   folderId: "fld_01j...",
+  tags: ["video", "raw"],
+  metadata: { uploadedBy: "user_abc" },
 });
 // session.uploadId → persist this to resume later
 
@@ -225,10 +244,14 @@ await fn.uploads.abort(session.uploadId);
 ## Search
 
 ```typescript
-const { items, total, facets } = await fn.search.query({
+const { hits, total, facets } = await fn.search.query({
   q: "invoice",
   filters: { status: "ready", tags: ["finance"] },
+  facets: ["mimeType", "tags"],
+  sortBy: "created_at",
+  sortOrder: "desc",
   limit: 20,
+  offset: 0,
 });
 
 // Paginate with an async generator

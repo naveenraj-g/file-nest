@@ -200,6 +200,21 @@ class FilesNamespace:
         resp = FileVersionListResponse.model_validate(raw)
         return resp.items
 
+    def restore_version(self, file_id: str, version_id: str) -> dict:
+        """
+        Restore a file to a previous version.
+
+        Args:
+            file_id:    File whose version to restore.
+            version_id: Version record ID to restore to.
+
+        Returns:
+            Dict with ``file_id`` and ``version_number`` of the restored version.
+        """
+        return self._http.post(
+            f"/v1/projects/{self._project_id}/files/{file_id}/versions/{version_id}/restore"
+        )
+
     @staticmethod
     def verify_webhook_signature(body: bytes, signature: str, secret: str) -> bool:
         """Verify an HMAC-SHA256 webhook signature."""
@@ -273,13 +288,28 @@ class AsyncFilesNamespace:
     async def list(
         self,
         folder_id: str | None = None,
+        mime_type: str | None = None,
+        status: str | None = None,
+        tags: list[str] | None = None,
         limit: int = 20,
         offset: int = 0,
+        sort_by: str | None = None,
+        sort_order: str | None = None,
     ) -> FileListResponse:
         """List files (async)."""
         params: dict = {"limit": limit, "offset": offset}
         if folder_id:
             params["folder_id"] = folder_id
+        if mime_type:
+            params["mime_type"] = mime_type
+        if status:
+            params["status"] = status
+        if tags:
+            params["tags"] = ",".join(tags)
+        if sort_by:
+            params["sort_by"] = sort_by
+        if sort_order:
+            params["sort_order"] = sort_order
         raw = await self._http.get(f"/v1/projects/{self._project_id}/files", params=params)
         return FileListResponse.model_validate(raw)
 
@@ -288,13 +318,21 @@ class AsyncFilesNamespace:
         raw = await self._http.get(f"/v1/projects/{self._project_id}/files/{file_id}")
         return File.model_validate(raw)
 
-    async def update(self, file_id: str, tags: list[str] | None = None, metadata: dict | None = None) -> File:
-        """Update file tags/metadata (async)."""
+    async def update(
+        self,
+        file_id: str,
+        tags: list[str] | None = None,
+        metadata: dict | None = None,
+        filename: str | None = None,
+    ) -> File:
+        """Update file tags, metadata, or filename (async)."""
         body: dict = {}
         if tags is not None:
             body["tags"] = tags
         if metadata is not None:
             body["metadata"] = metadata
+        if filename is not None:
+            body["filename"] = filename
         raw = await self._http.patch(f"/v1/projects/{self._project_id}/files/{file_id}", json=body)
         return File.model_validate(raw)
 
@@ -302,8 +340,19 @@ class AsyncFilesNamespace:
         """Soft-delete a file (async)."""
         await self._http.delete(f"/v1/projects/{self._project_id}/files/{file_id}")
 
+    async def restore(self, file_id: str) -> File:
+        """Restore a soft-deleted file (async)."""
+        raw = await self._http.post(f"/v1/projects/{self._project_id}/files/{file_id}/restore")
+        return File.model_validate(raw)
+
     async def list_versions(self, file_id: str) -> list[FileVersion]:
         """List all versions of a file (async)."""
         raw = await self._http.get(f"/v1/projects/{self._project_id}/files/{file_id}/versions")
         resp = FileVersionListResponse.model_validate(raw)
         return resp.items
+
+    async def restore_version(self, file_id: str, version_id: str) -> dict:
+        """Restore a file to a previous version (async)."""
+        return await self._http.post(
+            f"/v1/projects/{self._project_id}/files/{file_id}/versions/{version_id}/restore"
+        )

@@ -26,6 +26,8 @@ class SearchNamespace:
         q: str | None = None,
         filters: dict | None = None,
         facets: list[str] | None = None,
+        sort_by: str | None = None,
+        sort_order: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> SearchResults:
@@ -37,6 +39,10 @@ class SearchNamespace:
             body["filters"] = filters
         if facets:
             body["facets"] = facets
+        if sort_by:
+            body["sort_by"] = sort_by
+        if sort_order:
+            body["sort_order"] = sort_order
         raw = self._http.post(f"/v1/projects/{self._project_id}/search", json=body)
         return SearchResults.model_validate(raw)
 
@@ -65,6 +71,8 @@ class AsyncSearchNamespace:
         q: str | None = None,
         filters: dict | None = None,
         facets: list[str] | None = None,
+        sort_by: str | None = None,
+        sort_order: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> SearchResults:
@@ -76,6 +84,10 @@ class AsyncSearchNamespace:
             body["filters"] = filters
         if facets:
             body["facets"] = facets
+        if sort_by:
+            body["sort_by"] = sort_by
+        if sort_order:
+            body["sort_order"] = sort_order
         raw = await self._http.post(f"/v1/projects/{self._project_id}/search", json=body)
         return SearchResults.model_validate(raw)
 

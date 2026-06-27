@@ -5,7 +5,7 @@ description: "Install and use the filenest Python SDK for sync and async file op
 
 # Python SDK
 
-The `filenest` Python SDK provides both synchronous (`FileNest`) and asynchronous (`AsyncFileNest`) clients. All namespaces — files, folders, upload tokens, webhooks, and search — are available on both.
+The `filenest` Python SDK provides both synchronous (`FileNest`) and asynchronous (`AsyncFileNest`) clients. All namespaces — files, folders, uploads, upload tokens, webhooks, and search — are available on both.
 
 ## Installation
 
@@ -45,42 +45,71 @@ with open("report.pdf", "rb") as f:
         metadata={"year": "2026"},  # optional
     )
 
-# From a filesystem path
+# From a filesystem path (MIME type auto-detected)
 file = fn.files.upload_from_path(
     path="./report.pdf",
-    mime_type="application/pdf",
+    folder_id="fld_01j...",
+    tags=["finance"],
 )
 ```
+
+Files under 5 MB are uploaded in a single request. Files over 5 MB use the multipart endpoint automatically — no configuration needed.
 
 ### Download
 
 ```python
 # Get a presigned URL
 url_info = fn.files.get_download_url(file.id, ttl=3600)
-print(url_info["url"])
+print(url_info.url)
 
-# Save to disk
+# Save directly to disk
 fn.files.download_to_path(file.id, dest="./output.pdf")
 
 # Load into memory
 content = fn.files.download_to_bytes(file.id)
 ```
 
-### List, get, update, delete
+### List
 
 ```python
-result = fn.files.list(status="ready", limit=50)
-for f in result["items"]:
-    print(f["filename"])
+result = fn.files.list(
+    status="ready",
+    mime_type="application/pdf",
+    tags=["finance"],
+    sort_by="created_at",
+    sort_order="desc",
+    limit=50,
+    offset=0,
+)
+for f in result.items:
+    print(f.filename)
+```
 
+### Get, update, delete, restore
+
+```python
 file = fn.files.get(file_id)
 
-fn.files.update(file_id, tags=["archived"], filename="report-final.pdf")
+fn.files.update(
+    file_id,
+    filename="report-final.pdf",
+    tags=["archived"],
+    metadata={"reviewed": True},
+)
 
-fn.files.delete(file_id)
+fn.files.delete(file_id)   # soft delete — recoverable
 
-# Versions
+# Restore a soft-deleted file
+file = fn.files.restore(file_id)
+```
+
+### Versions
+
+```python
 versions = fn.files.list_versions(file_id)
+
+# Restore to a previous version
+fn.files.restore_version(file_id, version_id)
 ```
 
 ---
@@ -92,7 +121,7 @@ versions = fn.files.list_versions(file_id)
 ```python
 # Create a single folder
 folder = fn.folders.create("invoices")
-folder = fn.folders.create("q1", parent_folder_id=folder["id"])
+folder = fn.folders.create("q1", parent_folder_id=folder["id"], metadata={"dept": "finance"})
 
 # Idempotent: create every missing path segment, return the leaf folder
 folder = fn.folders.ensure_path("users/alice/uploads")
@@ -113,7 +142,16 @@ folder = fn.folders.get(folder_id)
 result = fn.folders.list()
 result = fn.folders.list(name="uploads")   # name filter
 
-files = fn.folders.list_files(folder_id, limit=20, status="ready")
+# List files inside a folder with filters
+files = fn.folders.list_files(
+    folder_id,
+    q="invoice",           # filename search
+    tags=["finance"],
+    category="document",
+    status="ready",
+    limit=20,
+    cursor=last_cursor,    # cursor-based pagination
+)
 ```
 
 ### Delete
@@ -125,6 +163,35 @@ fn.folders.delete(folder_id)
 
 ---
 
+## Resumable Uploads
+
+`fn.uploads` gives you manual control over the multipart session lifecycle. Use this when you need to resume an interrupted upload. For most cases, `fn.files.upload()` handles multipart automatically.
+
+```python
+# 1. Create a session and store upload_id somewhere durable
+session = fn.uploads.create(
+    filename="large-video.mp4",
+    size_bytes=len(data),
+    mime_type="video/mp4",
+    folder_id="fld_01j...",
+    tags=["video", "raw"],
+    metadata={"uploaded_by": "user_abc"},
+)
+# session["upload_id"] → persist this to resume later
+
+# 2. Upload all parts (or resume from where you left off)
+file = fn.uploads.resume(
+    session["upload_id"],
+    data=data,
+    on_progress=lambda pct: print(f"{pct}%"),
+)
+
+# 3. Abort if no longer needed
+fn.uploads.abort(session["upload_id"])
+```
+
+---
+
 ## Upload Tokens
 
 ```python
@@ -132,12 +199,18 @@ token = fn.upload_tokens.create(
     folder_id=folder["id"],
     owner_user_id="user_abc",
     owner_org_id="org_xyz",
-    max_size=50 * 1024 * 1024,
+    max_size=50 * 1024 * 1024,                           # 50 MB per file
+    max_files=10,
     allowed_mime_types=["image/*", "application/pdf"],
+    metadata={"uploaded_from": "profile-settings"},      # stamped on every file
+    tags=["avatar", "user-content"],                     # merged onto every file
     expires_in=3600,
 )
-print(token.token)  # fn_upload_token_...  — return this to the browser
+print(token.token)       # fn_upload_token_...  — return this to the browser
+print(token.expires_at)  # ISO timestamp — return this for client-side refresh
 ```
+
+Token constraints are validated against the project config at creation time. See [Upload Tokens API reference](/docs/api/upload-tokens) for constraint reconciliation rules.
 
 ---
 
@@ -173,6 +246,25 @@ is_valid = verify_webhook_signature(raw_body, signature_header, secret)
 
 ---
 
+## Search
+
+```python
+results = fn.search.query(
+    q="invoice",
+    filters={"status": "ready", "tags": ["finance"]},
+    facets=["mime_type", "tags"],
+    sort_by="created_at",
+    sort_order="desc",
+    limit=20,
+)
+
+# Iterate over all results with automatic pagination
+for file in fn.search.iterate(q="invoice"):
+    print(file.filename)
+```
+
+---
+
 ## FastAPI integration
 
 ```python
@@ -193,7 +285,7 @@ async def upload(file: UploadFile, user_id: str):
         mime_type=file.content_type,
         folder_id=folder["id"],
     )
-    return {"file_id": result["id"], "status": result["status"]}
+    return {"file_id": result.id, "status": result.status}
 
 
 @app.post("/webhooks/filenest")
@@ -216,10 +308,17 @@ Every method on `AsyncFileNest` is the async counterpart — same signatures, ju
 ```python
 async with AsyncFileNest(api_key="fn_live_...", project_id="proj_...") as fn:
     folder = await fn.folders.ensure_path("users/alice/uploads")
+
     token = await fn.upload_tokens.create(
         folder_id=folder["id"],
         owner_user_id="alice",
+        tags=["user-content"],
         expires_in=3600,
     )
-    files = await fn.folders.list_files(folder["id"])
+
+    files = await fn.folders.list_files(folder["id"], limit=20)
+
+    # Resumable multipart
+    session = await fn.uploads.create(filename="video.mp4", size_bytes=len(data))
+    file = await fn.uploads.resume(session["upload_id"], data=data)
 ```
