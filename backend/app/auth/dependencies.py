@@ -169,7 +169,13 @@ async def _verify_upload_token(token: str, session: AsyncSession) -> TenantConte
         scopes=frozenset({"files:upload", "files:read"}),
         is_test_mode=False,
         owner_user_id=record.owner_user_id,
-        owner_org_id=record.owner_org_id,
+        owner_org_id=record.owner_org_id or None,
+        upload_token_folder_id=record.folder_id,
+        upload_token_default_metadata=record.default_metadata,
+        upload_token_default_tags=record.default_tags,
+        upload_token_allowed_mime_types=record.allowed_mime_types,
+        upload_token_max_size=record.max_size,
+        upload_token_max_files=record.max_files,
     )
 
 

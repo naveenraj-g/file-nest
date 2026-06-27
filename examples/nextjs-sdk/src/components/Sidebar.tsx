@@ -15,7 +15,6 @@ const sections = [
     links: [
       { href: "/server-component", label: "Server Component" },
       { href: "/server-action", label: "Server Action" },
-      { href: "/search", label: "Server Search" },
       { href: "/folders", label: "Folder Management" },
     ],
   },
@@ -38,8 +37,23 @@ const sections = [
     title: "Data Hooks",
     links: [
       { href: "/files", label: "useFiles" },
+      { href: "/infinite-files", label: "useInfiniteFiles" },
       { href: "/file-detail", label: "useFile" },
       { href: "/folder", label: "useFolder" },
+    ],
+  },
+  {
+    title: "Search",
+    links: [
+      { href: "/search", label: "Server Search (RSC)" },
+      { href: "/search-client", label: "useSearch (client)" },
+    ],
+  },
+  {
+    title: "Token & Headless",
+    links: [
+      { href: "/upload-token", label: "useUploadToken" },
+      { href: "/headless-upload", label: "useFileNest() headless" },
     ],
   },
   {

@@ -65,7 +65,7 @@ Idempotently creates every missing segment of a path and returns the leaf folder
 }
 ```
 
-<Callout type="info" title="Use this instead of create">
+<Callout type="tip" title="Use this instead of create">
 `ensure-path` is idempotent and safe to call on every request. Use it when you need to guarantee a folder exists before creating an upload token — no need to check first.
 </Callout>
 

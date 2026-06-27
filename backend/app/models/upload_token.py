@@ -45,6 +45,7 @@ class UploadToken(Base):
     # Optional upload defaults
     folder_id = Column(String, nullable=True)
     default_metadata = Column(JSON, nullable=True)
+    default_tags = Column(JSON, nullable=True)      # list[str]; merged onto every uploaded file
 
     # Optional owner scoping — set server-side at token creation; browser cannot override.
     # When present, FileService copies these onto every File uploaded with this token.

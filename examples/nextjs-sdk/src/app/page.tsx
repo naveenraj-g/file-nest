@@ -7,7 +7,6 @@ const demos = [
     items: [
       { href: "/server-component", title: "Server Component", desc: "RSC fetching a file list with filenestServer().files.list()" },
       { href: "/server-action", title: "Server Action", desc: "Form that uploads a file via a Next.js server action" },
-      { href: "/search", title: "Server Search", desc: "RSC calling filenestServer().search.query() and rendering results" },
       { href: "/folders", title: "Folder Management", desc: "ensurePath, getByPath, list, and listFiles — all server-side in an async RSC" },
     ],
   },
@@ -33,8 +32,25 @@ const demos = [
     color: "#d97706",
     items: [
       { href: "/files", title: "useFiles", desc: "TanStack Query-backed paginated file list with filters and load more" },
+      { href: "/infinite-files", title: "useInfiniteFiles", desc: "useInfiniteQuery-backed append-page list — sentinel triggers the next fetch" },
       { href: "/file-detail", title: "useFile", desc: "Single file detail card with live status and revalidation" },
       { href: "/folder", title: "useFolder", desc: "Folder navigation with breadcrumbs and subfolder listing" },
+    ],
+  },
+  {
+    group: "Search (@filenest/react + @filenest/nextjs/server)",
+    color: "#7c3aed",
+    items: [
+      { href: "/search", title: "Server Search (RSC)", desc: "RSC calling filenestServer().search.query() — results at first paint" },
+      { href: "/search-client", title: "useSearch (client)", desc: "Debounced full-text + faceted search hook — live as you type, client-side" },
+    ],
+  },
+  {
+    group: "Token & Headless (@filenest/react)",
+    color: "#0f766e",
+    items: [
+      { href: "/upload-token", title: "useUploadToken", desc: "Token lifecycle hook — status, manual refresh, lazy mode, custom fetcher" },
+      { href: "/headless-upload", title: "useFileNest() headless", desc: "All 17 context methods: 3-step upload, folders, search, download URL" },
     ],
   },
   {

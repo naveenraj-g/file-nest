@@ -41,6 +41,15 @@ class TenantContext:
     is_test_mode: bool = False
     owner_user_id: str | None = None
     owner_org_id: str | None = None
+    # Upload-token-only fields — None when the caller is an API key or JWT.
+    # FileService reads these to enforce token-level constraints and apply
+    # the server-controlled folder and metadata defaults at upload time.
+    upload_token_folder_id: str | None = None
+    upload_token_default_metadata: dict | None = None
+    upload_token_default_tags: list[str] | None = None
+    upload_token_allowed_mime_types: list[str] | None = None
+    upload_token_max_size: int | None = None
+    upload_token_max_files: int | None = None
 
 
 # Per-request context variable — set by authenticate_request, read by services

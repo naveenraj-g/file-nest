@@ -16,6 +16,8 @@ export interface CreateUploadTokenOptions {
   maxFiles?: number;
   folderId?: string;
   metadata?: Record<string, unknown>;
+  /** Tags applied to every file uploaded with this token. Merged with any tags the browser sends. */
+  tags?: string[];
   expiresIn?: number;
   /** End-user ID to embed in the token. Copied to every file uploaded with it. */
   ownerUserId?: string;
@@ -36,6 +38,7 @@ export class UploadTokensNamespace {
       max_files: options.maxFiles,
       folder_id: options.folderId,
       metadata: options.metadata,
+      tags: options.tags,
       expires_in: options.expiresIn,
       owner_user_id: options.ownerUserId,
       owner_org_id: options.ownerOrgId,

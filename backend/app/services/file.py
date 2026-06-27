@@ -38,7 +38,7 @@ from app.repositories.file_version import FileVersionRepository
 from app.repositories.project_config import ProjectConfigRepository
 from app.repositories.storage_config import StorageConfigRepository
 from app.services.upload_validation import validate_upload_request
-from app.errors import NotFoundError, ValidationError
+from app.errors import FileTooLargeError, NotFoundError, ValidationError
 
 from app.schemas.file import (
     ConfirmUploadResponse,
@@ -61,6 +61,25 @@ from app.storage.resolver import storage_resolver
 def _storage_key(organization_id: str, project_id: str, file_id: str) -> str:
     """Build the object storage key: org/project/file_id."""
     return f"{organization_id}/{project_id}/{file_id}"
+
+
+def _mime_allowed(content_type: str, allowed: list[str]) -> bool:
+    """Return True if content_type matches any pattern in allowed.
+
+    Supports wildcard subtypes: 'image/*' matches 'image/jpeg', 'image/png', etc.
+    Exact matches are also supported: 'application/pdf' matches 'application/pdf'.
+    """
+    ct = content_type.lower()
+    for pattern in allowed:
+        p = pattern.strip().lower()
+        if p == "*/*":
+            return True
+        if p == ct:
+            return True
+        if p.endswith("/*"):
+            if ct.startswith(p[:-1]):
+                return True
+    return False
 
 
 class FileService:
@@ -133,6 +152,50 @@ class FileService:
         config = await self._config_repo.get_for_project(
             self._project_id, self._ctx.organization_id
         )
+
+        # Resolve effective folder, metadata, and constraints.
+        # When the caller is an upload token, the token's server-set values take
+        # precedence over whatever the browser sends — the browser cannot override them.
+        effective_folder_id = req.folder_id
+        effective_metadata: dict = req.metadata or {}
+        effective_tags: list[str] = list(req.tags)
+
+        if self._ctx.actor_id.startswith("upload_token:"):
+            # Token folder always overrides the request's folder_id.
+            if self._ctx.upload_token_folder_id is not None:
+                effective_folder_id = self._ctx.upload_token_folder_id
+
+            # Merge: token metadata wins over browser metadata on key conflicts.
+            if self._ctx.upload_token_default_metadata:
+                effective_metadata = {**effective_metadata, **self._ctx.upload_token_default_metadata}
+
+            # Merge tags: combine browser tags with token tags, deduplicating.
+            if self._ctx.upload_token_default_tags:
+                effective_tags = list(dict.fromkeys([*effective_tags, *self._ctx.upload_token_default_tags]))
+
+            # Token max_size is the ceiling — checked before project-level validation.
+            if self._ctx.upload_token_max_size is not None and req.size_bytes > self._ctx.upload_token_max_size:
+                raise FileTooLargeError(
+                    f"File size {req.size_bytes:,} bytes exceeds the upload token limit "
+                    f"of {self._ctx.upload_token_max_size:,} bytes",
+                    detail={
+                        "size_bytes": req.size_bytes,
+                        "max_size": self._ctx.upload_token_max_size,
+                    },
+                )
+
+            # Token allowed_mime_types allowlist — enforced on top of project config.
+            if self._ctx.upload_token_allowed_mime_types:
+                token_types = self._ctx.upload_token_allowed_mime_types
+                if "*/*" not in token_types and not _mime_allowed(req.content_type, token_types):
+                    raise ValidationError(
+                        f"Content type '{req.content_type}' is not permitted by the upload token",
+                        detail={
+                            "content_type": req.content_type,
+                            "allowed_mime_types": token_types,
+                        },
+                    )
+
         validate_upload_request(
             config,
             filename=req.filename,
@@ -159,9 +222,9 @@ class FileService:
             filename=req.filename,
             content_type=req.content_type,
             size_bytes=req.size_bytes,
-            folder_id=req.folder_id,
-            tags=list(dict.fromkeys(req.tags)),
-            metadata_json=json.dumps(req.metadata),
+            folder_id=effective_folder_id,
+            tags=list(dict.fromkeys(effective_tags)),
+            metadata_json=json.dumps(effective_metadata),
             owner_user_id=self._ctx.owner_user_id,
             owner_org_id=self._ctx.owner_org_id,
         )

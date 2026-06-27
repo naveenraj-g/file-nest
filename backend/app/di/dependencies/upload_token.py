@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import TenantContext, authenticate_request
 from app.core.database import get_db
 from app.repositories.folder import FolderRepository
+from app.repositories.project_config import ProjectConfigRepository
 from app.repositories.upload_token import UploadTokenRepository
 from app.services.upload_token import UploadTokenService
 
@@ -35,4 +36,5 @@ async def get_upload_token_service(
         repo=UploadTokenRepository(session),
         ctx=ctx,
         folder_repo=FolderRepository(session),
+        config_repo=ProjectConfigRepository(session),
     )

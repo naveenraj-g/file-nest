@@ -28,10 +28,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           tokenEndpoint="/api/filenest-token"
           projectId={process.env.NEXT_PUBLIC_FILENEST_PROJECT_ID!}
           baseUrl={process.env.NEXT_PUBLIC_FILENEST_API_URL}
-          options={{
-            environment: process.env.NODE_ENV === "production" ? "production" : "test",
-            debug: process.env.NODE_ENV === "development",
-          }}
+          fetchInitialToken={true}
+          tokenRefreshBuffer={60}
+          tokenRetry={3}
+          debug={process.env.NODE_ENV === "development"}
         >
           <div className="layout">
             <Sidebar />

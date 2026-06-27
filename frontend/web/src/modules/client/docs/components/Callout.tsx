@@ -48,7 +48,7 @@ const config: Record<
 };
 
 export function Callout({ type = "note", title, children }: CalloutProps) {
-  const { icon: Icon, classes, titleClass } = config[type];
+  const { icon: Icon, classes, titleClass } = config[type] ?? config.note;
 
   return (
     <div className={cn("my-6 flex gap-3 rounded-lg border p-4", classes)}>

@@ -21,6 +21,7 @@ class CreateUploadTokenRequest(BaseModel):
     max_files: int | None = Field(None, description="Maximum number of files per token.")
     folder_id: str | None = Field(None, description="Default target folder for uploads using this token.")
     metadata: dict | None = Field(None, description="Default metadata applied to every upload.")
+    tags: list[str] | None = Field(None, description="Default tags applied to every upload.")
     expires_in: int = Field(3600, ge=60, le=86400, description="Token TTL in seconds (60–86400).")
     owner_user_id: str | None = Field(None, description="End-user ID to embed in the token. Copied to every file uploaded with it.")
     owner_org_id: str | None = Field(None, description="End-user's org ID to embed in the token. Copied to every file uploaded with it.")
