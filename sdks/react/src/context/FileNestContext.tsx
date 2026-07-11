@@ -36,7 +36,7 @@ import type {
 
 export interface InitUploadOptions {
   filename: string;
-  contentType: string;
+  contentType?: string;
   sizeBytes: number;
   folderId?: string | null;
   metadata?: Record<string, unknown>;
@@ -388,7 +388,7 @@ export function FileNestProvider({
         {
           body: {
             filename: opts.filename,
-            content_type: opts.contentType,
+            content_type: opts.contentType || "application/octet-stream",
             size_bytes: opts.sizeBytes,
             folder_id: opts.folderId ?? null,
             metadata: opts.metadata ?? {},
