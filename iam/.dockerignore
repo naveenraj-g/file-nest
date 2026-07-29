@@ -1,7 +1,10 @@
-node_modules
-.next
-.git
-logs
+node_modules/
+.next/
+.trunk/
+.git/
+logs/
 .env
+.env.*
+*.log
 Dockerfile
 docker-compose.yml

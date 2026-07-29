@@ -36,8 +36,7 @@ This starts six services via Docker Compose:
 
 | Service | Port | Purpose |
 |---------|------|---------|
-| FileNest PostgreSQL | `5434` | Backend database |
-| IAM PostgreSQL | `5433` | Auth database (BetterAuth) |
+| PostgreSQL | `5432` | Shared database — `filenest` (backend) + `iam_db` (IAM) |
 | Redis | `6379` | Cache + rate-limit counters |
 | RustFS | `9000` / `9001` | S3-compatible object storage (console on `:9001`) |
 | NATS JetStream | `4222` / `8222` | Event bus (monitor on `:8222`) |
@@ -91,7 +90,7 @@ just iam                        # starts on :5000
 The IAM needs its own environment file. Key variables:
 
 ```env
-DATABASE_URL=postgresql://iam_user:iam_password@localhost:5433/iam_db
+DATABASE_URL=postgresql://iam_user:iam_password@localhost:5432/iam_db
 BETTER_AUTH_SECRET=<generate with: openssl rand -hex 32>
 BETTER_AUTH_URL=http://localhost:5000
 INTERNAL_API_SECRET=<same value as backend/.env INTERNAL_API_SECRET>

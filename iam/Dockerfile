@@ -1,41 +1,65 @@
-# ---------- Base ----------
-FROM node:20-alpine AS base
+# ── Stage 1: dependencies ─────────────────────────────────────────────────────
+FROM node:20-alpine AS deps
 
-RUN corepack enable && corepack prepare pnpm@9 --activate
+RUN npm install -g pnpm@9
 
 WORKDIR /app
-
-# ---------- Dependencies ----------
-FROM base AS deps
 
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-# ---------- Build ----------
-FROM base AS builder
+# ── Stage 2: builder ──────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+RUN npm install -g pnpm@9
+
+WORKDIR /app
+
+ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# NEXT_PUBLIC_* vars are baked into the bundle at build time
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
+# Generate the Prisma client before building
+RUN pnpm dlx prisma generate --schema ./src/modules/server/prisma/schema/schema.prisma
+
 RUN pnpm build
 
-# ---------- Production ----------
-FROM base AS runner
+# ── Stage 3: runner ───────────────────────────────────────────────────────────
+FROM node:20-alpine AS runner
+
+RUN apk add --no-cache curl
 
 WORKDIR /app
 
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=5000 \
+    HOSTNAME=0.0.0.0
 
-# Copy built app
-COPY --from=builder /app ./
+# Standalone server output
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
-# Create logs directory
-RUN mkdir -p /logs/IAM
+# Prisma: generated client binary and JS runtime
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Install netcat for DB wait
-RUN apk add --no-cache netcat-openbsd
+# Prisma CLI for running `migrate deploy` on startup
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
-EXPOSE 3000
+# Schema file needed by migrate deploy
+COPY --from=builder /app/src/modules/server/prisma/schema/schema.prisma ./prisma/schema.prisma
 
-# Wait for DB → run seed → start app
-CMD ["sh", "-c", "until nc -z iam-postgres 5432; do echo 'Waiting for DB...'; sleep 2; done; pnpm prisma migrate deploy && pnpm run seed:admin && pnpm run seed:patient-menu && pnpm run seed:doctor-menu && pnpm run seed:telemedicine-app-admin-menu && pnpm start"]
+EXPOSE 5000
+
+# Apply pending migrations then start the server.
+# To seed the first superadmin after initial deploy, run:
+#   docker compose -f docker-compose.prod.yml exec iam pnpm seed:admin
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy --schema ./prisma/schema.prisma && node server.js"]

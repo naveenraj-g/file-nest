@@ -1,35 +1,19 @@
 services:
 
-  # ── IAM database (BetterAuth / Prisma) ────────────────────────────────────
-  # Separate from the FileNest backend DB. Runs on 5433 so both can be
-  # exposed locally without port conflicts.
-  iam-postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: iam_db
-      POSTGRES_USER: iam_user
-      POSTGRES_PASSWORD: iam_password
-    ports:
-      - "5433:5432"
-    volumes:
-      - iam_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U iam_user -d iam_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # ── FileNest backend database (SQLAlchemy / Alembic) ──────────────────────
+  # ── Shared PostgreSQL (two databases: filenest + iam_db) ──────────────────
+  # The init script creates the iam_db database and iam_user on first start.
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: filenest
       POSTGRES_USER: filenest
       POSTGRES_PASSWORD: filenest
+      IAM_POSTGRES_PASSWORD: iam_password
     ports:
-      - "5434:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/init.sh
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U filenest -d filenest"]
       interval: 5s
@@ -95,6 +79,5 @@ services:
       start_period: 120s
 
 volumes:
-  iam_postgres_data:
   postgres_data:
   rustfs_data:
