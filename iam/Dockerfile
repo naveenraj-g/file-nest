@@ -25,7 +25,7 @@ ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 # Generate the Prisma client (uses prisma.config.ts — schema at ./prisma/schema/schema.prisma)
-RUN pnpm exec prisma generate
+RUN ./node_modules/.bin/prisma generate
 
 RUN pnpm build
 
