@@ -50,8 +50,9 @@ COPY --from=builder /app/public ./public
 # Copying explicitly because wasm files are not traced by nft
 COPY --from=builder /app/prisma/generated ./prisma/generated
 
-# Prisma CLI for running migrate deploy on startup
+# Prisma CLI + engines for running migrate deploy on startup
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
 # Schema file needed by migrate deploy
