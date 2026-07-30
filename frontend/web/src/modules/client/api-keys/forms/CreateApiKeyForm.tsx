@@ -40,7 +40,7 @@ const SCOPE_GROUPS: {
   {
     label: "Files",
     description: "Upload, download, read, delete, and update file metadata.",
-    scopes: ["files:upload", "files:download", "files:read", "files:delete", "files:metadata", "files:update_metadata"],
+    scopes: ["files:upload", "files:download", "files:read", "files:delete", "files:metadata"],
   },
   {
     label: "Folders",
@@ -59,8 +59,8 @@ const SCOPE_GROUPS: {
   },
   {
     label: "Projects",
-    description: "Read, create, update, and delete projects.",
-    scopes: ["projects:read", "projects:create", "projects:update", "projects:delete"],
+    description: "Read and update project settings and storage configuration.",
+    scopes: ["projects:read", "projects:update"],
   },
   {
     label: "Audit & Compliance",
@@ -80,7 +80,7 @@ export function CreateApiKeyForm({ organizationId, projectId, onSuccess }: Creat
     resolver: zodResolver(CreateApiKeyFormSchema),
     defaultValues: {
       name: "",
-      scopes: ["files:upload", "files:download", "files:read", "files:delete", "files:metadata", "files:update_metadata"],
+      scopes: ["files:upload", "files:download", "files:read", "files:delete", "files:metadata"],
     },
   });
 

@@ -21,18 +21,14 @@ const DEFAULT_SCOPES = [
   "files:read",
   "files:delete",
   "files:metadata",
-  "files:update_metadata",
   "folders:read",
   "folders:write",
   "upload_tokens:create",
   "webhooks:read",
   "webhooks:write",
   "projects:read",
-  "projects:create",
   "projects:update",
-  "projects:delete",
   "audit:read",
-  "compliance:manage",
 ];
 
 export async function POST(request: Request) {
