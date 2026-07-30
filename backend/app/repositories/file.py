@@ -12,6 +12,9 @@ Pagination modes:
 Usage:
     from app.repositories.file import FileRepository
 """
+
+from __future__ import annotations
+
 import json
 from datetime import UTC, datetime
 
@@ -99,9 +102,7 @@ class FileRepository:
             stmt = stmt.where(File.size_bytes <= size_max)
         if metadata_filter:
             stmt = stmt.where(
-                cast(File.metadata_json, JSONB).op("@>")(
-                    cast(json.dumps(metadata_filter), JSONB)
-                )
+                cast(File.metadata_json, JSONB).op("@>")(cast(json.dumps(metadata_filter), JSONB))
             )
         return stmt
 

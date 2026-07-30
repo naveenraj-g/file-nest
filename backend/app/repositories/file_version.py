@@ -7,6 +7,8 @@ Rows are immutable once created — there are no update methods.
 Usage:
     from app.repositories.file_version import FileVersionRepository
 """
+from __future__ import annotations
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

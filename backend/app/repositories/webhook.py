@@ -7,6 +7,8 @@ Delivery queries are scoped to webhook_id + organization_id.
 Usage:
     from app.repositories.webhook import WebhookRepository
 """
+from __future__ import annotations
+
 from datetime import UTC, datetime
 
 from sqlalchemy import select

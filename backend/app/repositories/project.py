@@ -7,6 +7,8 @@ No business logic here — conditionals belong in services.
 Usage:
     from app.repositories.project import ProjectRepository
 """
+from __future__ import annotations
+
 from datetime import UTC, datetime
 import math
 

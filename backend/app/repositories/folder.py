@@ -7,6 +7,8 @@ leaks. Soft-deleted folders (deleted_at IS NOT NULL) are excluded from all reads
 Usage:
     from app.repositories.folder import FolderRepository
 """
+from __future__ import annotations
+
 from datetime import UTC, datetime
 
 from sqlalchemy import exists, select

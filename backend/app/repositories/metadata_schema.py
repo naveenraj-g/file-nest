@@ -8,6 +8,8 @@ is active per project at any time. All queries are scoped to organization_id
 Usage:
     from app.repositories.metadata_schema import MetadataSchemaRepository
 """
+from __future__ import annotations
+
 from datetime import UTC, datetime
 
 from sqlalchemy import select, update
