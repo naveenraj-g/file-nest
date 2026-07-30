@@ -7,6 +7,14 @@ Works with any S3-compatible backend by setting S3_ENDPOINT_URL:
   AWS S3:                  (empty, boto3 default) + force_path_style=False
   Cloudflare R2:           https://<account>.r2.cloudflarestorage.com + force_path_style=True
 
+public_url vs endpoint_url
+--------------------------
+endpoint_url is used for internal API calls (bucket create, CORS, head, delete).
+public_url, when set, is used instead of endpoint_url when *generating presigned URLs*
+so the URL handed back to a browser resolves on the public internet rather than to a
+Docker-internal hostname. The S3 signature is recomputed against the public host, so
+the provider at public_url must proxy to (or be) the same storage service.
+
 Usage:
     from app.storage.s3 import S3StorageProvider
 """
@@ -23,6 +31,11 @@ class S3StorageProvider:
 
     Args:
         endpoint_url:           Override the S3 endpoint. None → AWS S3 default.
+        public_url:             Public-facing URL for presigned URLs. When set, boto3
+                                signs URLs against this host instead of endpoint_url,
+                                so browsers can reach them without access to the internal
+                                Docker network. Typically a subdomain like
+                                https://storage.example.com that proxies to endpoint_url.
         access_key_id:          AWS/provider access key ID.
         secret_access_key:      AWS/provider secret access key.
         bucket_name:            Target bucket for all operations.
@@ -37,6 +50,7 @@ class S3StorageProvider:
         self,
         *,
         endpoint_url: str | None,
+        public_url: str | None = None,
         access_key_id: str | None,
         secret_access_key: str | None,
         bucket_name: str,
@@ -47,6 +61,7 @@ class S3StorageProvider:
         kms_key_id: str | None = None,
     ) -> None:
         self._endpoint_url = endpoint_url
+        self._public_url = public_url
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._bucket_name = bucket_name
@@ -68,10 +83,11 @@ class S3StorageProvider:
             return params
         return {"ServerSideEncryption": "AES256"}
 
-    def _client_kwargs(self) -> dict:
+    def _client_kwargs(self, *, for_presign: bool = False) -> dict:
         kwargs: dict = {"region_name": self._region}
-        if self._endpoint_url:
-            kwargs["endpoint_url"] = self._endpoint_url
+        endpoint = (self._public_url if for_presign and self._public_url else self._endpoint_url)
+        if endpoint:
+            kwargs["endpoint_url"] = endpoint
         if self._access_key_id:
             kwargs["aws_access_key_id"] = self._access_key_id
         if self._secret_access_key:
@@ -90,7 +106,7 @@ class S3StorageProvider:
         try:
             params: dict = {"Bucket": self._bucket_name, "Key": key, "ContentType": content_type}
             params.update(self._sse_params())
-            async with self._session.client("s3", **self._client_kwargs()) as s3:
+            async with self._session.client("s3", **self._client_kwargs(for_presign=True)) as s3:
                 url: str = await s3.generate_presigned_url(
                     "put_object",
                     Params=params,
@@ -108,7 +124,7 @@ class S3StorageProvider:
         if filename:
             params["ResponseContentDisposition"] = f'attachment; filename="{filename}"'
         try:
-            async with self._session.client("s3", **self._client_kwargs()) as s3:
+            async with self._session.client("s3", **self._client_kwargs(for_presign=True)) as s3:
                 url: str = await s3.generate_presigned_url("get_object", Params=params, ExpiresIn=expires_in)
             return url
         except (BotoCoreError, ClientError) as exc:

@@ -160,6 +160,7 @@ class StorageResolver:
         if p == "rustfs":
             return S3StorageProvider(
                 endpoint_url=settings.rustfs_endpoint_url,
+                public_url=settings.rustfs_public_url,
                 access_key_id=settings.rustfs_access_key_id,
                 secret_access_key=settings.rustfs_secret_access_key,
                 bucket_name=bucket_name,

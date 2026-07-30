@@ -65,6 +65,10 @@ class Settings(BaseSettings):
 
     # RustFS — Rust-native S3-compatible object storage
     rustfs_endpoint_url: str = "http://localhost:9000"
+    # Public URL returned in presigned URLs (e.g. https://storage.example.com).
+    # If unset, rustfs_endpoint_url is used — fine for local dev, broken in production
+    # when the endpoint is a Docker-internal hostname unreachable by browsers.
+    rustfs_public_url: str | None = None
     rustfs_access_key_id: str | None = None
     rustfs_secret_access_key: str | None = None
     rustfs_bucket_name: str = "filenest"
