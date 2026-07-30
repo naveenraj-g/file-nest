@@ -1,22 +1,16 @@
-# ── Stage 1: dependencies ─────────────────────────────────────────────────────
-FROM node:20-alpine AS deps
-
-RUN npm install -g pnpm@9
-
+# ── Stage 1: base (pnpm via corepack) ────────────────────────────────────────
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9 --activate
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
+# ── Stage 2: dependencies ─────────────────────────────────────────────────────
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
-# ── Stage 2: builder ──────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
-
-RUN npm install -g pnpm@9
-
-WORKDIR /app
-
+# ── Stage 3: builder ──────────────────────────────────────────────────────────
+FROM base AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
-
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -24,13 +18,11 @@ COPY . .
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
-# Generate the Prisma client (uses prisma.config.ts — schema at ./prisma/schema/schema.prisma)
 RUN ./node_modules/.bin/prisma generate
-
 RUN pnpm build
 
-# ── Stage 3: runner ───────────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
+# ── Stage 4: runner ───────────────────────────────────────────────────────────
+FROM base AS runner
 
 RUN apk add --no-cache curl
 
@@ -41,26 +33,13 @@ ENV NODE_ENV=production \
     PORT=5000 \
     HOSTNAME=0.0.0.0
 
-# Standalone server output
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-
-# Generated Prisma client (custom output — prisma/generated/prisma)
-# Copying explicitly because wasm files are not traced by nft
-COPY --from=builder /app/prisma/generated ./prisma/generated
-
-# Prisma CLI + engines for running migrate deploy on startup
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
-
-# Schema file needed by migrate deploy
-COPY --from=builder /app/prisma/schema/schema.prisma ./prisma/schema/schema.prisma
+# Copy the entire built app — pnpm uses .pnpm/ symlink targets so we need
+# the full node_modules tree, not selective copies.
+COPY --from=builder /app ./
 
 EXPOSE 5000
 
 # Apply pending migrations then start the server.
 # To seed the first superadmin after initial deploy, run:
 #   docker compose -f docker-compose.prod.yml exec iam pnpm seed:admin
-CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy --schema ./prisma/schema/schema.prisma && node server.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy --schema ./prisma/schema/schema.prisma && pnpm start"]
