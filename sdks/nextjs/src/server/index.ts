@@ -9,12 +9,12 @@
 
 import "server-only";
 import { createHmac, timingSafeEqual } from "crypto";
-import { FileNest, type FileNestConfig } from "@filenest/node";
-import type { CreateUploadTokenOptions } from "@filenest/node";
-import type { UploadToken } from "@filenest/core";
+import { FileNest, type FileNestConfig } from "@filenest-fs/node";
+import type { CreateUploadTokenOptions } from "@filenest-fs/node";
+import type { UploadToken } from "@filenest-fs/core";
 import type { WebhookEvent } from "../types/events.js";
 
-export { FileNest } from "@filenest/node";
+export { FileNest } from "@filenest-fs/node";
 
 /**
  * Create a server-side FileNest client configured for Next.js server contexts.
@@ -71,5 +71,5 @@ export function parseWebhookEvent(body: string): WebhookEvent {
 }
 
 // Re-export token types
-export type { CreateUploadTokenOptions } from "@filenest/node";
+export type { CreateUploadTokenOptions } from "@filenest-fs/node";
 export type { WebhookEvent, FileUploadedEvent, FileProcessedEvent, FileDeletedEvent, FileVirusDetectedEvent, FileReadyEvent } from "../types/events.js";

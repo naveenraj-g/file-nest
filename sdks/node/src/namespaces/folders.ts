@@ -3,7 +3,7 @@
  * @module
  */
 
-import type { FileNestHttpClient, FileRecord, Folder, ListResponse } from "@filenest/core";
+import type { FileNestHttpClient, FileRecord, Folder, ListResponse } from "@filenest-fs/core";
 
 export interface FolderCreateOptions {
   name: string;

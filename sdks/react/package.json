@@ -1,5 +1,5 @@
 {
-  "name": "@filenest/react",
+  "name": "@filenest-fs/react",
   "version": "0.1.0",
   "description": "FileNest SDK for React — upload components, file explorer, and data hooks",
   "license": "MIT",
@@ -39,6 +39,6 @@
     "@types/react-dom": "^19",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "@filenest/core": "workspace:*"
+    "@filenest-fs/core": "workspace:*"
   }
 }

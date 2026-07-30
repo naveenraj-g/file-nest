@@ -1,5 +1,5 @@
 {
-  "name": "@filenest/nextjs",
+  "name": "@filenest-fs/nextjs",
   "version": "0.1.0",
   "description": "FileNest SDK for Next.js — server utilities, token creation, and webhook helpers",
   "license": "MIT",
@@ -34,8 +34,8 @@
     "@types/node": "^20",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "@filenest/core": "workspace:*",
-    "@filenest/node": "workspace:*"
+    "@filenest-fs/core": "workspace:*",
+    "@filenest-fs/node": "workspace:*"
   },
   "engines": {
     "node": ">=18"

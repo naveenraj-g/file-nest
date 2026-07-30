@@ -14,7 +14,7 @@
 
 import { createHmac } from "crypto";
 import type { Readable } from "stream";
-import type { FileNestHttpClient } from "@filenest/core";
+import type { FileNestHttpClient } from "@filenest-fs/core";
 import type {
   DownloadUrlResponse,
   FileRecord,
@@ -22,7 +22,7 @@ import type {
   ListResponse,
   MultipartSession,
   UploadProgress,
-} from "@filenest/core";
+} from "@filenest-fs/core";
 
 const MULTIPART_THRESHOLD = 5 * 1024 * 1024; // 5 MB
 

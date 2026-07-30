@@ -8,7 +8,7 @@
  * @module
  */
 
-import type { FileNestHttpClient, UploadToken } from "@filenest/core";
+import type { FileNestHttpClient, UploadToken } from "@filenest-fs/core";
 
 export interface CreateUploadTokenOptions {
   maxSize?: number;

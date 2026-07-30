@@ -5,7 +5,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { SearchFacets, SearchHit } from "@filenest/core";
+import type { SearchFacets, SearchHit } from "@filenest-fs/core";
 import { useFileNest } from "../context/FileNestContext.js";
 import type { SearchQuery } from "../context/FileNestContext.js";
 

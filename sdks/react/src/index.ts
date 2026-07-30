@@ -81,4 +81,4 @@ export type {
   UploadProgress,
   UploadToken,
   ListResponse,
-} from "@filenest/core";
+} from "@filenest-fs/core";

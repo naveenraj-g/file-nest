@@ -4,7 +4,7 @@
  */
 
 import { createHmac, timingSafeEqual } from "crypto";
-import type { FileNestHttpClient, ListResponse, Webhook, WebhookEvent } from "@filenest/core";
+import type { FileNestHttpClient, ListResponse, Webhook, WebhookEvent } from "@filenest-fs/core";
 
 export interface WebhookCreateOptions {
   name: string;

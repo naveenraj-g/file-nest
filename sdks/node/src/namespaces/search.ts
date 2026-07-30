@@ -3,7 +3,7 @@
  * @module
  */
 
-import type { FileNestHttpClient, FileRecord, SearchFilters, SearchResults } from "@filenest/core";
+import type { FileNestHttpClient, FileRecord, SearchFilters, SearchResults } from "@filenest-fs/core";
 
 export interface SearchOptions {
   q?: string;

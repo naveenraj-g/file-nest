@@ -4,7 +4,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import type { FileRecord, Folder } from "@filenest/core";
+import type { FileRecord, Folder } from "@filenest-fs/core";
 import { useFileNest } from "../context/FileNestContext.js";
 
 export interface Breadcrumb {

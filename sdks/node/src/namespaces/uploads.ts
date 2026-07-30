@@ -9,7 +9,7 @@
  */
 
 import type { Readable } from "stream";
-import type { FileNestHttpClient, FileRecord, MultipartSession, UploadProgress } from "@filenest/core";
+import type { FileNestHttpClient, FileRecord, MultipartSession, UploadProgress } from "@filenest-fs/core";
 
 export interface UploadSessionCreateOptions {
   filename: string;

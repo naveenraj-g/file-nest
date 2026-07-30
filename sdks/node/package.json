@@ -1,5 +1,5 @@
 {
-  "name": "@filenest/node",
+  "name": "@filenest-fs/node",
   "version": "0.1.0",
   "description": "FileNest SDK for Node.js — server-side file infrastructure client",
   "license": "MIT",
@@ -26,7 +26,7 @@
     "@types/node": "^20",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "@filenest/core": "workspace:*"
+    "@filenest-fs/core": "workspace:*"
   },
   "engines": {
     "node": ">=18"

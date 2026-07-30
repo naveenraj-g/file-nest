@@ -5,7 +5,7 @@
 
 import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { FileRecord } from "@filenest/core";
+import type { FileRecord } from "@filenest-fs/core";
 import { useFileNest } from "../context/FileNestContext.js";
 
 export interface UseFileOptions {

@@ -8,5 +8,5 @@
  */
 
 export type { WebhookEvent, FileUploadedEvent, FileProcessedEvent, FileDeletedEvent, FileVirusDetectedEvent, FileReadyEvent } from "./types/events.js";
-export type { FileNestConfig } from "@filenest/node";
-export * from "@filenest/core";
+export type { FileNestConfig } from "@filenest-fs/node";
+export * from "@filenest-fs/core";

@@ -23,4 +23,4 @@ export type { CreateUploadTokenOptions } from "./namespaces/upload-tokens.js";
 export type { UploadSessionCreateOptions, ResumeUploadOptions } from "./namespaces/uploads.js";
 
 // Re-export all types and errors from core
-export * from "@filenest/core";
+export * from "@filenest-fs/core";

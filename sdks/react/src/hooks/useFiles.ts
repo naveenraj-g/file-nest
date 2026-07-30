@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { FileRecord, ListResponse, SearchFilters } from "@filenest/core";
+import type { FileRecord, ListResponse, SearchFilters } from "@filenest-fs/core";
 import { useFileNest } from "../context/FileNestContext.js";
 
 export interface UseFilesOptions {

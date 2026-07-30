@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useState } from "react";
-import type { FileRecord, UploadProgress } from "@filenest/core";
+import type { FileRecord, UploadProgress } from "@filenest-fs/core";
 import { useFileNest } from "../context/FileNestContext.js";
 
 export type UploadStatus = "pending" | "uploading" | "success" | "failed";

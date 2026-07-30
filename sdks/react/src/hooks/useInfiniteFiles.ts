@@ -9,7 +9,7 @@
  */
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import type { FileRecord, ListResponse } from "@filenest/core";
+import type { FileRecord, ListResponse } from "@filenest-fs/core";
 import { useFileNest } from "../context/FileNestContext.js";
 
 export interface UseInfiniteFilesOptions {

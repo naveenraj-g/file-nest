@@ -20,9 +20,9 @@ fastapi = ["fastapi>=0.100"]
 dev = ["pytest", "pytest-asyncio", "respx", "python-dotenv"]
 
 [project.urls]
-homepage = "https://filenest.io"
-repository = "https://github.com/filenest/filenest-python"
-documentation = "https://docs.filenest.io/sdks/python"
+homepage = "https://github.com/naveenraj-g/file-nest"
+repository = "https://github.com/naveenraj-g/file-nest"
+documentation = "https://github.com/naveenraj-g/file-nest"
 
 [tool.hatch.build.targets.wheel]
 packages = ["filenest"]

@@ -9,7 +9,7 @@
  * @module
  */
 
-import { FileNestHttpClient, type FileNestHttpClientConfig } from "@filenest/core";
+import { FileNestHttpClient, type FileNestHttpClientConfig } from "@filenest-fs/core";
 import { FilesNamespace } from "./namespaces/files.js";
 import { FoldersNamespace } from "./namespaces/folders.js";
 import { SearchNamespace } from "./namespaces/search.js";

@@ -3,7 +3,7 @@
  * @module
  */
 
-import type { FileRecord } from "@filenest/core";
+import type { FileRecord } from "@filenest-fs/core";
 
 export interface FileUploadedEvent {
   type: "file.uploaded";
