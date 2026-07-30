@@ -3,7 +3,7 @@
  */
 
 import { useState } from "react";
-import { useSearch, useFolder } from "@filenest/react";
+import { useSearch, useFolder } from "@filenest-fs/react";
 
 export function SearchPage() {
   const [query, setQuery] = useState("");
@@ -111,7 +111,7 @@ export function SearchPage() {
       <div className="card">
         <div className="card-header"><div className="card-title">Code</div></div>
         <div className="card-body">
-          <pre className="code-block">{`import { useSearch, useFolder } from "@filenest/react";
+          <pre className="code-block">{`import { useSearch, useFolder } from "@filenest-fs/react";
 
 // Search hook
 const { results, facets, isLoading, totalCount, queryTimeMs, search } = useSearch({

@@ -7,12 +7,12 @@
  * with /search (server RSC) which calls the backend at request time.
  */
 
-import { useSearch } from "@filenest/react";
+import { useSearch } from "@filenest-fs/react";
 import { useState } from "react";
 import { CodeBlock } from "@/components/CodeBlock";
 
 const SOURCE = `"use client";
-import { useSearch } from "@filenest/react";
+import { useSearch } from "@filenest-fs/react";
 import { useState } from "react";
 
 function ClientSearch() {

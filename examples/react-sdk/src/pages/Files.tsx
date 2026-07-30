@@ -3,7 +3,7 @@
  */
 
 import { useState } from "react";
-import { useFiles, useFile } from "@filenest/react";
+import { useFiles, useFile } from "@filenest-fs/react";
 
 function formatBytes(b: number) {
   if (b < 1024) return `${b} B`;
@@ -136,7 +136,7 @@ export function FilesPage() {
       <div className="card">
         <div className="card-header"><div className="card-title">Code</div></div>
         <div className="card-body">
-          <pre className="code-block">{`import { useFiles, useFile } from "@filenest/react";
+          <pre className="code-block">{`import { useFiles, useFile } from "@filenest-fs/react";
 
 // Paginated list
 const { files, totalCount, hasMore, loadMore, refresh } = useFiles({

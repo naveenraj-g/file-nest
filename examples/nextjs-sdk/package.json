@@ -9,10 +9,10 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@filenest/core": "workspace:*",
-    "@filenest/node": "workspace:*",
-    "@filenest/react": "workspace:*",
-    "@filenest/nextjs": "workspace:*",
+    "@filenest-fs/core": "workspace:*",
+    "@filenest-fs/node": "workspace:*",
+    "@filenest-fs/react": "workspace:*",
+    "@filenest-fs/nextjs": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
     "next": "16.2.4",
     "react": "19.2.4",

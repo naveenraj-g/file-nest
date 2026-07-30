@@ -7,13 +7,13 @@
  * just a different visual presentation.
  */
 
-import { FileUpload } from "@filenest/react";
+import { FileUpload } from "@filenest-fs/react";
 import { CodeBlock } from "@/components/CodeBlock";
-import type { FileRecord } from "@filenest/react";
+import type { FileRecord } from "@filenest-fs/react";
 import { useState } from "react";
 
 const SOURCE = `"use client";
-import { FileUpload } from "@filenest/react";
+import { FileUpload } from "@filenest-fs/react";
 
 export function ButtonUploadDemo() {
   return (

@@ -7,12 +7,12 @@
  * Enter a file ID to preview it.
  */
 
-import { FilePreview } from "@filenest/react";
+import { FilePreview } from "@filenest-fs/react";
 import { CodeBlock } from "@/components/CodeBlock";
 import { useState } from "react";
 
 const SOURCE = `"use client";
-import { FilePreview } from "@filenest/react";
+import { FilePreview } from "@filenest-fs/react";
 
 export function PreviewDemo({ fileId }: { fileId: string }) {
   return (

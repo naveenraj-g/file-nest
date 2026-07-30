@@ -10,8 +10,8 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@filenest/core": "workspace:*",
-    "@filenest/react": "workspace:*",
+    "@filenest-fs/core": "workspace:*",
+    "@filenest-fs/react": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"

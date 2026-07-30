@@ -6,7 +6,7 @@
  */
 
 import type { Metadata } from "next";
-import { FileNestProvider } from "@filenest/react";
+import { FileNestProvider } from "@filenest-fs/react";
 import { Sidebar } from "@/components/Sidebar";
 import "./globals.css";
 

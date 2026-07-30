@@ -7,7 +7,7 @@
  * In production: verify the user's session before issuing a token.
  */
 
-import { createUploadToken } from "@filenest/nextjs/server";
+import { createUploadToken } from "@filenest-fs/nextjs/server";
 
 export async function POST(req: Request) {
   // In production, authenticate the request before issuing a token:

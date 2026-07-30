@@ -9,8 +9,8 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@filenest/node": "workspace:*",
-    "@filenest/core": "workspace:*"
+    "@filenest-fs/node": "workspace:*",
+    "@filenest-fs/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -8,12 +8,12 @@
  * is demonstrated inline.
  */
 
-import { useInfiniteFiles } from "@filenest/react";
+import { useInfiniteFiles } from "@filenest-fs/react";
 import { useEffect, useRef, useState } from "react";
 import { CodeBlock } from "@/components/CodeBlock";
 
 const SOURCE = `"use client";
-import { useInfiniteFiles } from "@filenest/react";
+import { useInfiniteFiles } from "@filenest-fs/react";
 import { useEffect, useRef } from "react";
 
 function FileInfiniteList() {

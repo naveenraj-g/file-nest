@@ -7,12 +7,12 @@
  * progress state, retry failures, clear the list.
  */
 
-import { useUpload } from "@filenest/react";
+import { useUpload } from "@filenest-fs/react";
 import { CodeBlock } from "@/components/CodeBlock";
 import { useRef } from "react";
 
 const SOURCE = `"use client";
-import { useUpload } from "@filenest/react";
+import { useUpload } from "@filenest-fs/react";
 
 export function ProgrammaticUpload() {
   const { upload, uploads, isUploading, cancel, retry, clear } = useUpload({

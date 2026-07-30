@@ -4,8 +4,8 @@
  */
 
 import { useState } from "react";
-import { FileUpload, FilePreview, FileViewer } from "@filenest/react";
-import type { FileRecord } from "@filenest/react";
+import { FileUpload, FilePreview, FileViewer } from "@filenest-fs/react";
+import type { FileRecord } from "@filenest-fs/react";
 
 export function ComponentsPage() {
   const [uploadedFile, setUploadedFile] = useState<FileRecord | null>(null);

@@ -2,7 +2,7 @@
  * InfiniteFiles — useInfiniteFiles() hook demo with IntersectionObserver sentinel.
  */
 
-import { useInfiniteFiles } from "@filenest/react";
+import { useInfiniteFiles } from "@filenest-fs/react";
 import { useEffect, useRef } from "react";
 
 function formatBytes(b: number) {
@@ -112,7 +112,7 @@ export function InfiniteFilesPage() {
       <div className="card">
         <div className="card-header"><div className="card-title">Code</div></div>
         <div className="card-body">
-          <pre className="code-block">{`import { useInfiniteFiles } from "@filenest/react";
+          <pre className="code-block">{`import { useInfiniteFiles } from "@filenest-fs/react";
 import { useEffect, useRef } from "react";
 
 const {

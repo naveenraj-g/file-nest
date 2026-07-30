@@ -1,8 +1,8 @@
 "use server";
 
-import { filenestServer } from "@filenest/nextjs/server";
+import { filenestServer } from "@filenest-fs/nextjs/server";
 import { revalidatePath } from "next/cache";
-import type { FileRecord } from "@filenest/core";
+import type { FileRecord } from "@filenest-fs/core";
 
 export async function uploadFileAction(formData: FormData): Promise<{ file?: FileRecord; error?: string }> {
   const file = formData.get("file") as File | null;

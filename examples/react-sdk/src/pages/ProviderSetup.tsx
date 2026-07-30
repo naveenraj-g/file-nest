@@ -35,7 +35,7 @@ pnpm dev       # http://localhost:3002`}</pre>
       <div className="card">
         <div className="card-header"><div className="card-title">Provider setup (main.tsx)</div></div>
         <div className="card-body">
-          <pre className="code-block">{`import { FileNestProvider } from "@filenest/react";
+          <pre className="code-block">{`import { FileNestProvider } from "@filenest-fs/react";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <FileNestProvider

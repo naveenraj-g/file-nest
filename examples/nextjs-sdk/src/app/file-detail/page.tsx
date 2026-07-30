@@ -6,12 +6,12 @@
  * Single-file detail card with version history and processing results.
  */
 
-import { useFile } from "@filenest/react";
+import { useFile } from "@filenest-fs/react";
 import { CodeBlock } from "@/components/CodeBlock";
 import { useState } from "react";
 
 const SOURCE = `"use client";
-import { useFile } from "@filenest/react";
+import { useFile } from "@filenest-fs/react";
 
 export function FileDetail({ fileId }: { fileId: string }) {
   const {

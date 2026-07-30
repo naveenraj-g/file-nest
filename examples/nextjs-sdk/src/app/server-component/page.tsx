@@ -5,12 +5,12 @@
  * The API key never reaches the client.
  */
 
-import { filenestServer } from "@filenest/nextjs/server";
+import { filenestServer } from "@filenest-fs/nextjs/server";
 import { CodeBlock } from "@/components/CodeBlock";
-import type { FileRecord } from "@filenest/core";
+import type { FileRecord } from "@filenest-fs/core";
 
 const SOURCE = `// app/server-component/page.tsx
-import { filenestServer } from "@filenest/nextjs/server";
+import { filenestServer } from "@filenest-fs/nextjs/server";
 
 // filenestServer() creates a FileNest Node SDK instance
 // configured with your server-side env vars.

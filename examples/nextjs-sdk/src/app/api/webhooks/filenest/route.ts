@@ -6,7 +6,7 @@
  * a typed event object. Stores events in a simple in-memory log for the demo.
  */
 
-import { verifyWebhookSignature, parseWebhookEvent } from "@filenest/nextjs/server";
+import { verifyWebhookSignature, parseWebhookEvent } from "@filenest-fs/nextjs/server";
 
 // In-memory log for the demo UI — replace with a real DB in production.
 export const webhookLog: { receivedAt: string; event: ReturnType<typeof parseWebhookEvent> }[] = [];

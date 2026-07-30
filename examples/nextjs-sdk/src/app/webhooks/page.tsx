@@ -23,7 +23,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   verifyWebhookSignature,
   parseWebhookEvent,
-} from "@filenest/nextjs/server";
+} from "@filenest-fs/nextjs/server";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const rawBody = await req.text();

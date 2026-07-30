@@ -7,12 +7,12 @@
  * Clicking a subfolder card navigates into it by updating the active folder ID.
  */
 
-import { useFolder } from "@filenest/react";
+import { useFolder } from "@filenest-fs/react";
 import { CodeBlock } from "@/components/CodeBlock";
 import { useState } from "react";
 
 const SOURCE = `"use client";
-import { useFolder } from "@filenest/react";
+import { useFolder } from "@filenest-fs/react";
 
 export function FolderNavigator() {
   const [folderId, setFolderId] = useState<string | null>(null);

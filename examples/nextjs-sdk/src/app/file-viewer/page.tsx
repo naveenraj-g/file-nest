@@ -6,12 +6,12 @@
  * Full-page viewer wrapper around FilePreview with toolbar chrome.
  */
 
-import { FileViewer } from "@filenest/react";
+import { FileViewer } from "@filenest-fs/react";
 import { CodeBlock } from "@/components/CodeBlock";
 import { useState } from "react";
 
 const SOURCE = `"use client";
-import { FileViewer } from "@filenest/react";
+import { FileViewer } from "@filenest-fs/react";
 
 export function ViewerDemo({ fileId }: { fileId: string }) {
   return (

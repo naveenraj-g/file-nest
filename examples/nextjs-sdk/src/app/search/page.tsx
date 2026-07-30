@@ -4,12 +4,12 @@
  * Search is triggered via a search param so the RSC re-renders on each query.
  */
 
-import { filenestServer } from "@filenest/nextjs/server";
+import { filenestServer } from "@filenest-fs/nextjs/server";
 import { CodeBlock } from "@/components/CodeBlock";
-import type { SearchHit } from "@filenest/core";
+import type { SearchHit } from "@filenest-fs/core";
 
 const SOURCE = `// search/page.tsx  (Server Component)
-import { filenestServer } from "@filenest/nextjs/server";
+import { filenestServer } from "@filenest-fs/nextjs/server";
 
 export default async function SearchPage({
   searchParams,

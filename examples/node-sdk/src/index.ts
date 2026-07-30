@@ -13,7 +13,7 @@
  */
 
 import { readFileSync } from "fs";
-import { FileNest } from "@filenest/node";
+import { FileNest } from "@filenest-fs/node";
 
 // ── 1. Create the client ────────────────────────────────────────────────────
 

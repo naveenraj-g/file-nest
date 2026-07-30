@@ -7,7 +7,7 @@
 
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { FileNestProvider } from "@filenest/react";
+import { FileNestProvider } from "@filenest-fs/react";
 import { App } from "./App.js";
 import "./index.css";
 

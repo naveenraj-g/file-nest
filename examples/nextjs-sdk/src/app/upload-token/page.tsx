@@ -8,12 +8,12 @@
  * to display token status or defer auth until the user first interacts.
  */
 
-import { useUploadToken } from "@filenest/react";
+import { useUploadToken } from "@filenest-fs/react";
 import { CodeBlock } from "@/components/CodeBlock";
 import { useState, useEffect } from "react";
 
 const SOURCE = `"use client";
-import { useUploadToken } from "@filenest/react";
+import { useUploadToken } from "@filenest-fs/react";
 
 export function TokenStatus() {
   const { token, isLoading, error, refresh } = useUploadToken();

@@ -4,7 +4,7 @@
  * Shows reactive token state, manual refresh, lazy mode, and custom fetcher patterns.
  */
 
-import { useUploadToken } from "@filenest/react";
+import { useUploadToken } from "@filenest-fs/react";
 import { useState } from "react";
 
 export function TokenPage() {

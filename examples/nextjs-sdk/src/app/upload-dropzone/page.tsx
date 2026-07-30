@@ -7,13 +7,13 @@
  * Token is fetched automatically from /api/filenest-token by FileNestProvider.
  */
 
-import { FileUpload } from "@filenest/react";
+import { FileUpload } from "@filenest-fs/react";
 import { CodeBlock } from "@/components/CodeBlock";
-import type { FileRecord } from "@filenest/core";
+import type { FileRecord } from "@filenest-fs/core";
 import { useState } from "react";
 
 const SOURCE = `"use client";
-import { FileUpload } from "@filenest/react";
+import { FileUpload } from "@filenest-fs/react";
 
 export function DropzoneDemo() {
   return (

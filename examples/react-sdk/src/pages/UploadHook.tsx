@@ -2,7 +2,7 @@
  * UploadHook — useUpload() managed hook demo with per-file progress, retry, cancel.
  */
 
-import { useUpload } from "@filenest/react";
+import { useUpload } from "@filenest-fs/react";
 import { useRef } from "react";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -163,7 +163,7 @@ export function UploadHookPage() {
       <div className="card">
         <div className="card-header"><div className="card-title">Code</div></div>
         <div className="card-body">
-          <pre className="code-block">{`import { useUpload } from "@filenest/react";
+          <pre className="code-block">{`import { useUpload } from "@filenest-fs/react";
 
 const { upload, uploads, isUploading, cancel, retry } = useUpload({
   folderId: "folder_abc",                // optional — target folder

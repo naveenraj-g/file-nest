@@ -6,12 +6,12 @@
  * TanStack Query-backed paginated file list with status filter and load more.
  */
 
-import { useFiles } from "@filenest/react";
+import { useFiles } from "@filenest-fs/react";
 import { CodeBlock } from "@/components/CodeBlock";
 import { useState } from "react";
 
 const SOURCE = `"use client";
-import { useFiles } from "@filenest/react";
+import { useFiles } from "@filenest-fs/react";
 
 export function FileListDemo() {
   const {

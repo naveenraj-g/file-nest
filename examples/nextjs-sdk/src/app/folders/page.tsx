@@ -5,10 +5,10 @@
  * running in an async RSC. No client JS needed.
  */
 
-import { filenestServer } from "@filenest/nextjs/server";
+import { filenestServer } from "@filenest-fs/nextjs/server";
 import { CodeBlock } from "@/components/CodeBlock";
 
-const SOURCE = `import { filenestServer } from "@filenest/nextjs/server";
+const SOURCE = `import { filenestServer } from "@filenest-fs/nextjs/server";
 
 const fn = filenestServer({
   apiKey: process.env.FILENEST_API_KEY!,

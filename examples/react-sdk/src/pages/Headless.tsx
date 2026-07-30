@@ -6,7 +6,7 @@
  * folder methods (ensurePath, createFolder, listFolders, deleteFolder).
  */
 
-import { useFileNest } from "@filenest/react";
+import { useFileNest } from "@filenest-fs/react";
 import { useRef, useState } from "react";
 
 type LogLine = { ts: string; msg: string };

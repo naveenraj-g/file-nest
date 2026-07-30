@@ -11,12 +11,12 @@
  * Also demonstrates folder methods: ensurePath, createFolder, listFolders, getFolderByPath.
  */
 
-import { useFileNest } from "@filenest/react";
+import { useFileNest } from "@filenest-fs/react";
 import { useState, useRef } from "react";
 import { CodeBlock } from "@/components/CodeBlock";
 
 const SOURCE = `"use client";
-import { useFileNest } from "@filenest/react";
+import { useFileNest } from "@filenest-fs/react";
 import { useState } from "react";
 
 // ── Tier 3 — Raw 3-step upload ─────────────────────────────────────────────

@@ -11,7 +11,7 @@ import { ServerActionUploadForm } from "./ServerActionUploadForm";
 
 const SOURCE = `// server-action/actions.ts
 "use server";
-import { filenestServer } from "@filenest/nextjs/server";
+import { filenestServer } from "@filenest-fs/nextjs/server";
 import { revalidatePath } from "next/cache";
 
 export async function uploadFileAction(formData: FormData) {
