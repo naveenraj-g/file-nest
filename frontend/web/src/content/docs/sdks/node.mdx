@@ -1,11 +1,11 @@
----
+﻿---
 title: "Node.js SDK"
 description: "Install and use the @filenest/node SDK for server-side file operations."
 ---
 
 # Node.js SDK
 
-The `@filenest/node` SDK provides a typed client for all FileNest REST API operations. Use it in any Node.js runtime — Next.js server components, Express, Fastify, serverless functions, scripts.
+The `@filenest/node` SDK provides a typed client for all FileNest REST API operations. Use it in any Node.js runtime â€” Next.js server components, Express, Fastify, serverless functions, scripts.
 
 ## Installation
 
@@ -19,7 +19,7 @@ import { FileNest } from "@filenest/node";
 const fn = new FileNest({
   apiKey: process.env.FILENEST_API_KEY!,
   projectId: process.env.FILENEST_PROJECT_ID!,
-  // baseUrl: "http://localhost:8000"  // defaults to https://api.filenest.io
+  // baseUrl: "http://localhost:8000"  // defaults to https://filenest.drgodly.com
 });
 ```
 
@@ -46,7 +46,7 @@ console.log(file.id);     // file_01j...
 console.log(file.status); // "ready"
 ```
 
-Files under 5 MB are uploaded in a single request. Files over 5 MB are automatically split into multipart upload parts — no configuration needed.
+Files under 5 MB are uploaded in a single request. Files over 5 MB are automatically split into multipart upload parts â€” no configuration needed.
 
 ### Download
 
@@ -89,7 +89,7 @@ await fn.files.update(fileId, {
   metadata: { reviewed: true },
 });
 
-await fn.files.delete(fileId);   // soft delete — file is recoverable
+await fn.files.delete(fileId);   // soft delete â€” file is recoverable
 
 // Restore a soft-deleted file
 const restored = await fn.files.restore(fileId);
@@ -109,10 +109,10 @@ await fn.files.versions.restore(fileId, versionId);
 ### Create and ensure paths
 
 ```typescript
-// Create a single folder (parentFolderId=null → project root)
+// Create a single folder (parentFolderId=null â†’ project root)
 const folder = await fn.folders.create({
   name: "invoices",
-  parentFolderId: "fld_01j...",  // optional — omit for root-level folder
+  parentFolderId: "fld_01j...",  // optional â€” omit for root-level folder
   metadata: { department: "finance" },
 });
 
@@ -162,7 +162,7 @@ await fn.folders.delete(folderId);
 
 ## Upload Tokens
 
-Issue short-lived tokens for browser-side uploads. The token is returned to the client through your own token endpoint — the API key never reaches the browser.
+Issue short-lived tokens for browser-side uploads. The token is returned to the client through your own token endpoint â€” the API key never reaches the browser.
 
 ```typescript
 const token = await fn.uploadTokens.create({
@@ -177,11 +177,11 @@ const token = await fn.uploadTokens.create({
   tags: ["avatar", "user-content"],                // merged onto every uploaded file
 });
 
-// token.token → "fn_upload_token_..."  — return this to the browser
-// token.expiresAt → ISO timestamp — return this too so the browser can schedule refresh
+// token.token â†’ "fn_upload_token_..."  â€” return this to the browser
+// token.expiresAt â†’ ISO timestamp â€” return this too so the browser can schedule refresh
 ```
 
-Token constraints are validated against the project's config at creation time — if the project only allows `image/*`, passing `application/pdf` in `allowedMimeTypes` will return a 422 immediately. At upload time both the token constraints and the project config are enforced independently. See [Upload Tokens API reference](/docs/api/upload-tokens) for the full constraint reconciliation rules.
+Token constraints are validated against the project's config at creation time â€” if the project only allows `image/*`, passing `application/pdf` in `allowedMimeTypes` will return a 422 immediately. At upload time both the token constraints and the project config are enforced independently. See [Upload Tokens API reference](/docs/api/upload-tokens) for the full constraint reconciliation rules.
 
 ---
 
@@ -194,7 +194,7 @@ const webhook = await fn.webhooks.create({
   url: "https://app.example.com/webhooks/filenest",
   events: ["file.uploaded", "file.ready", "file.failed"],
 });
-// webhook.signingSecret — store safely, shown only once
+// webhook.signingSecret â€” store safely, shown only once
 
 // List, get, update, delete
 const { items } = await fn.webhooks.list();
@@ -213,7 +213,7 @@ const isValid = fn.webhooks.verify(rawBody, req.headers["x-filenest-signature"],
 
 ## Resumable Uploads
 
-`fn.uploads` gives you manual control over the multipart session lifecycle. Use this when you need to resume an interrupted upload — for example, a large file upload that failed mid-way.
+`fn.uploads` gives you manual control over the multipart session lifecycle. Use this when you need to resume an interrupted upload â€” for example, a large file upload that failed mid-way.
 
 For most cases, `fn.files.upload()` handles multipart automatically and you don't need this namespace.
 
@@ -227,7 +227,7 @@ const session = await fn.uploads.create({
   tags: ["video", "raw"],
   metadata: { uploadedBy: "user_abc" },
 });
-// session.uploadId → persist this to resume later
+// session.uploadId â†’ persist this to resume later
 
 // 2. Upload all parts (or resume from where you left off)
 const file = await fn.uploads.resume(session.uploadId, {

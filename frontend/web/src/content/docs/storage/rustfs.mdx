@@ -1,4 +1,4 @@
----
+﻿---
 title: "RustFS"
 description: "Connect a FileNest project to a self-hosted RustFS instance."
 ---
@@ -16,7 +16,7 @@ RustFS is a Rust-native, S3-compatible object storage server. It is API-compatib
 ## Connecting RustFS
 
 ```bash
-curl -X PATCH https://api.filenest.io/v1/projects/{id}/storage \
+curl -X PATCH https://filenest.drgodly.com/v1/projects/{id}/storage \
   -H "Authorization: Bearer fn_live_..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -31,7 +31,7 @@ curl -X PATCH https://api.filenest.io/v1/projects/{id}/storage \
 
 ## Server-side encryption (SSE)
 
-RustFS SSE is **off by default** and can be toggled per project. The setup is identical to [MinIO SSE](/docs/storage/minio#server-side-encryption-sse) — configure the KMS key on the RustFS server process:
+RustFS SSE is **off by default** and can be toggled per project. The setup is identical to [MinIO SSE](/docs/storage/minio#server-side-encryption-sse) â€” configure the KMS key on the RustFS server process:
 
 ```bash
 # Set on the RustFS server process (not in FileNest)
@@ -41,7 +41,7 @@ export RUSTFS_KMS_SECRET_KEY="my-key:base64encodedvalue="
 Enable SSE:
 
 ```bash
-curl -X PATCH https://api.filenest.io/v1/projects/{id}/storage/sse \
+curl -X PATCH https://filenest.drgodly.com/v1/projects/{id}/storage/sse \
   -H "Authorization: Bearer fn_live_..." \
   -H "Content-Type: application/json" \
   -d '{ "sse_enabled": true }'
@@ -52,6 +52,6 @@ When enabled, FileNest sends `ServerSideEncryption: AES256` on every upload.
 ## Verify connectivity
 
 ```bash
-curl -X POST https://api.filenest.io/v1/projects/{id}/storage/verify \
+curl -X POST https://filenest.drgodly.com/v1/projects/{id}/storage/verify \
   -H "Authorization: Bearer fn_live_..."
 ```

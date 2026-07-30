@@ -1,4 +1,4 @@
----
+﻿---
 title: "API Keys"
 description: "API keys authenticate server-to-server requests to the FileNest API."
 ---
@@ -41,14 +41,14 @@ Every API key carries a set of scopes that restrict what it can do. Scopes are g
 
 ## Generating a key
 
-API keys are generated in the Console under **API Keys** inside a project, or during the onboarding wizard. The full key value is shown exactly once — save it immediately.
+API keys are generated in the Console under **API Keys** inside a project, or during the onboarding wizard. The full key value is shown exactly once â€” save it immediately.
 
 ## Using a key
 
 Pass the key as a Bearer token in the `Authorization` header:
 
 ```bash
-curl https://api.filenest.io/v1/projects/{id}/files \
+curl https://filenest.drgodly.com/v1/projects/{id}/files \
   -H "Authorization: Bearer fn_live_abc123..."
 ```
 
@@ -58,4 +58,4 @@ For browser-side uploads, use short-lived **upload tokens** (`fn_upload_token_..
 
 ## Revoking a key
 
-Revoked keys are immediately rejected. Revocation is permanent — you cannot restore a revoked key.
+Revoked keys are immediately rejected. Revocation is permanent â€” you cannot restore a revoked key.

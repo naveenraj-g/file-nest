@@ -1,4 +1,4 @@
----
+﻿---
 title: "Webhooks API"
 description: "Register and manage webhook endpoints to receive real-time file events."
 ---
@@ -39,13 +39,13 @@ Every event delivery shares the same envelope:
 
 ## Signature verification
 
-Every request carries an `x-filenest-signature` header — an HMAC-SHA256 hex digest of the raw request body, keyed with your webhook's `signing_secret`.
+Every request carries an `x-filenest-signature` header â€” an HMAC-SHA256 hex digest of the raw request body, keyed with your webhook's `signing_secret`.
 
 ```typescript
 import { createHmac, timingSafeEqual } from "crypto";
 
 export function verifyWebhookSignature(
-  body: string,           // raw request body — do NOT parse before verifying
+  body: string,           // raw request body â€” do NOT parse before verifying
   signature: string,      // value of x-filenest-signature header
   signingSecret: string,  // from your webhook config
 ): boolean {
@@ -109,7 +109,7 @@ POST /v1/projects/{project_id}/webhooks
 **Required scope:** `projects:update`
 
 ```bash
-curl -X POST https://api.filenest.io/v1/projects/{id}/webhooks \
+curl -X POST https://filenest.drgodly.com/v1/projects/{id}/webhooks \
   -H "Authorization: Bearer fn_live_..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -133,7 +133,7 @@ curl -X POST https://api.filenest.io/v1/projects/{id}/webhooks \
 ```
 
 <Callout type="warning" title="Save your signing secret">
-`signing_secret` is returned exactly once on creation. Store it securely — it cannot be retrieved again.
+`signing_secret` is returned exactly once on creation. Store it securely â€” it cannot be retrieved again.
 </Callout>
 
 ## Update a webhook
@@ -152,7 +152,7 @@ PUT /v1/projects/{project_id}/webhooks/{webhook_id}
 }
 ```
 
-**Response `200`:** updated webhook object (no `signing_secret` field — secret does not rotate on update).
+**Response `200`:** updated webhook object (no `signing_secret` field â€” secret does not rotate on update).
 
 ## Delete a webhook
 

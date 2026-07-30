@@ -1,4 +1,4 @@
----
+﻿---
 title: "Projects API"
 description: "Create, list, update, and delete FileNest projects."
 ---
@@ -14,7 +14,7 @@ POST /v1/projects
 **Required scope:** `projects:update`
 
 ```bash
-curl -X POST https://api.filenest.io/v1/projects \
+curl -X POST https://filenest.drgodly.com/v1/projects \
   -H "Authorization: Bearer fn_live_..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -82,7 +82,7 @@ DELETE /v1/projects/{project_id}
 
 **Required scope:** `projects:update`
 
-Soft-deletes the project — sets `deleted_at`. Files are not immediately removed from storage.
+Soft-deletes the project â€” sets `deleted_at`. Files are not immediately removed from storage.
 
 ## Error codes
 

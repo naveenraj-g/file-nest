@@ -1,4 +1,4 @@
----
+﻿---
 title: "Encryption (SSE)"
 description: "Server-side encryption behavior across all FileNest storage providers."
 ---
@@ -26,7 +26,7 @@ When `sse_enabled` is `true`, FileNest sends the following header on every uploa
 ServerSideEncryption: AES256
 ```
 
-The storage server (MinIO/RustFS) uses its configured KMS key to encrypt the object. The encryption happens server-side — FileNest never holds the encryption key.
+The storage server (MinIO/RustFS) uses its configured KMS key to encrypt the object. The encryption happens server-side â€” FileNest never holds the encryption key.
 
 ## Enabling SSE for MinIO / RustFS
 
@@ -47,13 +47,13 @@ export RUSTFS_KMS_SECRET_KEY="my-key:$(openssl rand -base64 32)"
 Via the API:
 
 ```bash
-curl -X PATCH https://api.filenest.io/v1/projects/{id}/storage/sse \
+curl -X PATCH https://filenest.drgodly.com/v1/projects/{id}/storage/sse \
   -H "Authorization: Bearer fn_live_..." \
   -H "Content-Type: application/json" \
   -d '{ "sse_enabled": true }'
 ```
 
-Or via the Console: **Project Settings → Storage → Encryption at rest** toggle.
+Or via the Console: **Project Settings â†’ Storage â†’ Encryption at rest** toggle.
 
 <Callout type="warning" title="Enable KMS first">
 Enabling SSE before configuring the KMS key on your MinIO/RustFS server will cause all uploads to fail with a 400 error from the storage server.
@@ -64,7 +64,7 @@ Enabling SSE before configuring the KMS key on your MinIO/RustFS server will cau
 For S3 projects that need customer-managed keys, set `server_side_encryption` to `aws:kms` and provide the key ARN:
 
 ```bash
-curl -X PATCH https://api.filenest.io/v1/projects/{id}/storage \
+curl -X PATCH https://filenest.drgodly.com/v1/projects/{id}/storage \
   -H "Authorization: Bearer fn_live_..." \
   -H "Content-Type: application/json" \
   -d '{

@@ -1,4 +1,4 @@
----
+﻿---
 title: "Upload Tokens"
 description: "Issue short-lived browser upload tokens scoped to a project."
 ---
@@ -11,14 +11,14 @@ Upload tokens are short-lived credentials (`fn_upload_token_...`) that allow bro
 
 ```
 Browser                   Your server                    FileNest API
-  │                            │                               │
-  │── needs to upload ────────►│                               │
-  │                            │── POST /upload-tokens ───────►│
-  │                            │◄── { token, expiresAt } ──────│
-  │◄── { token, expiresAt } ───│                               │
-  │                            │                               │
-  │── PUT (presigned URL) ─────────────────────────────────────►│
-  │── POST /files/upload (Bearer token) ───────────────────────►│
+  â”‚                            â”‚                               â”‚
+  â”‚â”€â”€ needs to upload â”€â”€â”€â”€â”€â”€â”€â”€â–ºâ”‚                               â”‚
+  â”‚                            â”‚â”€â”€ POST /upload-tokens â”€â”€â”€â”€â”€â”€â”€â–ºâ”‚
+  â”‚                            â”‚â—„â”€â”€ { token, expiresAt } â”€â”€â”€â”€â”€â”€â”‚
+  â”‚â—„â”€â”€ { token, expiresAt } â”€â”€â”€â”‚                               â”‚
+  â”‚                            â”‚                               â”‚
+  â”‚â”€â”€ PUT (presigned URL) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–ºâ”‚
+  â”‚â”€â”€ POST /files/upload (Bearer token) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–ºâ”‚
 ```
 
 The token encodes **constraints** (max file size, allowed MIME types, target folder, tags, metadata) that are enforced server-side at upload time. The browser cannot override them.
@@ -44,7 +44,7 @@ POST /v1/projects/{project_id}/upload-tokens
 | `folder_path` | `string` | `null` | Slash-separated path (e.g. `users/alice/uploads`). Missing segments are created. Takes precedence over `folder_id` |
 | `metadata` | `object` | `null` | Default metadata applied to every file uploaded with this token. Token values win on key conflicts with browser-supplied metadata |
 | `tags` | `string[]` | `null` | Default tags merged onto every file uploaded with this token |
-| `expires_in` | `integer` | `3600` | Token TTL in seconds (60–86400) |
+| `expires_in` | `integer` | `3600` | Token TTL in seconds (60â€“86400) |
 | `owner_user_id` | `string` | `null` | End-user ID stamped on every file uploaded with this token |
 | `owner_org_id` | `string` | `null` | End-user org ID stamped on every file uploaded with this token |
 
@@ -64,10 +64,10 @@ POST /v1/projects/{project_id}/upload-tokens
 
 Return `token` and `expires_at` to the browser. The browser sends `Authorization: Bearer fn_upload_token_...` on upload requests.
 
-### Example — profile photo token
+### Example â€” profile photo token
 
 ```bash
-curl -X POST https://api.filenest.io/v1/projects/proj_01j.../upload-tokens \
+curl -X POST https://filenest.drgodly.com/v1/projects/proj_01j.../upload-tokens \
   -H "Authorization: Bearer fn_live_..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -93,21 +93,21 @@ If the project has restrictions configured (in project settings), the token's co
 | Scenario | Result |
 |----------|--------|
 | Project has no `allowed_mime_types` set | Token MIME list is the only gate at upload time |
-| Project has `allowed_mime_types: "image/jpeg,image/png"` and token requests `["image/*"]` | **422** — `image/*` is wider than what the project allows |
-| Project has `allowed_mime_types: "image/*"` and token requests `["image/jpeg"]` | **Accepted** — `image/jpeg` is covered by `image/*` |
-| Project `max_file_size_bytes` is 10 MB and token `max_size` is 50 MB | **422** — token exceeds project ceiling |
-| Project `max_file_size_bytes` is 100 MB and token `max_size` is 5 MB | **Accepted** — token is more restrictive |
+| Project has `allowed_mime_types: "image/jpeg,image/png"` and token requests `["image/*"]` | **422** â€” `image/*` is wider than what the project allows |
+| Project has `allowed_mime_types: "image/*"` and token requests `["image/jpeg"]` | **Accepted** â€” `image/jpeg` is covered by `image/*` |
+| Project `max_file_size_bytes` is 10 MB and token `max_size` is 50 MB | **422** â€” token exceeds project ceiling |
+| Project `max_file_size_bytes` is 100 MB and token `max_size` is 5 MB | **Accepted** â€” token is more restrictive |
 
 ### At upload time
 
 Both the token constraints **and** the project config are enforced independently on every upload request. The stricter of the two wins.
 
-- Token `max_size` → checked first (413 if exceeded)
-- Token `allowed_mime_types` → checked first (422 if not matched)
-- Token `folder_id` → applied; browser-supplied `folder_id` is ignored
-- Token `metadata` → merged over browser-supplied metadata; token values win on key conflicts
-- Token `tags` → merged with browser-supplied tags; duplicates are removed
-- Project config constraints → checked after token constraints (via `validate_upload_request`)
+- Token `max_size` â†’ checked first (413 if exceeded)
+- Token `allowed_mime_types` â†’ checked first (422 if not matched)
+- Token `folder_id` â†’ applied; browser-supplied `folder_id` is ignored
+- Token `metadata` â†’ merged over browser-supplied metadata; token values win on key conflicts
+- Token `tags` â†’ merged with browser-supplied tags; duplicates are removed
+- Project config constraints â†’ checked after token constraints (via `validate_upload_request`)
 
 ---
 
@@ -126,10 +126,10 @@ Upload tokens cannot call any other endpoint. They cannot list files, delete fil
 
 ## Expiry and refresh
 
-Tokens expire at `expires_at`. The `@filenest/react` SDK handles proactive refresh automatically — it fetches a new token `tokenRefreshBuffer` seconds (default 60) before expiry and retries on 401. See [React SDK — useUploadToken](/docs/sdks/react#useuploadtoken) for details.
+Tokens expire at `expires_at`. The `@filenest/react` SDK handles proactive refresh automatically â€” it fetches a new token `tokenRefreshBuffer` seconds (default 60) before expiry and retries on 401. See [React SDK â€” useUploadToken](/docs/sdks/react#useuploadtoken) for details.
 
 If you are not using the React SDK, refresh by calling your token endpoint again and replacing the bearer token before the old one expires.
 
 <Callout type="tip" title="Set a short TTL for sensitive flows">
-For flows involving sensitive data (medical records, financial documents), set `expires_in` to 300–600 seconds and embed the user's ID in `owner_user_id`. The short window limits exposure if a token is intercepted.
+For flows involving sensitive data (medical records, financial documents), set `expires_in` to 300â€“600 seconds and embed the user's ID in `owner_user_id`. The short window limits exposure if a token is intercepted.
 </Callout>

@@ -1,4 +1,4 @@
----
+﻿---
 title: "Projects"
 description: "A project is the unit of storage and processing configuration in FileNest."
 ---
@@ -10,7 +10,7 @@ A **project** belongs to one organization and is the unit of storage and process
 ## Creating a project
 
 ```bash
-curl -X POST https://api.filenest.io/v1/projects \
+curl -X POST https://filenest.drgodly.com/v1/projects \
   -H "Authorization: Bearer fn_live_..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -25,8 +25,8 @@ curl -X POST https://api.filenest.io/v1/projects \
 
 | Mode | Description |
 |------|-------------|
-| `managed` | FileNest manages the S3 bucket — zero configuration |
-| `byob` | Bring your own bucket — provide credentials for any supported provider |
+| `managed` | FileNest manages the S3 bucket â€” zero configuration |
+| `byob` | Bring your own bucket â€” provide credentials for any supported provider |
 
 See [Storage Overview](/docs/storage/overview) for the full provider list.
 
@@ -38,12 +38,12 @@ The slug is a URL-safe identifier for the project (`[a-z0-9-]`). It is immutable
 
 Each project has independent configuration for:
 
-- **Storage** — provider, credentials (BYOB), server-side encryption
-- **Uploads** — allowed MIME types, max file size, filename patterns
-- **Processing** — virus scan (always on), OCR, preview generation
-- **Security** — IP allowlist, CORS origins
-- **Compliance** — retention periods, WORM, legal hold (Phase 8)
+- **Storage** â€” provider, credentials (BYOB), server-side encryption
+- **Uploads** â€” allowed MIME types, max file size, filename patterns
+- **Processing** â€” virus scan (always on), OCR, preview generation
+- **Security** â€” IP allowlist, CORS origins
+- **Compliance** â€” retention periods, WORM, legal hold (Phase 8)
 
 ## Soft delete
 
-Deleting a project sets `deleted_at` — it does not immediately remove files from storage. A background job purges storage after a configurable grace period.
+Deleting a project sets `deleted_at` â€” it does not immediately remove files from storage. A background job purges storage after a configurable grace period.

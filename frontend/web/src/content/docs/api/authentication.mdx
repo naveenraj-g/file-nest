@@ -1,4 +1,4 @@
----
+﻿---
 title: "Authentication"
 description: "How to authenticate requests to the FileNest API."
 ---
@@ -10,7 +10,7 @@ All FileNest API requests require a Bearer token in the `Authorization` header.
 ## Bearer token
 
 ```bash
-curl https://api.filenest.io/v1/projects \
+curl https://filenest.drgodly.com/v1/projects \
   -H "Authorization: Bearer fn_live_abc123..."
 ```
 
@@ -26,8 +26,8 @@ curl https://api.filenest.io/v1/projects \
 ## Getting an API key
 
 1. Sign in to the [FileNest Console](/dashboard)
-2. Open a project → **API Keys** tab
-3. Click **Create key** → select scopes → copy the full key
+2. Open a project â†’ **API Keys** tab
+3. Click **Create key** â†’ select scopes â†’ copy the full key
 
 The full key is shown exactly once. Store it in a secret manager (AWS Secrets Manager, Vault, etc.) or as an environment variable.
 

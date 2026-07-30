@@ -1,17 +1,17 @@
----
+﻿---
 title: "React SDK"
 description: "Upload components, data hooks, and low-level imperative methods for React apps."
 ---
 
 # React SDK
 
-`@filenest/react` works at three tiers — pick the one that fits your UI:
+`@filenest/react` works at three tiers â€” pick the one that fits your UI:
 
 | Tier | How |
 |------|-----|
-| **Components** | `<FileUpload>`, `<FilePreview>`, `<FileViewer>` — drop in and done |
-| **Hooks** | `useUpload`, `useFiles`, `useFolder`, `useSearch` — manage your own UI, SDK handles state |
-| **Headless methods** | `useFileNest()` — raw async methods, full control, build anything |
+| **Components** | `<FileUpload>`, `<FilePreview>`, `<FileViewer>` â€” drop in and done |
+| **Hooks** | `useUpload`, `useFiles`, `useFolder`, `useSearch` â€” manage your own UI, SDK handles state |
+| **Headless methods** | `useFileNest()` â€” raw async methods, full control, build anything |
 
 The API key never reaches the browser. `FileNestProvider` exchanges short-lived upload tokens through your server.
 
@@ -50,9 +50,9 @@ const myQueryClient = new QueryClient();
 
 <FileNestProvider
   projectId="proj_01j..."
-  baseUrl="https://api.filenest.io"
+  baseUrl="https://filenest.drgodly.com"
 
-  // Token source — use tokenEndpoint OR tokenFetcher
+  // Token source â€” use tokenEndpoint OR tokenFetcher
   tokenEndpoint="/api/filenest-token"
 
   // Or a custom async function (headers, body, any server shape):
@@ -82,11 +82,11 @@ const myQueryClient = new QueryClient();
 Use `tokenEndpoint` when your token route is a standard POST endpoint.
 Use `tokenFetcher` when you need custom headers, auth cookies, a non-standard response shape, or any server framework other than Next.js.
 
-### `fetchInitialToken={false}` — manual token mode
+### `fetchInitialToken={false}` â€” manual token mode
 
-When disabled, no token is fetched on mount. You call `getToken()` or `useUploadToken().refresh()` yourself — useful when you want to defer auth until the user first interacts with a file input.
+When disabled, no token is fetched on mount. You call `getToken()` or `useUploadToken().refresh()` yourself â€” useful when you want to defer auth until the user first interacts with a file input.
 
-### `queryClient` — bring your own
+### `queryClient` â€” bring your own
 
 If your app already wraps with `<QueryClientProvider>`, pass that client to avoid double-wrapping. The provider will use it rather than creating an internal one.
 
@@ -108,7 +108,7 @@ import { FileUpload } from "@filenest/react";
   multiple
   placeholder="Drag files here or click to browse"
   showProgress
-  folderId="fld_01j..."          // optional — lock uploads to a folder
+  folderId="fld_01j..."          // optional â€” lock uploads to a folder
   metadata={{ uploadedBy: "user_abc" }}
   tags={["finance"]}
   onComplete={(files) => console.log("Uploaded:", files)}
@@ -122,7 +122,7 @@ import { FileUpload } from "@filenest/react";
 
 ### FilePreview
 
-Inline preview — images render directly, PDFs via iframe.
+Inline preview â€” images render directly, PDFs via iframe.
 
 ```tsx
 import { FilePreview } from "@filenest/react";
@@ -193,17 +193,17 @@ import { useUploadToken } from "@filenest/react";
 
 const { token, isLoading, error, refresh } = useUploadToken();
 
-// token — current cached token string, null if not yet fetched
-// isLoading — true while fetching
-// error — last fetch error
-// refresh() — force-fetch a fresh token from the endpoint
+// token â€” current cached token string, null if not yet fetched
+// isLoading â€” true while fetching
+// error â€” last fetch error
+// refresh() â€” force-fetch a fresh token from the endpoint
 ```
 
 ---
 
 ## Data hooks
 
-All data hooks are backed by TanStack Query — results are cached, deduped, and revalidated automatically.
+All data hooks are backed by TanStack Query â€” results are cached, deduped, and revalidated automatically.
 
 ### useFiles
 
@@ -221,7 +221,7 @@ const { files, totalCount, hasMore, isLoading, isError, error, loadMore, refresh
 
 ### useInfiniteFiles
 
-Infinite-scroll variant — feeds a sentinel-based scroll pattern.
+Infinite-scroll variant â€” feeds a sentinel-based scroll pattern.
 
 ```tsx
 import { useInfiniteFiles } from "@filenest/react";
@@ -244,7 +244,7 @@ import { useFile } from "@filenest/react";
 
 const { file, isLoading, isError, mutate } = useFile("file_01j...");
 
-// mutate() — invalidates the cache entry and triggers a refetch
+// mutate() â€” invalidates the cache entry and triggers a refetch
 await doSomething();
 mutate();
 ```
@@ -260,7 +260,7 @@ const { folder, files, subfolders, isLoading, breadcrumbs } = useFolder(folderId
 // folderId=null shows the project root
 ```
 
-`breadcrumbs` is an array of `{ id, name }`. Update `folderId` to navigate — breadcrumbs update automatically.
+`breadcrumbs` is an array of `{ id, name }`. Update `folderId` to navigate â€” breadcrumbs update automatically.
 
 ### useSearch
 
@@ -280,7 +280,7 @@ search({ q: "invoice Q1 2026", tags: ["finance"] });
 
 ---
 
-## Headless methods — `useFileNest()`
+## Headless methods â€” `useFileNest()`
 
 When you don't want to use any FileNest components or hooks, `useFileNest()` gives you raw async methods. All auth, token management, and `baseUrl` prepending are handled internally.
 
@@ -302,7 +302,7 @@ const { getToken } = useFileNest();
 const token = await getToken();
 ```
 
-### Upload — combined (3 steps in one)
+### Upload â€” combined (3 steps in one)
 
 ```tsx
 const { upload } = useFileNest();
@@ -316,14 +316,14 @@ const file = await upload(browserFile, {
 // Returns FileRecord when the confirm step completes
 ```
 
-### Upload — individual steps
+### Upload â€” individual steps
 
-Use these when you need fine-grained control — e.g. showing a "preparing upload" spinner before the PUT starts.
+Use these when you need fine-grained control â€” e.g. showing a "preparing upload" spinner before the PUT starts.
 
 ```tsx
 const { initUpload, uploadToStorage, confirmUpload } = useFileNest();
 
-// Step 1 — register with backend, receive presigned URL
+// Step 1 â€” register with backend, receive presigned URL
 const { fileId, uploadUrl, expiresAt } = await initUpload({
   filename: file.name,
   contentType: file.type,
@@ -332,12 +332,12 @@ const { fileId, uploadUrl, expiresAt } = await initUpload({
   metadata: { uploadedBy: "user_abc" },
 });
 
-// Step 2 — PUT directly to storage (progress via XHR)
+// Step 2 â€” PUT directly to storage (progress via XHR)
 await uploadToStorage(uploadUrl, file, {
   onProgress: ({ bytesUploaded, totalBytes, percentage }) => setProgress(percentage),
 });
 
-// Step 3 — tell backend the bytes landed; triggers processing pipeline
+// Step 3 â€” tell backend the bytes landed; triggers processing pipeline
 const { id, status } = await confirmUpload(fileId);
 ```
 
@@ -389,7 +389,7 @@ const folder = await getFolder("fld_01j...");
 // Returns null if not found (never throws on 404)
 const folder = await getFolderByPath("users/alice/uploads");
 
-// Idempotent — creates every missing path segment, returns leaf folder
+// Idempotent â€” creates every missing path segment, returns leaf folder
 const folder = await ensurePath("users/alice/uploads");
 
 await deleteFolder("fld_01j..."); // throws if folder is non-empty
@@ -412,7 +412,7 @@ const { hits, total, facets, queryTimeMs } = await search({
 
 ## Headless pattern example
 
-Full custom upload UI using only `useFileNest()` — no FileNest components used:
+Full custom upload UI using only `useFileNest()` â€” no FileNest components used:
 
 ```tsx
 "use client";

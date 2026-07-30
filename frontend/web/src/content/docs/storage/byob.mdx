@@ -1,4 +1,4 @@
----
+﻿---
 title: "Bring Your Own Bucket"
 description: "Connect your own storage backend to a FileNest project."
 ---
@@ -23,12 +23,12 @@ BYOB lets you connect your own storage backend to a FileNest project. FileNest s
 1. Create a project with `storage_mode: "byob"` and the desired `storage_provider`
 2. Save credentials via `PATCH /v1/projects/{id}/storage`
 3. Verify connectivity via `POST /v1/projects/{id}/storage/verify`
-4. Start uploading files — FileNest routes all I/O through your bucket
+4. Start uploading files â€” FileNest routes all I/O through your bucket
 
 ## Saving credentials
 
 ```bash
-curl -X PATCH https://api.filenest.io/v1/projects/{id}/storage \
+curl -X PATCH https://filenest.drgodly.com/v1/projects/{id}/storage \
   -H "Authorization: Bearer fn_live_..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -54,7 +54,7 @@ The `GET /v1/projects/{id}/storage` endpoint returns non-sensitive fields only (
 After saving credentials, run a connectivity test. FileNest writes and immediately deletes a probe object to confirm read/write access:
 
 ```bash
-curl -X POST https://api.filenest.io/v1/projects/{id}/storage/verify \
+curl -X POST https://filenest.drgodly.com/v1/projects/{id}/storage/verify \
   -H "Authorization: Bearer fn_live_..."
 ```
 

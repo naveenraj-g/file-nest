@@ -1,4 +1,4 @@
----
+﻿---
 title: "Google Cloud Storage"
 description: "Connect a FileNest project to a Google Cloud Storage bucket."
 ---
@@ -35,7 +35,7 @@ gcloud iam service-accounts keys create key.json \
 Paste the entire contents of `key.json` as the `credentials_json` value:
 
 ```bash
-curl -X PATCH https://api.filenest.io/v1/projects/{id}/storage \
+curl -X PATCH https://filenest.drgodly.com/v1/projects/{id}/storage \
   -H "Authorization: Bearer fn_live_..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -53,6 +53,6 @@ GCS encrypts all data at rest by default using Google-managed keys. No FileNest 
 ## Verify connectivity
 
 ```bash
-curl -X POST https://api.filenest.io/v1/projects/{id}/storage/verify \
+curl -X POST https://filenest.drgodly.com/v1/projects/{id}/storage/verify \
   -H "Authorization: Bearer fn_live_..."
 ```
