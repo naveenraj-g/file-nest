@@ -2,7 +2,9 @@ packages:
   - "frontend/web"
   - "iam"
   - "sdks/*"
-  - "examples/*"
+  - "examples/nextjs-sdk"
+  - "examples/node-sdk"
+  - "examples/react-sdk"
 allowBuilds:
   '@parcel/watcher': true
   '@prisma/engines': true
