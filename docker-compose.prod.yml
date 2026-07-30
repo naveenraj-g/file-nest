@@ -78,8 +78,8 @@ services:
     image: rustfs/rustfs:latest
     restart: unless-stopped
     environment:
-      RUSTFS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY_ID:-rustfsadmin}
-      RUSTFS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_ACCESS_KEY:-rustfsadmin}
+      MINIO_ROOT_USER: ${RUSTFS_ACCESS_KEY_ID:-rustfsadmin}
+      MINIO_ROOT_PASSWORD: ${RUSTFS_SECRET_ACCESS_KEY:-rustfsadmin}
     ports:
       - "9000:9000"
     volumes:
