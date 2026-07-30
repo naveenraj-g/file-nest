@@ -42,4 +42,4 @@ EXPOSE 5000
 # Apply pending migrations then start the server.
 # To seed the first superadmin after initial deploy, run:
 #   docker compose -f docker-compose.prod.yml exec iam pnpm seed:admin
-CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy --schema ./prisma/schema/schema.prisma && pnpm start"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma db push --schema ./prisma/schema/schema.prisma && node .next/standalone/server.js"]
