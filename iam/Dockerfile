@@ -37,6 +37,11 @@ ENV NODE_ENV=production \
 # the full node_modules tree, not selective copies.
 COPY --from=builder /app ./
 
+# Standalone server (server.js) resolves static assets relative to its own
+# directory: .next/standalone/.next/static/. The build outputs them at
+# .next/static/ — copy them into the expected location.
+RUN cp -r .next/static .next/standalone/.next/static
+
 EXPOSE 5000
 
 # Apply pending migrations then start the server.
