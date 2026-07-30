@@ -86,10 +86,10 @@ jobs:
 
   # ── Console ────────────────────────────────────────────────────────────────
   # NEXT_PUBLIC_* vars are baked into the bundle at build time.
-  # Set them as GitHub Actions variables (repo Settings → Variables → Actions):
-  #   NEXT_PUBLIC_BETTER_AUTH_URL   e.g. https://auth.yourdomain.com
-  #   NEXT_PUBLIC_BETTER_AUTH_CLIENT_ID  e.g. filenest-console
-  #   NEXT_PUBLIC_APP_URL           e.g. https://console.yourdomain.com
+  # Set them as GitHub Actions secrets (repo Settings → Secrets and variables → Actions → Secrets):
+  #   NEXT_PUBLIC_BETTER_AUTH_URL        e.g. https://filenest.iam.drgodly.com
+  #   NEXT_PUBLIC_BETTER_AUTH_CLIENT_ID  e.g. <client id from IAM admin>
+  #   NEXT_PUBLIC_APP_URL                e.g. https://filenest.console.drgodly.com
   # Rebuild and redeploy this image any time those values change.
   build-console:
     name: Console
@@ -124,6 +124,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           no-cache: true
           build-args: |
-            NEXT_PUBLIC_BETTER_AUTH_URL=${{ vars.NEXT_PUBLIC_BETTER_AUTH_URL }}
-            NEXT_PUBLIC_BETTER_AUTH_CLIENT_ID=${{ vars.NEXT_PUBLIC_BETTER_AUTH_CLIENT_ID }}
-            NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL }}
+            NEXT_PUBLIC_BETTER_AUTH_URL=${{ secrets.NEXT_PUBLIC_BETTER_AUTH_URL }}
+            NEXT_PUBLIC_BETTER_AUTH_CLIENT_ID=${{ secrets.NEXT_PUBLIC_BETTER_AUTH_CLIENT_ID }}
+            NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}
