@@ -31,8 +31,8 @@ async def create_project(
     body: CreateProjectRequest,
     svc: ProjectService = Depends(get_project_service),
 ) -> ProjectResponse:
-    """Create a new project in the caller's organisation. Scope: projects:update."""
-    require_scope(svc._ctx, "projects:update")
+    """Create a new project in the caller's organisation. Scope: projects:create."""
+    require_scope(svc._ctx, "projects:create")
     return await svc.create_project(body)
 
 
@@ -77,6 +77,6 @@ async def delete_project(
     project_id: str,
     svc: ProjectService = Depends(get_project_service),
 ) -> None:
-    """Soft-delete a project. Files and storage config are retained. Scope: projects:update."""
-    require_scope(svc._ctx, "projects:update")
+    """Soft-delete a project. Files and storage config are retained. Scope: projects:delete."""
+    require_scope(svc._ctx, "projects:delete")
     await svc.delete_project(project_id)

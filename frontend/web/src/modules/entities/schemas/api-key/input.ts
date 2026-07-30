@@ -12,6 +12,7 @@ export const AVAILABLE_SCOPES = [
   "files:read",
   "files:delete",
   "files:metadata",
+  "files:update_metadata",
   // Folders
   "folders:read",
   "folders:write",
@@ -22,7 +23,9 @@ export const AVAILABLE_SCOPES = [
   "webhooks:write",
   // Projects
   "projects:read",
+  "projects:create",
   "projects:update",
+  "projects:delete",
   // Audit & compliance
   "audit:read",
   "compliance:manage",
