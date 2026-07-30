@@ -8,7 +8,7 @@
  */
 
 import React, { useCallback, useRef, useState } from "react";
-import type { FileRecord } from "@filenest/core";
+import type { FileRecord } from "@filenest-fs/core";
 import { useUpload, type UploadState } from "../hooks/useUpload.js";
 
 type UploadVariant = "dropzone" | "button" | "minimal";

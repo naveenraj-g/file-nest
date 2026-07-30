@@ -8,7 +8,7 @@
  */
 
 import React from "react";
-import type { FileRecord } from "@filenest/core";
+import type { FileRecord } from "@filenest-fs/core";
 import { useFile } from "../hooks/useFile.js";
 import { useFileNest } from "../context/FileNestContext.js";
 

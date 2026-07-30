@@ -30,7 +30,7 @@ import type {
   SearchHit,
   UploadProgress,
   UploadToken,
-} from "@filenest/core";
+} from "@filenest-fs/core";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
