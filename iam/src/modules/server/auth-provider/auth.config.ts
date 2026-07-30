@@ -407,12 +407,12 @@ export const authConfig = {
     },
   },
 
-  // advanced: {
-  //   crossSubDomainCookies: {
-  //     enabled: true,
-  //     domain: "drgodly.com",
-  //   },
-  // },
+  advanced: {
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: "drgodly.com",
+    },
+  },
 
   // Dynamically load redirect URI origins from registered OAuth clients.
   // Better Auth calls this async function per-request (with TTL cache).
