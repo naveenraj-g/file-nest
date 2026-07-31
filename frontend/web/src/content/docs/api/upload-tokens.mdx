@@ -126,7 +126,7 @@ Upload tokens cannot call any other endpoint. They cannot list files, delete fil
 
 ## Expiry and refresh
 
-Tokens expire at `expires_at`. The `@filenest/react` SDK handles proactive refresh automatically â€” it fetches a new token `tokenRefreshBuffer` seconds (default 60) before expiry and retries on 401. See [React SDK â€” useUploadToken](/docs/sdks/react#useuploadtoken) for details.
+Tokens expire at `expires_at`. The `@filenest-fs/react` SDK handles proactive refresh automatically â€” it fetches a new token `tokenRefreshBuffer` seconds (default 60) before expiry and retries on 401. See [React SDK â€” useUploadToken](/docs/sdks/react#useuploadtoken) for details.
 
 If you are not using the React SDK, refresh by calling your token endpoint again and replacing the bearer token before the old one expires.
 

@@ -5,7 +5,7 @@ description: "Upload components, data hooks, and low-level imperative methods fo
 
 # React SDK
 
-`@filenest/react` works at three tiers â€” pick the one that fits your UI:
+`@filenest-fs/react` works at three tiers â€” pick the one that fits your UI:
 
 | Tier | How |
 |------|-----|
@@ -17,7 +17,7 @@ The API key never reaches the browser. `FileNestProvider` exchanges short-lived 
 
 ## Installation
 
-<PackageTabs pkg="@filenest/react" />
+<PackageTabs pkg="@filenest-fs/react" />
 
 ---
 
@@ -26,7 +26,7 @@ The API key never reaches the browser. `FileNestProvider` exchanges short-lived 
 ### Minimal
 
 ```tsx
-import { FileNestProvider } from "@filenest/react";
+import { FileNestProvider } from "@filenest-fs/react";
 
 export default function RootLayout({ children }) {
   return (
@@ -43,7 +43,7 @@ export default function RootLayout({ children }) {
 ### Full configuration
 
 ```tsx
-import { FileNestProvider } from "@filenest/react";
+import { FileNestProvider } from "@filenest-fs/react";
 import { QueryClient } from "@tanstack/react-query";
 
 const myQueryClient = new QueryClient();
@@ -97,7 +97,7 @@ If your app already wraps with `<QueryClientProvider>`, pass that client to avoi
 ### FileUpload
 
 ```tsx
-import { FileUpload } from "@filenest/react";
+import { FileUpload } from "@filenest-fs/react";
 
 // Drag-and-drop zone
 <FileUpload
@@ -125,7 +125,7 @@ import { FileUpload } from "@filenest/react";
 Inline preview â€” images render directly, PDFs via iframe.
 
 ```tsx
-import { FilePreview } from "@filenest/react";
+import { FilePreview } from "@filenest-fs/react";
 
 <FilePreview
   fileId="file_01j..."
@@ -142,7 +142,7 @@ import { FilePreview } from "@filenest/react";
 Full-page document viewer with toolbar, zoom, and download.
 
 ```tsx
-import { FileViewer } from "@filenest/react";
+import { FileViewer } from "@filenest-fs/react";
 
 <FileViewer
   fileId="file_01j..."
@@ -162,7 +162,7 @@ import { FileViewer } from "@filenest/react";
 Programmatic upload with per-file progress state. Wraps `useFileNest().upload()`.
 
 ```tsx
-import { useUpload } from "@filenest/react";
+import { useUpload } from "@filenest-fs/react";
 
 const { upload, uploads, isUploading, cancel, retry, clear } = useUpload({
   folderId: "fld_01j...",
@@ -189,7 +189,7 @@ const { upload, uploads, isUploading, cancel, retry, clear } = useUpload({
 Reactive token state. Use this when `fetchInitialToken=false` or when you want to display token expiry in the UI.
 
 ```tsx
-import { useUploadToken } from "@filenest/react";
+import { useUploadToken } from "@filenest-fs/react";
 
 const { token, isLoading, error, refresh } = useUploadToken();
 
@@ -208,7 +208,7 @@ All data hooks are backed by TanStack Query â€” results are cached, deduped
 ### useFiles
 
 ```tsx
-import { useFiles } from "@filenest/react";
+import { useFiles } from "@filenest-fs/react";
 
 const { files, totalCount, hasMore, isLoading, isError, error, loadMore, refresh } = useFiles({
   folderId: "fld_01j...",  // optional
@@ -224,7 +224,7 @@ const { files, totalCount, hasMore, isLoading, isError, error, loadMore, refresh
 Infinite-scroll variant â€” feeds a sentinel-based scroll pattern.
 
 ```tsx
-import { useInfiniteFiles } from "@filenest/react";
+import { useInfiniteFiles } from "@filenest-fs/react";
 
 const { files, hasMore, isFetchingMore, fetchMore, refresh } = useInfiniteFiles({
   folderId: "fld_01j...",
@@ -240,7 +240,7 @@ const { files, hasMore, isFetchingMore, fetchMore, refresh } = useInfiniteFiles(
 Single file with automatic cache invalidation.
 
 ```tsx
-import { useFile } from "@filenest/react";
+import { useFile } from "@filenest-fs/react";
 
 const { file, isLoading, isError, mutate } = useFile("file_01j...");
 
@@ -254,7 +254,7 @@ mutate();
 Folder navigation with breadcrumbs, files, and subfolders in one call.
 
 ```tsx
-import { useFolder } from "@filenest/react";
+import { useFolder } from "@filenest-fs/react";
 
 const { folder, files, subfolders, isLoading, breadcrumbs } = useFolder(folderId);
 // folderId=null shows the project root
@@ -267,7 +267,7 @@ const { folder, files, subfolders, isLoading, breadcrumbs } = useFolder(folderId
 Debounced full-text + faceted search.
 
 ```tsx
-import { useSearch } from "@filenest/react";
+import { useSearch } from "@filenest-fs/react";
 
 const { results, facets, isLoading, totalCount, queryTimeMs, search, hasMore } = useSearch({
   debounceMs: 300,
@@ -285,7 +285,7 @@ search({ q: "invoice Q1 2026", tags: ["finance"] });
 When you don't want to use any FileNest components or hooks, `useFileNest()` gives you raw async methods. All auth, token management, and `baseUrl` prepending are handled internally.
 
 ```tsx
-import { useFileNest } from "@filenest/react";
+import { useFileNest } from "@filenest-fs/react";
 
 function CustomUI() {
   const fn = useFileNest();
@@ -417,8 +417,8 @@ Full custom upload UI using only `useFileNest()` â€” no FileNest components
 ```tsx
 "use client";
 import { useState } from "react";
-import { useFileNest } from "@filenest/react";
-import type { FileRecord } from "@filenest/react";
+import { useFileNest } from "@filenest-fs/react";
+import type { FileRecord } from "@filenest-fs/react";
 
 export function CustomUploader() {
   const { initUpload, uploadToStorage, confirmUpload } = useFileNest();
@@ -483,5 +483,5 @@ import type {
   CreateFolderOptions,
   SearchQuery,
   SearchResults,
-} from "@filenest/react";
+} from "@filenest-fs/react";
 ```

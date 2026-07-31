@@ -5,11 +5,11 @@ description: "Server-side FileNest utilities for Next.js App Router."
 
 # Next.js SDK
 
-The `@filenest/nextjs` SDK provides server-side utilities for Next.js App Router â€” a pre-configured `FileNest` client, an upload token helper, and a webhook verification utility.
+The `@filenest-fs/nextjs` SDK provides server-side utilities for Next.js App Router â€” a pre-configured `FileNest` client, an upload token helper, and a webhook verification utility.
 
 ## Installation
 
-<PackageTabs pkg="@filenest/nextjs" />
+<PackageTabs pkg="@filenest-fs/nextjs" />
 
 ---
 
@@ -18,7 +18,7 @@ The `@filenest/nextjs` SDK provides server-side utilities for Next.js App Router
 `filenestServer()` creates a `FileNest` Node.js SDK instance pre-configured from environment variables. Use it inside async server components, server actions, and route handlers.
 
 ```typescript
-import { filenestServer } from "@filenest/nextjs/server";
+import { filenestServer } from "@filenest-fs/nextjs/server";
 
 const fn = filenestServer({
   apiKey: process.env.FILENEST_API_KEY!,
@@ -33,7 +33,7 @@ const { items } = await fn.files.list({ status: "ready", limit: 10 });
 const folder = await fn.folders.ensurePath(`users/${session.userId}/uploads`);
 ```
 
-`filenestServer()` has the same namespace API as `@filenest/node` â€” see the [Node.js SDK](/docs/sdks/node) for full method docs.
+`filenestServer()` has the same namespace API as `@filenest-fs/node` â€” see the [Node.js SDK](/docs/sdks/node) for full method docs.
 
 ---
 
@@ -43,7 +43,7 @@ Your app must expose a token endpoint that the `<FileNestProvider>` will call be
 
 ```typescript
 // app/api/filenest-token/route.ts
-import { filenestServer } from "@filenest/nextjs/server";
+import { filenestServer } from "@filenest-fs/nextjs/server";
 import { getServerSession } from "@/modules/server/auth/get-session";
 
 export async function POST(req: Request) {
@@ -103,7 +103,7 @@ If you need to pass extra headers or a custom body, use `tokenFetcher` instead o
 
 ```typescript
 // app/api/webhooks/filenest/route.ts
-import { verifyWebhookSignature, parseWebhookEvent } from "@filenest/nextjs/server";
+import { verifyWebhookSignature, parseWebhookEvent } from "@filenest-fs/nextjs/server";
 
 export async function POST(req: Request) {
   const body = await req.text();

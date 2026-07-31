@@ -1,20 +1,20 @@
 ﻿---
 title: "Node.js SDK"
-description: "Install and use the @filenest/node SDK for server-side file operations."
+description: "Install and use the @filenest-fs/node SDK for server-side file operations."
 ---
 
 # Node.js SDK
 
-The `@filenest/node` SDK provides a typed client for all FileNest REST API operations. Use it in any Node.js runtime â€” Next.js server components, Express, Fastify, serverless functions, scripts.
+The `@filenest-fs/node` SDK provides a typed client for all FileNest REST API operations. Use it in any Node.js runtime â€” Next.js server components, Express, Fastify, serverless functions, scripts.
 
 ## Installation
 
-<PackageTabs pkg="@filenest/node" />
+<PackageTabs pkg="@filenest-fs/node" />
 
 ## Setup
 
 ```typescript
-import { FileNest } from "@filenest/node";
+import { FileNest } from "@filenest-fs/node";
 
 const fn = new FileNest({
   apiKey: process.env.FILENEST_API_KEY!,
