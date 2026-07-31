@@ -1,6 +1,6 @@
 {
   "name": "@filenest-fs/node",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "FileNest SDK for Node.js — server-side file infrastructure client",
   "license": "MIT",
   "main": "./dist/index.js",
