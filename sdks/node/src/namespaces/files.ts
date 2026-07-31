@@ -197,7 +197,7 @@ export class FilesNamespace {
   async getDownloadUrl(fileId: string, options: GetDownloadUrlOptions = {}): Promise<DownloadUrlResponse> {
     return this.http.get(`/v1/projects/${this.projectId}/files/${fileId}/download`, {
       ttl: options.ttl,
-      disposition: options.disposition,
+      ...(options.disposition === "inline" ? { inline: true } : {}),
     });
   }
 
