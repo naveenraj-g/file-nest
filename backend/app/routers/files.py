@@ -78,11 +78,12 @@ async def get_download_url(
     project_id: str,
     file_id: str,
     ttl: int = Query(3600, ge=60, le=86400, description="URL TTL in seconds"),
+    inline: bool = Query(False, description="Return inline URL (no Content-Disposition: attachment)"),
     svc: FileService = Depends(get_file_service),
 ) -> DownloadUrlResponse:
     """Generate a presigned download URL. Scope: files:download."""
     require_scope(svc._ctx, "files:download")
-    return await svc.get_download_url(file_id, caller_ttl=ttl)
+    return await svc.get_download_url(file_id, caller_ttl=ttl, inline=inline)
 
 
 @router.get("/projects/{project_id}/files/{file_id}", response_model=FileResponse)

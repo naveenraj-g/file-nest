@@ -78,8 +78,12 @@ export class FileRestService implements IFileService {
     projectId: string,
     fileId: string,
     ttl?: number,
+    inline?: boolean,
   ): Promise<TFileDownloadUrl> {
-    const qs = ttl ? `?ttl=${ttl}` : "";
+    const parts: string[] = [];
+    if (ttl) parts.push(`ttl=${ttl}`);
+    if (inline) parts.push("inline=true");
+    const qs = parts.length ? `?${parts.join("&")}` : "";
     const raw = await filenestApi<unknown>(
       `/v1/projects/${projectId}/files/${fileId}/download${qs}`,
     );

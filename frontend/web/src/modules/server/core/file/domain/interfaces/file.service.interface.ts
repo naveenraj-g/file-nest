@@ -30,7 +30,7 @@ import type {
 
 export interface IFileService {
   list(projectId: string, params?: Omit<TListFilesParams, "projectId">): Promise<TFileList>;
-  getDownloadUrl(projectId: string, fileId: string, ttl?: number): Promise<TFileDownloadUrl>;
+  getDownloadUrl(projectId: string, fileId: string, ttl?: number, inline?: boolean): Promise<TFileDownloadUrl>;
   delete(projectId: string, fileId: string): Promise<void>;
   /** Replace the full tag list on a file (PUT). */
   setTags(projectId: string, fileId: string, tags: string[]): Promise<TTagsResponse>;

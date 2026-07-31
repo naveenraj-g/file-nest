@@ -7,7 +7,7 @@
  * @module
  */
 import type { ColumnDef } from "@tanstack/react-table";
-import { Download, Info, Pencil, FolderInput, Trash2 } from "lucide-react";
+import { Download, Eye, Info, Pencil, FolderInput, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -49,6 +49,15 @@ function formatBytes(bytes: number): string {
 async function openDownload(projectId: string, fileId: string) {
   const [data] = await getFileDownloadUrlAction({
     payload: { projectId, fileId },
+  });
+  if (data?.url) {
+    window.open(data.url, "_blank", "noopener,noreferrer");
+  }
+}
+
+async function openView(projectId: string, fileId: string) {
+  const [data] = await getFileDownloadUrlAction({
+    payload: { projectId, fileId, inline: true },
   });
   if (data?.url) {
     window.open(data.url, "_blank", "noopener,noreferrer");
@@ -156,6 +165,13 @@ export function filesTableColumns(): ColumnDef<TFile>[] {
               icon: Info,
               onClick: (r) => {
                 fileStore.getState().onOpen("fileDetails", r.original);
+              },
+            },
+            {
+              label: "View file",
+              icon: Eye,
+              onClick: (r) => {
+                void openView(r.original.project_id, r.original.id);
               },
             },
             {

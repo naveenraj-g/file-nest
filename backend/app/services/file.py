@@ -411,13 +411,17 @@ class FileService:
         record = await self._repo.get(file_id, self._ctx.organization_id, self._project_id)
         return self._to_response(record)
 
-    async def get_download_url(self, file_id: str, *, caller_ttl: int | None = None) -> DownloadUrlResponse:
+    async def get_download_url(
+        self, file_id: str, *, caller_ttl: int | None = None, inline: bool = False
+    ) -> DownloadUrlResponse:
         """
         Generate a presigned download URL for a file.
 
         Args:
             caller_ttl: Caller-requested TTL. Overridden by config when
                         require_signed_urls is True.
+            inline:     When True, omits Content-Disposition: attachment so the
+                        browser renders the file inline instead of downloading it.
         """
         record = await self._repo.get(file_id, self._ctx.organization_id, self._project_id)
         config = await self._config_repo.get_for_project(
@@ -426,7 +430,9 @@ class FileService:
         ttl = resolve_ttl(config, caller_ttl)
         provider = await self._get_provider()
         url = await provider.generate_presigned_download_url(
-            record.storage_key, filename=record.filename, expires_in=ttl,
+            record.storage_key,
+            filename=None if inline else record.filename,
+            expires_in=ttl,
         )
         return DownloadUrlResponse(url=url, expires_at=datetime.now(UTC) + timedelta(seconds=ttl))
 

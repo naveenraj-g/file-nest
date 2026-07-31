@@ -22,7 +22,8 @@ export async function getFileDownloadUrlUseCase(
   projectId: string,
   fileId: string,
   ttl?: number,
+  inline?: boolean,
 ): Promise<TFileDownloadUrl> {
   const service = getInjection("IFileService");
-  return service.getDownloadUrl(projectId, fileId, ttl);
+  return service.getDownloadUrl(projectId, fileId, ttl, inline);
 }

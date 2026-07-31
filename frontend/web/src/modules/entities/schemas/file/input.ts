@@ -69,6 +69,7 @@ export const GetFileDownloadUrlSchema = z.object({
   projectId: z.string().min(1),
   fileId: z.string().min(1),
   ttl: z.number().int().min(60).max(86400).optional(),
+  inline: z.boolean().optional(),
 });
 
 export type TGetFileDownloadUrl = z.infer<typeof GetFileDownloadUrlSchema>;

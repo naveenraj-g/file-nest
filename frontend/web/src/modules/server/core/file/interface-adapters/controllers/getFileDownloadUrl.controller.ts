@@ -35,6 +35,7 @@ export async function getFileDownloadUrlController(
     parsed.data.projectId,
     parsed.data.fileId,
     parsed.data.ttl,
+    parsed.data.inline,
   );
   return presenter(data);
 }
